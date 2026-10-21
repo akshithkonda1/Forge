@@ -44,11 +44,12 @@ from .contextual_parsing import matches_any
 
 SCHEMA_VERSION = "1.1"
 
-# Model routing (Section 4 of the ARIA brief). Phase 1 is deterministic so these
-# are advisory, but the routing policy is encoded and tested so the live path
-# inherits it unchanged.
-MODEL_PRIMARY = "claude-opus-4-8"   # multi-signal reasoning, plans
-MODEL_FAST = "claude-sonnet-4-6"    # single-metric lookups, voice, clarifications
+# Model routing classes. Live ids are in LIVE_MODEL_IDS. The escalation ladder
+# is Sonnet (default) → Grok 4.7 → Opus → rare ensemble, classified in
+# aria_core.complexity — not "cheap vs strong".
+MODEL_PRIMARY = "claude-opus-4-8"   # Tier 3: complex reasoning / planning
+MODEL_FAST = "claude-sonnet-4-6"    # Tier 1: default, short replies, voice
+MODEL_GROK = "grok-4-7"             # Tier 2: more complex than Sonnet alone
 
 # Voice orb (AuroraOrbView) hard cap. Cards are suppressed in voice mode; only
 # prose_summary is spoken.
@@ -187,9 +188,9 @@ reply. A reply with more questions than answers has failed. Have a full
 conversation, not an interview.
 
 CYCLE / REPRODUCTIVE DATA — if present, use only for this user's lifestyle
-coaching (training, recovery, support). Never invent secondary uses, never ask
+coaching (training, readiness, support). Never invent secondary uses, never ask
 to export for marketing, never claim Forge estimates are contraception or a
-medical diagnosis.
+medical diagnosis. Never say the word recovery.
 
 CLINICAL DATA (NON PHI) — if present, you may use structured lists only:
 allergies, medications, conditions, immunizations, lab results, procedures.
@@ -1157,6 +1158,11 @@ class DataPermissions:
     @classmethod
     def from_payload(cls, raw: Any, *, default_allow: bool = True) -> "DataPermissions":
         granted = {domain: default_allow for domain in ALL_DOMAINS}
+        # Health conditions stay on-device unless opted in. clinical_data is
+        # fail-closed even when other domains default-allow, unless the payload
+        # explicitly grants it.
+        granted["clinical_data"] = False
+        explicit_clinical = False
 
         if isinstance(raw, dict) and ("allow" in raw or "deny" in raw):
             allow = raw.get("allow")
@@ -1164,19 +1170,28 @@ class DataPermissions:
             if isinstance(allow, list):
                 allowed = {d for d in (normalize_domain(x) for x in allow) if d}
                 granted = {domain: (domain in allowed) for domain in ALL_DOMAINS}
+                explicit_clinical = "clinical_data" in allowed
             if isinstance(deny, list):
                 for item in deny:
                     domain = normalize_domain(item)
                     if domain:
                         granted[domain] = False
+                        if domain == "clinical_data":
+                            explicit_clinical = True
         elif isinstance(raw, dict):
             for key, value in raw.items():
                 domain = normalize_domain(key)
                 if domain:
                     granted[domain] = bool(value)
+                    if domain == "clinical_data":
+                        explicit_clinical = True
         elif isinstance(raw, (list, tuple)):
             allowed = {d for d in (normalize_domain(x) for x in raw) if d}
             granted = {domain: (domain in allowed) for domain in ALL_DOMAINS}
+            explicit_clinical = "clinical_data" in allowed
+
+        if not explicit_clinical:
+            granted["clinical_data"] = False
 
         return cls(granted)
 
@@ -1214,15 +1229,47 @@ def apply_permissions(ctx: ARIAContext, permissions: DataPermissions) -> tuple[A
 # --- Model routing (Section 4) -----------------------------------------------
 
 
-def select_model(response_type: str, *, voice_mode: bool = False) -> str:
-    """Pick the model the live path would use for this response.
+def select_model(
+    response_type: str,
+    *,
+    voice_mode: bool = False,
+    message: str = "",
+    context: Any = None,
+    safety_lock: bool = False,
+) -> str:
+    """Pick the routing class the live path would use.
 
-    Voice and short replies → Scout (fast). Recommendation / plan / summary
-    → Reasoner. One Converse per chat turn — the critic is local rails.
+    Voice and safety-lock turns stay on Sonnet (Tier 1). Everything else uses
+    the deterministic complexity classifier. Plan-typed envelopes without a
+    message still map to Opus so existing tests of the advisory table hold
+    for that one high-complexity type; short recommendation/summary default
+    to Sonnet so most chat traffic stays Tier 1.
     """
-    if voice_mode:
+    if voice_mode or safety_lock:
         return MODEL_FAST
-    if response_type in ("recommendation", "plan", "summary"):
+    if message:
+        from .complexity import TIER_ENSEMBLE, TIER_GROK, TIER_OPUS, classify_complexity
+
+        ctx_payload = None
+        if context is not None and hasattr(context, "sleep"):
+            ctx_payload = {
+                "readiness": {"recoveryScore": getattr(getattr(context, "readiness", None), "recovery_score", None)},
+                "sleep": {"durationMinutes": getattr(getattr(context, "sleep", None), "duration_minutes", None)},
+                "training": {"isOvertrained": getattr(getattr(context, "training", None), "is_overtrained", None)},
+            }
+        decision = classify_complexity(
+            message,
+            response_type=response_type,
+            context=ctx_payload,
+            voice_mode=voice_mode,
+            safety_lock=safety_lock,
+        )
+        if decision.tier in {TIER_OPUS, TIER_ENSEMBLE}:
+            return MODEL_PRIMARY
+        if decision.tier == TIER_GROK:
+            return MODEL_GROK
+        return MODEL_FAST
+    if response_type == "plan":
         return MODEL_PRIMARY
     return MODEL_FAST
 
@@ -3413,9 +3460,12 @@ def _finish_spoken_envelope(
     from . import aria_guidance_policy
     from . import guidance
 
-    return aria_guidance_policy.with_care_line(
+    envelope = aria_guidance_policy.with_care_line(
         envelope, message, safety_band=str(envelope.get("guidance_band") or guidance.COACH)
     )
+    from .rails import apply_to_envelope
+
+    return apply_to_envelope(envelope)
 
 
 def _attach_shared_intelligence(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
@@ -3494,15 +3544,34 @@ def _envelope(
     }
 
 
-def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | None = None) -> str:
-    """User-turn prompt for the Bedrock path: ground truth + isolated user text."""
-    from .untrusted import isolate_user_message
+def build_user_prompt(
+    message: str,
+    ctx: ARIAContext,
+    restricted: list[str] | None = None,
+    *,
+    memory_text: str = "",
+    calendar_text: str = "",
+    contacts_text: str = "",
+    share_health: bool = False,
+) -> str:
+    """User-turn prompt: compressed ground truth + isolated untrusted blocks."""
+    from .privacy import strip_health_conditions
+    from .untrusted import compress_text, isolate
 
-    user_block = isolate_user_message(message)
+    user_block = isolate(message, kind="user_message")
     ground = ctx.user_model_block(restricted)
-    if len(ground) > LIVE_USER_CONTEXT_CHARS:
-        ground = ground[: LIVE_USER_CONTEXT_CHARS - 3] + "..."
-    return f"{ground}\n\n{user_block}"
+    if not share_health:
+        ground = strip_health_conditions(ground)
+    ground = compress_text(ground, max_chars=LIVE_USER_CONTEXT_CHARS)
+    parts = [ground, user_block]
+    if memory_text:
+        mem = memory_text if share_health else strip_health_conditions(memory_text)
+        parts.append(isolate(mem, kind="memory"))
+    if calendar_text:
+        parts.append(isolate(calendar_text, kind="calendar"))
+    if contacts_text:
+        parts.append(isolate(contacts_text, kind="contacts"))
+    return "\n\n".join(parts)
 
 
 # --- Live reasoning path (Section 4 — Bedrock) -------------------------------
@@ -3523,6 +3592,7 @@ def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | No
 LIVE_MODEL_IDS = {
     MODEL_PRIMARY: os.getenv("ARIA_LIVE_MODEL_PRIMARY_ID", "").strip() or "global.anthropic.claude-opus-5-5",
     MODEL_FAST: os.getenv("ARIA_LIVE_MODEL_FAST_ID", "").strip() or "global.anthropic.claude-sonnet-5-5",
+    MODEL_GROK: os.getenv("ARIA_LIVE_MODEL_GROK_ID", "").strip() or "global.xai.grok-4.7",
 }
 LIVE_MAX_TOKENS = 512
 LIVE_TEMPERATURE = 0.3
@@ -3630,24 +3700,16 @@ def live_system_prompt(
     agent: str | None = None,
     agents: list[str] | None = None,
     *,
-    model_class: str | None = None,
+    style: str = "coach",
 ) -> str:
-    """ARIA's persona plus the security law, for any live model call.
+    """ARIA's persona plus soul rails and the security law, for any live model call.
 
-    `AI_SECURITY_DIRECTIVE` describes itself in security.py as "security rules
-    appended to AI system prompts (Bedrock + local)" and was appended to nothing:
-    it was defined and never imported, so no live call carried clauses 1-7. Every
-    path that reaches a model goes through this function now, which is why it is
-    a function rather than a module constant — a constant composed at import time
-    is easy to reintroduce the bug around by passing ARIA_SYSTEM_PROMPT directly.
-
-    Several specialists ride along in *one* prompt so a multi-agent turn is one
-    Bedrock call, not N serial ones.
+    Every path that reaches a model goes through this function. Soul rails are
+    identical on Sonnet, Grok, Opus, and the ensemble synthesizer.
     """
     from security import AI_SECURITY_DIRECTIVE
 
-    from .model_suite import reasoner_role, scout_role
-    from .safety_rails import blend_soul, soul_directive
+    from .soul import rails_block, soul_directive
 
     roster = normalize_coach_agents(agents, agent)
     assignment = "\n".join(COACH_AGENTS[key] for key in roster)
@@ -3656,11 +3718,9 @@ def live_system_prompt(
             "\nYou have several specialists in the room. Answer once, synthesizing "
             "them. Do not call further models."
         )
-    soul = blend_soul(style="coach")
-    role = reasoner_role() if model_class == MODEL_PRIMARY else scout_role()
     return (
-        f"{ARIA_SYSTEM_PROMPT}\n\n{assignment}\n\n{LEARNING_LAW}\n\n"
-        f"{soul_directive(soul['dominant'])}\n\n{role.prompt}\n\n{AI_SECURITY_DIRECTIVE}"
+        f"{ARIA_SYSTEM_PROMPT}\n\n{soul_directive(style)}\n{rails_block()}\n\n"
+        f"{assignment}\n\n{LEARNING_LAW}\n\n{AI_SECURITY_DIRECTIVE}"
     )
 
 
@@ -3790,10 +3850,33 @@ def generate_response_live(
 
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     sanitized, restricted = apply_permissions(ctx, perms)
-    model_class = select_model(base["response_type"], voice_mode=voice_mode)
-    model_id = _bedrock_model_id(model_class)
+    from .complexity import TIER_ENSEMBLE, TIER_GROK, TIER_OPUS, classify_complexity, next_tier, should_self_escalate
+    from .privacy import clinical_opted_in, redact_for_log
+    from .rails import apply_to_envelope, validate_output
+    from .suite import (
+        TIER_RESPONSIBILITY,
+        consensus_system_prompt,
+        isolate_drafts,
+        parse_structured_reply,
+        style_from_context,
+    )
+    from .untrusted import isolate
 
-    user_prompt = build_user_prompt(message, sanitized, restricted)
+    model_class = select_model(
+        base["response_type"],
+        voice_mode=voice_mode,
+        message=message,
+        context=sanitized,
+        safety_lock=bool(base.get("guidance_band")),
+    )
+    model_id = _bedrock_model_id(model_class)
+    share_health = clinical_opted_in(perms)
+    user_prompt = build_user_prompt(
+        message,
+        sanitized,
+        restricted,
+        share_health=share_health,
+    )
     if voice_mode:
         user_prompt += f"\n\n[VOICE MODE] Reply with prose only (no card), {VOICE_TOKEN_CAP} tokens max."
     ctxz = base.get("contextualization") or {}
@@ -3801,24 +3884,79 @@ def generate_response_live(
     if isinstance(instr, str) and instr.strip():
         user_prompt += f"\n\n{instr}"
 
+    style = style_from_context(
+        {"profile": {"coaching_style": sanitized.profile.coaching_style}},
+        persona,
+    )
+    decision = classify_complexity(
+        message,
+        response_type=str(base.get("response_type") or ""),
+        voice_mode=voice_mode,
+        safety_lock=bool(base.get("guidance_band")),
+    )
+    system = (
+        f"{live_system_prompt(agents=roster, style=style)}\n"
+        f"{TIER_RESPONSIBILITY.get(decision.tier, TIER_RESPONSIBILITY[1])}"
+    )
+
     try:
-        text = caller(
-            model_id,
-            live_system_prompt(agents=roster, model_class=model_class),
-            user_prompt,
-        )
+        if decision.tier == TIER_ENSEMBLE and not voice_mode:
+            drafts: list[tuple[str, str]] = []
+            for cls, name in (
+                (MODEL_FAST, "sonnet"),
+                (MODEL_GROK, "grok"),
+                (MODEL_PRIMARY, "opus"),
+            ):
+                try:
+                    raw = caller(_bedrock_model_id(cls), system, user_prompt)
+                except Exception:  # noqa: BLE001 — one failed draft must not abort the rest
+                    continue
+                if raw and str(raw).strip():
+                    drafts.append((name, str(raw)))
+            if len(drafts) >= 2:
+                synth_user = (
+                    f"{isolate(message, kind='user_message')}\n\n"
+                    f"Independent drafts:\n{isolate_drafts(drafts)}"
+                )
+                text = caller(
+                    _bedrock_model_id(MODEL_FAST),
+                    consensus_system_prompt(style=style),
+                    synth_user,
+                )
+                model_id = _bedrock_model_id(MODEL_FAST)
+            elif drafts:
+                text = drafts[0][1]
+                model_id = _bedrock_model_id(MODEL_FAST)
+            else:
+                raise ValueError("ensemble drafts empty")
+        else:
+            text = caller(model_id, system, user_prompt)
+            structured = parse_structured_reply(text)
+            if should_self_escalate(
+                decision,
+                confidence=structured.confidence,
+                needs_escalation=structured.needs_escalation,
+            ):
+                bumped = next_tier(decision.tier)
+                bump_class = MODEL_PRIMARY if bumped == TIER_OPUS else MODEL_GROK if bumped == TIER_GROK else MODEL_FAST
+                model_id = _bedrock_model_id(bump_class)
+                text = caller(model_id, system, user_prompt)
+        structured = parse_structured_reply(text)
         data = _parse_model_envelope(text)
         prose = str(data.get("prose_summary") or "").strip()
+        if not prose and structured.escalation_reason != "unstructured":
+            prose = (structured.answer or "").strip()
         if not prose:
             raise ValueError("model response missing prose_summary")
+        prose = validate_output(prose)
         # Validation: numbers in prose must exist in ground truth (hallucination guard)
         if not _validate_model_numbers(prose, base, sanitized, restricted):
             raise ValueError("model prose contains numbers not in ground truth — hallucination guard")
     except Exception as exc:  # noqa: BLE001 — any failure must degrade, never raise
         fallback = dict(base)
         fallback["reasoning_source"] = "deterministic"
-        fallback["reasoning_error"] = str(exc) or exc.__class__.__name__
-        return fallback
+        fallback["reasoning_error"] = redact_for_log(str(exc) or exc.__class__.__name__)
+        return apply_to_envelope(fallback)
 
     from . import speak_guard
 
@@ -3875,9 +4013,16 @@ def generate_response_live(
     from . import aria_guidance_policy
     from . import guidance
 
-    return aria_guidance_policy.with_care_line(
+    merged = aria_guidance_policy.with_care_line(
         merged, message, safety_band=str(merged.get("guidance_band") or guidance.COACH)
     )
+    merged["suite"] = {
+        "tier": decision.tier,
+        "tierName": decision.name,
+        "modelId": model_id,
+        "reasons": list(decision.reasons),
+    }
+    return apply_to_envelope(merged)
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------

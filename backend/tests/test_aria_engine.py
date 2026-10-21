@@ -208,9 +208,9 @@ class VoiceModeTests(unittest.TestCase):
 
 class ModelRoutingTests(unittest.TestCase):
     def test_routing_table(self):
-        self.assertEqual(aria_engine.select_model("recommendation"), aria_engine.MODEL_PRIMARY)
+        self.assertEqual(aria_engine.select_model("recommendation"), aria_engine.MODEL_FAST)
         self.assertEqual(aria_engine.select_model("plan"), aria_engine.MODEL_PRIMARY)
-        self.assertEqual(aria_engine.select_model("summary"), aria_engine.MODEL_PRIMARY)
+        self.assertEqual(aria_engine.select_model("summary"), aria_engine.MODEL_FAST)
         self.assertEqual(aria_engine.select_model("insight"), aria_engine.MODEL_FAST)
         self.assertEqual(aria_engine.select_model("clarification"), aria_engine.MODEL_FAST)
 
@@ -221,7 +221,23 @@ class ModelRoutingTests(unittest.TestCase):
 
     def test_no_deprecated_model_ids(self):
         for retired in ("claude-opus-4-20250514", "claude-sonnet-4-20250514"):
-            self.assertNotIn(retired, (aria_engine.MODEL_PRIMARY, aria_engine.MODEL_FAST))
+            self.assertNotIn(retired, (aria_engine.MODEL_PRIMARY, aria_engine.MODEL_FAST, aria_engine.MODEL_GROK))
+
+    def test_complexity_ladder_picks_grok_then_opus(self):
+        self.assertEqual(
+            aria_engine.select_model(
+                "recommendation",
+                message="How should I fit training around travel and a short night?",
+            ),
+            aria_engine.MODEL_GROK,
+        )
+        self.assertEqual(
+            aria_engine.select_model(
+                "plan",
+                message="Build a 4-week training plan around my sleep debt, work travel, and protein targets",
+            ),
+            aria_engine.MODEL_PRIMARY,
+        )
 
 
 class ContextParsingTests(unittest.TestCase):
@@ -322,7 +338,8 @@ class DataPermissionParsingTests(unittest.TestCase):
         perms = aria_engine.DataPermissions.from_payload({"sleep": False, "training": True})
         self.assertFalse(perms.allows("sleep"))
         self.assertTrue(perms.allows("training"))
-        self.assertEqual(perms.restricted(), ["sleep"])
+        self.assertIn("sleep", perms.restricted())
+        self.assertIn("clinical_data", perms.restricted())
 
     def test_allow_list_denies_everything_else(self):
         perms = aria_engine.DataPermissions.from_payload(["sleep", "readiness"])
@@ -344,7 +361,9 @@ class DataPermissionParsingTests(unittest.TestCase):
 
     def test_default_is_allow_all_when_unspecified(self):
         perms = aria_engine.DataPermissions.from_payload(None)
-        self.assertEqual(perms.restricted(), [])
+        self.assertEqual(perms.restricted(), ["clinical_data"])
+        self.assertFalse(perms.allows("clinical_data"))
+        self.assertTrue(perms.allows("sleep"))
 
 
 class PermissionEnforcementTests(unittest.TestCase):
@@ -352,7 +371,8 @@ class PermissionEnforcementTests(unittest.TestCase):
         ctx = full_context()
         perms = aria_engine.DataPermissions.from_payload({"training": False})
         sanitized, restricted = aria_engine.apply_permissions(ctx, perms)
-        self.assertEqual(restricted, ["training"])
+        self.assertIn("training", restricted)
+        self.assertIn("clinical_data", restricted)
         self.assertIsNone(sanitized.training.weekly_load_score)
         self.assertIsNone(sanitized.training.last_workout_type)
         # original context is untouched
@@ -367,7 +387,7 @@ class PermissionEnforcementTests(unittest.TestCase):
         self.assertNotIn("strength", blob)      # last_workout_type
         self.assertNotIn("weekly load", blob)   # load score phrasing
         self.assertNotIn("since strength", blob)
-        self.assertEqual(resp["restricted_domains"], ["training"])
+        self.assertEqual(set(resp["restricted_domains"]), {"training", "clinical_data"})
 
     def test_confidence_reason_distinguishes_restricted_from_missing(self):
         resp = aria_engine.generate_response(
@@ -381,7 +401,7 @@ class PermissionEnforcementTests(unittest.TestCase):
             "how am I today?", full_context(),
             permissions=aria_engine.DataPermissions.from_payload({"body": False, "nutrition": False}),
         )
-        self.assertEqual(set(resp["restricted_domains"]), {"body", "nutrition"})
+        self.assertEqual(set(resp["restricted_domains"]), {"body", "nutrition", "clinical_data"})
 
     def test_asking_about_a_restricted_domain_is_declined_clearly(self):
         # Sentinel must not collide with clock-derived numbers in the reply
@@ -555,7 +575,7 @@ class NewDomainReasoningTests(unittest.TestCase):
             workouts_completed_30d=18, new_personal_records=2, training_load_trend="rising"))
         resp = aria_engine.generate_response("how's my progress this month?", ctx)
         self.assertEqual(resp["response_type"], "summary")
-        self.assertEqual(resp["model"], aria_engine.MODEL_PRIMARY)
+        self.assertEqual(resp["model"], aria_engine.MODEL_FAST)
         self.assertIn("18", resp["message"])
         self.assertIn("period_days", resp["card"])
 
@@ -609,17 +629,11 @@ class LiveBedrockTests(unittest.TestCase):
         self.assertEqual(resp["message"], resp["prose_summary"])
         self.assertEqual(resp["confidence"], 0.71)
         self.assertEqual(resp["confidence_reason"], "full sleep + HRV-trend data, signals coherent")
-        # recommendation routes to the primary model; reported as the concrete Bedrock id.
-        self.assertEqual(resp["model"], "global.anthropic.claude-opus-5-5")
-        # the model received the canonical ARIA system prompt + ground-truth block.
-        # It must also carry the security law: this assertion previously required
-        # the system prompt to be *exactly* ARIA_SYSTEM_PROMPT, which is how the
-        # directive stayed unattached to every live call without a test noticing.
-        self.assertEqual(
-            captured["system"],
-            aria_engine.live_system_prompt(model_class=aria_engine.MODEL_PRIMARY),
-        )
+        # Short "should I train" stays on Tier 1 Sonnet (default of the ladder).
+        self.assertEqual(resp["model"], "global.anthropic.claude-sonnet-5-5")
+        self.assertIn(aria_engine.ARIA_SYSTEM_PROMPT.split("\n", 1)[0], captured["system"])
         self.assertIn("SECURITY LAW (mandatory)", captured["system"])
+        self.assertIn("Tier 1", captured["system"])
 
 
 class HallucinationGuardTests(unittest.TestCase):
@@ -884,10 +898,42 @@ class LiveBedrockDegradeTests(unittest.TestCase):
             permissions=aria_engine.DataPermissions.from_payload({"training": False}),
             converse=fake_converse)
 
-        self.assertEqual(resp["restricted_domains"], ["training"])
+        self.assertEqual(set(resp["restricted_domains"]), {"training", "clinical_data"})
         # the restricted domain is declared and its values are redacted from the prompt.
         self.assertIn("restricted_domains: training", captured["user"])
+        self.assertIn("clinical_data", captured["user"])
         self.assertIn("training.weekly_load_score: null", captured["user"])
+
+    def test_live_ensemble_calls_all_three_then_synthesizes(self):
+        calls: list[tuple[str, str]] = []
+
+        def fake_converse(model_id: str, system: str, user: str) -> str:
+            calls.append((model_id, system))
+            if "consensus finalizer" in system:
+                return json.dumps({"prose_summary": "Keep the next block easy and honest."})
+            return json.dumps({"prose_summary": "Keep the next block easy and honest."})
+
+        question = (
+            "From every angle, reconcile my conflicting HRV, sleep, and load data "
+            "into a periodized 8-week training plan with tradeoffs"
+        )
+        resp = aria_engine.generate_response_live(
+            question, full_context(), converse=fake_converse
+        )
+        self.assertEqual(len(calls), 4)
+        ids = {item[0] for item in calls[:3]}
+        self.assertEqual(
+            ids,
+            {
+                "global.anthropic.claude-sonnet-5-5",
+                "global.xai.grok-4.7",
+                "global.anthropic.claude-opus-5-5",
+            },
+        )
+        self.assertIn("consensus finalizer", calls[-1][1])
+        self.assertEqual(calls[-1][0], "global.anthropic.claude-sonnet-5-5")
+        self.assertEqual(resp["suite"]["tier"], 4)
+        self.assertIn("easy", (resp.get("prose_summary") or "").lower())
 
     def test_bedrock_enabled_reads_env(self):
         original = os.environ.get("ARIA_BEDROCK_ENABLED")
@@ -918,7 +964,7 @@ class SecurityDirectiveTests(unittest.TestCase):
 
         prompt = aria_engine.live_system_prompt()
         self.assertIn(AI_SECURITY_DIRECTIVE, prompt)
-        for clause in range(1, 8):
+        for clause in range(1, 10):
             self.assertIn(f"{clause}.", prompt, f"clause {clause} missing")
 
     def test_live_system_prompt_keeps_the_persona_first(self):

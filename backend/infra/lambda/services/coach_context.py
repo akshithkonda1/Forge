@@ -28,10 +28,11 @@ _DENIED_PEOPLE_NAME = re.compile(
     r"partner_day|partner_cycle|cycle)"
 )
 
-# Versioned ARIA soul. One implementation: aria_core.safety_rails.
-from aria_core.safety_rails import (  # noqa: E402
-    SOUL_RAILS as ARIA_SOUL_RAILS,
-    SOUL_VERSION as ARIA_SOUL_VERSION,
+# Versioned ARIA soul — single copy in aria_core.soul, re-exported here so
+# coach_context callers and tests keep working. Style can vary; rails cannot.
+from aria_core.soul import (  # noqa: E402
+    ARIA_SOUL_RAILS,
+    ARIA_SOUL_VERSION,
     soul_breaks_rails,
     soul_directive,
     soul_sanitize,

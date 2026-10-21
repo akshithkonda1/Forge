@@ -65,7 +65,7 @@ class ModeTests(unittest.TestCase):
     def test_permissions_redact_and_report(self):
         perms = aria_engine.DataPermissions.from_payload({"deny": ["sleep"]})
         env = _respond("should I train today?", "depleted", permissions=perms)
-        self.assertEqual(env["restricted_domains"], ["sleep"])
+        self.assertEqual(set(env["restricted_domains"]), {"sleep", "clinical_data"})
         # The user's specific sleep numbers must not leak (deep-sleep fraction is 12%).
         self.assertNotIn("12%", json.dumps(env))
 
