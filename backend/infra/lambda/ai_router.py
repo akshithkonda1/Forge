@@ -538,8 +538,8 @@ class AIRouter:
             next_tier,
             should_self_escalate,
         )
+        from aria_core.model_suite import plan_route
         from aria_core.privacy import redact_for_log
-        from aria_core.rails import needs_model_verifier, validate_output
         from aria_core.suite import family_for_tier, parse_structured_reply
 
         started_at = time.monotonic()
@@ -633,25 +633,8 @@ class AIRouter:
                         structured = parse_structured_reply(result.answer)
             if not result.success:
                 self._raise_routing_failure(launched, results)
-            final_answer = validate_output(structured.answer or result.answer)
-            if needs_model_verifier(final_answer):
-                extra_reason = extra_reason or "rails_verifier"
-                verifier = self._model_by_family("sonnet")
-                verified = self._invoke_model(
-                    verifier,
-                    request,
-                    package_summaries,
-                    effective_package_size_bytes,
-                    deadline_seconds,
-                    tier=1,
-                    verifier=True,
-                    draft=final_answer,
-                )
-                launched.append(verifier)
-                results.append(verified)
-                if verified.success:
-                    final_answer = validate_output(parse_structured_reply(verified.answer).answer or verified.answer)
             primary = result
+            final_answer = structured.answer or result.answer
             agreement_label, agreement_score = _answer_agreement([result.answer])
             finalization = {
                 "mode": "single-model",
@@ -667,9 +650,27 @@ class AIRouter:
         successes = [item for item in results if item.success and item.answer.strip()]
         if not successes:
             self._raise_routing_failure(launched, results)
+        chosen_single = None if decision.tier == TIER_ENSEMBLE else primary
         primary = next((item for item in successes if item.model.slot == launched[0].slot), successes[0])
-        if decision.tier == TIER_ENSEMBLE:
-            pass
+        critic_results = successes if decision.tier == TIER_ENSEMBLE else [chosen_single or primary]
+        critic_answer, critic_meta = self._build_final_answer(
+            request=request,
+            used_results=critic_results,
+            deadline_seconds=deadline_seconds,
+            suite_plan=plan_route(request.question, max_tokens=request.settings.max_tokens),
+        )
+        final_answer = critic_answer
+        finalization["criticSource"] = critic_meta.get("criticSource", "local")
+        if critic_meta.get("mode") in {"single-model", "single-model-critic"}:
+            finalization["mode"] = critic_meta["mode"]
+            if critic_meta.get("finalizedByModel"):
+                finalization["finalizedByModel"] = critic_meta["finalizedByModel"]
+        elif critic_meta.get("criticSource") == "live" and critic_meta.get("finalizedByModel"):
+            finalization["finalizedByModel"] = critic_meta["finalizedByModel"]
+        if critic_meta.get("fallbackUsed") and not finalization.get("fallbackUsed"):
+            finalization["fallbackUsed"] = True
+            if critic_meta.get("fallbackReason"):
+                finalization["fallbackReason"] = critic_meta["fallbackReason"]
         supporting = [
             self._serialize_result(item)
             for item in successes
@@ -853,7 +854,9 @@ class AIRouter:
         consensus_answer = ""
         fallback_used = False
         fallback_reason = None
-        if remaining_budget <= MIN_CONSENSUS_BUDGET_SECONDS:
+        if agreement_label == "high":
+            consensus_answer = successes[0].answer
+        elif remaining_budget <= MIN_CONSENSUS_BUDGET_SECONDS:
             fallback_used = True
             fallback_reason = "timeout_budget_exhausted"
             warnings.append(

@@ -294,7 +294,7 @@ class AIRouterTests(unittest.TestCase):
     def test_router_uses_head_object_size_for_metadata_not_fanout(self):
         gateway = FakeGateway(
             responses={
-                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "Keep today easy."},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "sonnet answer"},
                 "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus unused"},
                 "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok unused"},
             },
