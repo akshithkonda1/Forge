@@ -95,11 +95,10 @@ def _insight_takeaway(prose: str) -> str:
         return ""
     try:
         from aria_core import state_read
-
-        if state_read._already_has_read(first):
-            return ""
-    except Exception:
-        pass
+    except ImportError:
+        return first
+    if state_read._already_has_read(first):
+        return ""
     return first
 
 
@@ -142,7 +141,7 @@ def _filter_lifestyle_tokens(values: Any) -> list[str]:
         return []
     try:
         from aria_core import hobby_fit as hf
-    except Exception:
+    except ImportError:
         hf = None
     kept: list[str] = []
     for item in values:
@@ -153,11 +152,10 @@ def _filter_lifestyle_tokens(values: Any) -> list[str]:
             continue
         try:
             from services import coach_context as _cc
-
-            if _cc.people_tag_is_dirty(text):
-                continue
-        except Exception:
-            pass
+        except ImportError:
+            _cc = None
+        if _cc is not None and _cc.people_tag_is_dirty(text):
+            continue
         kept.append(text)
     return kept
 
@@ -166,7 +164,7 @@ def _sanitize_hobby_rows(values: Any) -> list[dict[str, Any]]:
     """Hobby labels only. Rows never flatten into recentPatterns."""
     try:
         from aria_core import hobby_fit as hf
-    except Exception:
+    except ImportError:
         return []
     return hf.normalize_hobbies(values)
 

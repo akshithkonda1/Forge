@@ -28,63 +28,15 @@ _DENIED_PEOPLE_NAME = re.compile(
     r"partner_day|partner_cycle|cycle)"
 )
 
-# Versioned ARIA soul. Style can vary; these rails cannot. Matches iOS AriaSoul.
-ARIA_SOUL_VERSION = "1"
-ARIA_SOUL_RAILS = (
-    "Lifestyle coach, not a doctor.",
-    "Never diagnose, treat, prescribe, or cure.",
-    "Never say recovery.",
-    "Never shame.",
-    "Never push past comfort or safety.",
-    "Name real progress when it is real.",
-    "Anything medical, suggest a doctor.",
+# Versioned ARIA soul — single copy in aria_core.soul, re-exported here so
+# coach_context callers and tests keep working. Style can vary; rails cannot.
+from aria_core.soul import (  # noqa: E402
+    ARIA_SOUL_RAILS,
+    ARIA_SOUL_VERSION,
+    soul_breaks_rails,
+    soul_directive,
+    soul_sanitize,
 )
-_SOUL_BANNED = (
-    "you failed",
-    "you did it wrong",
-    "you messed up",
-    "your fault",
-    "recovery",
-    "diagnos",
-    "prescribe",
-    "shame on you",
-    "push through the pain",
-)
-
-
-def soul_directive(style: str = "coach") -> str:
-    return (
-        f"ARIA soul v{ARIA_SOUL_VERSION}. Dominant: {style}. Rails: "
-        + " ".join(ARIA_SOUL_RAILS)
-    )
-
-
-def soul_sanitize(line: str) -> str:
-    """Spoken output. Style never overrides the rails."""
-    text = line
-    replacements = (
-        ("you failed", "we can solve this"),
-        ("you did it wrong", "here's what can help"),
-        ("you messed up", "we can solve this"),
-        ("your fault", "here's what can help"),
-        ("shame on you", ""),
-        ("push through the pain", "stay inside comfort"),
-        ("recovery", "readiness"),
-    )
-    lowered = text
-    for src, dst in replacements:
-        pattern = re.compile(re.escape(src), re.IGNORECASE)
-        lowered = pattern.sub(dst, lowered)
-    lowered = re.sub(r"(?i)\bdiagnos\w*", "notice", lowered)
-    lowered = re.sub(r"(?i)\bprescribe\w*", "suggest with a doctor", lowered)
-    return re.sub(r" {2,}", " ", lowered).strip()
-
-
-def soul_breaks_rails(line: str) -> bool:
-    lower = line.lower()
-    for rail in ARIA_SOUL_RAILS:
-        lower = lower.replace(rail.lower(), "")
-    return any(token in lower for token in _SOUL_BANNED)
 
 
 def _strip_keys(item: dict[str, Any]) -> dict[str, Any]:

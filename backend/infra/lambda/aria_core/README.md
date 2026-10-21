@@ -234,6 +234,23 @@ inside the function body, same convention as the rest of this Lambda
 package. `adapt()` itself — the pure entry point SimRunner calls — never
 reaches them.
 
+## Suite, rails, and classifier (stdlib, no shims)
+
+These modules are new in `aria_core` and are imported directly (nothing under
+`services/` ever owned them):
+
+- `soul.py` — Coach / Friend / Drill Sergeant flavors plus rails that no
+  personality or model may override. `services.coach_context` re-exports the
+  same symbols.
+- `rails.py` — cheap output sanitizer applied to every spoken envelope.
+- `untrusted.py` — isolate user text, memory, calendar, contacts, and tool
+  output so models treat them as data.
+- `privacy.py` — health-condition opt-in, memory filter, log redaction.
+- `complexity.py` — deterministic Sonnet → Grok → Opus → ensemble classifier.
+- `suite.py` — per-tier roles, shared rails prefix, structured JSON contract.
+
+See `docs/aria-core.md` for the ladder, prompts, cost mix, and owner decisions.
+
 ## What's still pending
 
 Everything mapped in `ARIA_INTELLIGENCE_PLAN.md` P0-6 has moved.

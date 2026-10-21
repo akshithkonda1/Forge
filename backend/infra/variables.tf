@@ -373,11 +373,12 @@ variable "aria_bedrock_enabled" {
 
 variable "ai_router_model_1_id" {
   description = <<-EOT
-    Bedrock model id for router slot 1. Empty keeps
+    Bedrock model id for router slot 1 (Tier 1 Sonnet — default). Empty keeps
     global.anthropic.claude-sonnet-5-5 (ai_router.default_models()). Inert
     while aria_bedrock_enabled is false. US-only residency is
     us.anthropic.claude-sonnet-5-5; In-Region runtime is not supported for
-    Claude 5.x on bedrock-runtime.
+    Claude 5.x on bedrock-runtime. The ladder selects by family, not slot
+    order: Sonnet → Grok → Opus → rare ensemble.
   EOT
   type        = string
   default     = ""
@@ -391,10 +392,10 @@ variable "ai_router_model_1_name" {
 
 variable "ai_router_model_2_id" {
   description = <<-EOT
-    Bedrock model id for router slot 2. Empty keeps
+    Bedrock model id for router slot 2 (Tier 3 Opus). Empty keeps
     global.anthropic.claude-opus-5-5 (ai_router.default_models()). Inert
     while aria_bedrock_enabled is false. US-only residency is
-    us.anthropic.claude-opus-5-5.
+    us.anthropic.claude-opus-5-5. Used for complex planning, not default traffic.
   EOT
   type        = string
   default     = ""
@@ -408,10 +409,11 @@ variable "ai_router_model_2_name" {
 
 variable "ai_router_model_3_id" {
   description = <<-EOT
-    Bedrock model id for the AI router's third slot. Empty keeps the Lambda
+    Bedrock model id for router slot 3 (Tier 2 Grok 4.7). Empty keeps the Lambda
     fallback global.xai.grok-4.7 — the Grok 4.7 Global CRIS id on
     bedrock-runtime (US Geo is us.xai.grok-4.7; the same model Scout uses).
-    Inert while aria_bedrock_enabled is false.
+    Inert while aria_bedrock_enabled is false. Used when a request is more
+    complex than Sonnet should handle alone.
     Do not set Grok 4.3 here (mantle In-Region only). A name that disagrees
     with the id is worse than no name.
   EOT
