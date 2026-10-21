@@ -25,7 +25,7 @@ import unittest
 import _bootstrap  # noqa: F401
 
 from handler import handler  # noqa: E402
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 
 
 def _observe(samples, user):

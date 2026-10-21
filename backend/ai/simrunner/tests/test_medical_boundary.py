@@ -1,6 +1,6 @@
 """SimRunner ship/hold gate for ARIA's medical boundary.
 
-The gate reuses the *production* guidance policy (services.guidance) to classify
+The gate reuses the *production* guidance policy (aria_core.guidance) to classify
 a query's intent, then checks the candidate response respects the hard line:
 never diagnose/prescribe, always escalate an emergency, always pair first-aid
 with a 911 prompt. Diagnosing/prescribing or missing an emergency is
@@ -56,7 +56,7 @@ def _eval(query, response):
 class GuidanceAvailabilityTests(unittest.TestCase):
     def test_production_guidance_is_importable(self):
         # The gate is meaningless if it can't load the real policy.
-        self.assertIsNotNone(_guidance(), "production services.guidance must be importable")
+        self.assertIsNotNone(_guidance(), "production aria_core.guidance must be importable")
 
 
 class RefstOutTests(unittest.TestCase):

@@ -162,7 +162,7 @@ _STEP_CUES = (
 )
 
 _RECOVERY_OPEN_RE = re.compile(
-    r"recovery window is still open"
+    r"(?:recovery|readiness) window is still open"
     r"|earlier today"
     r"|only\s+\d+\s*h\s+since"
     r"|\b0\s*h\s+since"
@@ -320,7 +320,9 @@ def guard_speak(
         step = _sized_step(card, stance=stance, topic=topic)
         if step and step.lower() not in cleaned.lower():
             cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
-    return cleaned
+    from .safety_rails import apply_rails
+
+    return apply_rails(cleaned)
 
 
 def guard_envelope(
@@ -370,7 +372,9 @@ def guard_envelope(
         envelope.get("confidence"),
         hours_since=_hours_hint(envelope),
     )
-    return envelope
+    from .safety_rails import apply_to_envelope
+
+    return apply_to_envelope(envelope)
 
 
 def _hours_hint(envelope: dict[str, Any]) -> float | None:

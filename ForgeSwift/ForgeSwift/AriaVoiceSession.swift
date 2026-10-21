@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import Foundation
 
 /// Character voice session. Unmute / the voice orb start this.
@@ -294,6 +295,81 @@ private struct VoiceToolResponse: Decodable {
         case result
         case proseSummary = "prose_summary"
         case message
+    }
+}
+
+/// Selected Fish voice. Independent of ``AriaSoul`` personality. Next speak
+/// reads this — no restart. Live catalog I/O stays in this file so
+/// ``AriaCharacterVoice`` remains network-free.
+@MainActor
+final class AriaVoiceProfileStore: ObservableObject {
+    static let shared = AriaVoiceProfileStore()
+
+    @Published private(set) var selection: AriaVoiceCatalog.Selection
+    @Published private(set) var catalog: AriaVoiceCatalog.Envelope?
+    @Published private(set) var lastBusy = false
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.selection = AriaVoiceCatalog.Selection.load(from: defaults)
+    }
+
+    var featured: [AriaVoiceCatalog.Profile] {
+        catalog?.featured ?? AriaVoiceCatalog.recipes
+    }
+
+    var selectedLabel: String {
+        if let id = selection.profileID, let row = featured.first(where: { $0.id == id }) {
+            return row.label
+        }
+        if let title = catalog?.voices.first(where: { $0.id == selection.voiceID })?.title {
+            return title
+        }
+        return "Warm"
+    }
+
+    func select(_ profile: AriaVoiceCatalog.Profile) {
+        selection = AriaVoiceCatalog.apply(selection: selection, to: profile)
+        persist()
+        Task { await saveToAccount() }
+    }
+
+    func select(voice: AriaVoiceCatalog.Voice) {
+        selection = AriaVoiceCatalog.Selection(profileID: nil, voiceID: voice.id, speed: 1.0)
+        persist()
+        Task { await saveToAccount() }
+    }
+
+    func refreshCatalog() async {
+        guard let request = AriaFishAudioVoice.makeCatalogRequest(baseURL: AriaService.shared.baseURL) else {
+            return
+        }
+        guard let (data, _) = try? await ForgeAPI.send(request),
+              let decoded = try? JSONDecoder().decode(AriaVoiceCatalog.Envelope.self, from: data) else {
+            return
+        }
+        catalog = decoded
+        if selection.voiceID == nil, let incoming = decoded.selected.voiceID {
+            selection = decoded.selected
+            persist()
+        }
+    }
+
+    func persist() {
+        selection.persist(to: defaults)
+    }
+
+    func saveToAccount() async {
+        guard let request = AriaFishAudioVoice.makePersistRequest(
+            baseURL: AriaService.shared.baseURL,
+            selection: selection
+        ) else { return }
+        _ = try? await ForgeAPI.send(request)
+    }
+
+    func noteBusy(_ busy: Bool) {
+        lastBusy = busy
     }
 }
 

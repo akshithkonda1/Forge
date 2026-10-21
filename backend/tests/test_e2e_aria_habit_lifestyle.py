@@ -10,8 +10,8 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine
-from services.aria_engine import (
+from aria_core import aria_engine
+from aria_core.aria_engine import (
     SLEEP_VARIANCE_HABIT_CONFIDENCE_CAP,
     _INTERPRETERS,
     _interpret_lifestyle,

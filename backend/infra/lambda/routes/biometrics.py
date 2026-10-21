@@ -14,10 +14,10 @@ from dataclasses import asdict
 from typing import Any
 
 from responses import RouteError, ok
-from services import aria_engine
+from aria_core import aria_engine
 from services import daily_story as daily_story_mod
 from services import emergency
-from services import fusion as fusion_mod
+from aria_core import fusion as fusion_mod
 from services.aria_context import CoachContextEngine
 from storage import dynamodb, keys
 
@@ -137,7 +137,7 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     # decides and records; it never dials 911 itself.
     _apply_vitals_monitor(body, uid, payload)
 
-    from services import contextual_learner
+    from aria_core import contextual_learner
 
     persona = fused.persona
     if fused.persona_status != "load_failed" and persona is not None:
@@ -150,7 +150,7 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
                     ctx=context,
                 )
             else:
-                from services import context_plan
+                from aria_core import context_plan
 
                 context_plan.evaluate_and_store(persona, "", context)
                 contextual_learner.save(uid, persona)

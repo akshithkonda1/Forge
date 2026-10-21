@@ -14,7 +14,7 @@ fail-paused), or when the per-user daily cap is exhausted.
 | Call site | Entry | Prompt shape (approx.) | `max_tokens` | Notes |
 | --- | --- | --- | --- | --- |
 | `POST /ai/chat` | `generate_response_live` → `_default_converse` | System: persona + one specialist + learning law + security (~1.5–2.5k tok). User: ground-truth block capped at 4k chars + isolated message. | **512** (was 700) | Deterministic pass first. One Converse. Voice tool uses this path with a 150-token voice instruction. |
-| `POST /ai/router` | `AIRouter.route` | Short router system (~80 tok) + question + package previews now capped at **6k chars** / **1kB** preview. | **512** default, hard cap **800** (was 1000 uncapped) | Starts **one** model. Escalates only on timeout. Optional consensus is a **second** Converse if two models answer — the redundant cost. |
+| `POST /ai/router` | `AIRouter.route` | Shared rails + per-tier role + isolated question. Package previews capped at **6k chars** / **1kB**. | **512** default and hard cap (was 800) | Complexity ladder. One model on T1–T3. T4 is three drafts + Sonnet synthesis. Timeout/self-assess may add **one** extra Converse, never a jump to ensemble. |
 | `/coach/*` | `_safe_route` → `AIRouter` | Same as router + coach context block | same | Pause-gated at the handler. Falls back if Bedrock is off. |
 | `POST /workouts/form-check` `mode=briefing` | `generate_coach_text` | `live_system_prompt` + briefing task + snapshot ≤4k chars | 512 | **Not** handler-gated (degraded path stays up). Gateway + `is_aria_paused()` still block Converse. |
 | `POST /sleep/environment-check` | `generate_coach_vision` | Sleep specialist + image | 512 | Same: no Converse while paused. |
@@ -27,9 +27,9 @@ fail-paused), or when the per-user daily cap is exhausted.
 
 **Redundant calls (still possible when Bedrock is on):**
 
-1. Router consensus — one extra Converse after two successes.
-2. Router timeout escalation — a second/third model.
-3. Chat runs deterministic `generate_response` first (local, $0) then one live call.
+1. Tier 4 ensemble — three independent drafts plus one Sonnet synthesis. Classifier-gated (~0.5% of traffic), never package-size fan-out.
+2. Timeout or Sonnet self-assess — at most **one** extra Converse, one step up the ladder.
+3. Chat runs deterministic `generate_response` first (local, $0) then the classified live call.
 
 Safe caching now in the gateway:
 
@@ -89,8 +89,8 @@ column.**
 - 30-day month.
 - **10** API requests / user / day (dashboard, health, chat, writes).
 - When Bedrock is on: **3** chats / user / day and **0.2** router calls / user / day.
-- Chat: 1800 input + 400 output tokens. Router: 2500 + 400, 1.1 Converse/call (rare escalate/consensus).
-- Model mix: 90% Claude Sonnet 5.5, 10% Claude Opus 5.5 (timeout / consensus).
+- Chat: 1800 input + 400 output tokens. Router: 2500 + 400. The mix below already prices T4's four Converse calls; there is no extra 1.1× multiplier.
+- Escalation mix (compute × complexity, not cheap-vs-strong): **88% / 8% / 3.5% / 0.5%** = Tier 1 Sonnet / Tier 2 Grok 4.7 / Tier 3 Opus / Tier 4 ensemble.
 - Lambda 256 MB arm64, 300 ms average.
 - DynamoDB on-demand: 8 RRU + 2 WRU per API request.
 - Logs ~2 KB / request; 7–14 day retention.
@@ -118,13 +118,30 @@ column.**
 Bedrock Marketplace / CRIS can differ by a few percent from the Anthropic
 list. Treat the “on” column as an order-of-magnitude, not an invoice.
 
+### Per-tier token cost (USD / request)
+
+Same 1800/400 chat and 2500/400 router sizes. Tier 4 = Sonnet + Grok + Opus
+drafts plus a Sonnet synthesis at the same size (four Converse calls).
+
+| Tier | Model | Chat | Router | Expected mix |
+| --- | --- | ---: | ---: | ---: |
+| 1 | Claude Sonnet 5.5 `global.anthropic.claude-sonnet-5-5` | $0.0076 | $0.0090 | 88% |
+| 2 | Grok 4.7 `global.xai.grok-4.7` | $0.0060 | $0.0074 | 8% |
+| 3 | Claude Opus 5.5 `global.anthropic.claude-opus-5-5` | $0.0190 | $0.0225 | 3.5% |
+| 4 | Ensemble (3 drafts + Sonnet synth) | $0.0402 | $0.0479 | 0.5% |
+| Blend | 88/8/3.5/0.5 | **$0.008034** | **$0.009539** | 100% |
+
+Cheaper than the previous 90/10 Sonnet/Opus blend ($0.00874 chat, $0.011385
+router with a 1.1× escalate/consensus factor) because default traffic stays
+on Sonnet, Grok output is $6/1M not $10, and ensemble is rare.
+
 ### Estimate (USD / month)
 
 | Users | API calls | Chats (if on) | Infra (Bedrock **off**) | Tokens (Bedrock **on**) | Total **off** | Total **on** |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 5 | 1,500 | 450 | $0.01 | $4.27 | **$0.01** | **$4.28** |
-| 100 | 30,000 | 9,000 | $0.17 | $85.49 | **$0.17** | **$85.66** |
-| 1,000 | 300,000 | 90,000 | $1.65 | $854.91 | **$1.65** | **$856.56** |
+| 5 | 1,500 | 450 | $0.01 | $3.90 | **$0.01** | **$3.91** |
+| 100 | 30,000 | 9,000 | $0.17 | $78.03 | **$0.17** | **$78.20** |
+| 1,000 | 300,000 | 90,000 | $1.65 | $780.29 | **$1.65** | **$781.94** |
 
 Infra breakdown at 1,000 users: HTTP API $0.30, DynamoDB $1.35, Lambda $0
 (still inside the always-free GB-s/request grants), logs $0 (0.57 GB < 5 GB
@@ -196,8 +213,8 @@ four source titles — not the pages Scout read (those stay on the box;
   for always-on compute: **$12.26** instance + **$3.65** IPv4 +
   **$1.28** gp3 = **$17.19** (matches `scout.tf` / `backend/scout/README.md`
   “about $17/month before tokens”).
-- Same ARIA mix as the baseline: 90% Sonnet 5.5 / 10% Opus 5.5; chat
-  1800+400; router 2500+400 × 1.1.
+- Same ARIA mix as the baseline: 88/8/3.5/0.5 Sonnet/Grok/Opus/ensemble; chat
+  1800+400; router 2500+400 (no 1.1×).
 
 ### Per-handoff tokens (AI on)
 
@@ -206,8 +223,8 @@ four source titles — not the pages Scout read (those stay on the box;
 | Scout plan | 150 / 100 | Grok 4.7 Global $2 / $6 | $0.0009 |
 | SearXNG + read ≤5 pages | — | self-hosted on the box | $0 |
 | Scout synthesize | 3400 / 400 | Grok 4.7 Global $2 / $6 | $0.0092 |
-| ARIA follow-up (420-char digest) | 2000 / 400 | 90/10 Sonnet/Opus | $0.0092 |
-| **Tokens / handoff** | | | **$0.0193** |
+| ARIA follow-up (420-char digest) | 2000 / 400 | 88/8/3.5/0.5 suite mix | $0.0085 |
+| **Tokens / handoff** | | | **$0.0186** |
 
 Plan/synth sizes follow the code: short planner prompt vs. five 2500-char
 page blocks into a 512-token JSON brief. Follow-up is a baseline chat
@@ -221,9 +238,9 @@ box and the extra HTTP (Scout route + follow-up). Token column is ARIA
 
 | Users | Handoffs | Infra (AI **off**) | Tokens (AI **on**) | Combined **off** | Combined **on** | Per user **off** | Per user **on** |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 5 | 21 | $17.20 | $4.69 | **$17.20** | **$21.89** | **$3.44** | **$4.38** |
-| 100 | 429 | $17.36 | $93.76 | **$17.36** | **$111.12** | **$0.17** | **$1.11** |
-| 1,000 | 4,286 | $18.87 | $937.62 | **$18.87** | **$956.49** | **$0.02** | **$0.96** |
+| 5 | 21 | $17.20 | $4.30 | **$17.20** | **$21.50** | **$3.44** | **$4.30** |
+| 100 | 429 | $17.36 | $85.99 | **$17.36** | **$103.35** | **$0.17** | **$1.03** |
+| 1,000 | 4,286 | $18.87 | $859.85 | **$18.87** | **$878.72** | **$0.02** | **$0.88** |
 
 At 5 users the box dominates (~$3.44/user with AI off). At 1,000 users
 it amortizes to pennies and tokens take over.

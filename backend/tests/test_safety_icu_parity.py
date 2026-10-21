@@ -20,7 +20,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 
-from services import guidance  # noqa: E402
+from aria_core import guidance  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 CORPUS = json.loads((REPO / "shared" / "aria-safety-corpus.json").read_text())

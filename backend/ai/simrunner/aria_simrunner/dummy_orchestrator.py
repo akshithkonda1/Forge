@@ -2,11 +2,11 @@
 
 This is a *testing* engine, not the live backend. It stands up synthetic
 streams and a stub so ARIA features can be exercised on a laptop. The
-long-term learner is ``services.contextual_learner`` on the Lambda hot path.
+long-term learner is ``aria_core.contextual_learner`` on the Lambda hot path.
 ``respond()`` may *consume* that module in-process so dummy tests exercise
 the same policy a real backend will; it must never own Q-tables, persona
 storage, or teaching copy. With ``engine="lambda"`` it also consumes
-``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
+``aria_core.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
 off) so hypertune reads fused product speak. Every turn also runs
 ``services.aria_swarm`` — a deterministic read/evaluate/write pass over
 WHOOP, Apple Watch, and Oura / RRA — without calling a model. Provider
@@ -325,7 +325,7 @@ def _production_learner():
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from services import contextual_learner
+        from aria_core import contextual_learner
 
         return contextual_learner
     except Exception:
@@ -1629,7 +1629,7 @@ def _body_library():
     try:
         from backend._paths import ensure_lambda_on_path
         ensure_lambda_on_path()
-        from services import body_library
+        from aria_core import body_library
         return body_library
     except Exception:
         return None
@@ -1700,8 +1700,8 @@ def _production_fusion():
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from services import aria_engine as engine_mod
-        from services import fusion as fusion_mod
+        from aria_core import aria_engine as engine_mod
+        from aria_core import fusion as fusion_mod
 
         return fusion_mod, engine_mod
     except Exception:
@@ -2045,7 +2045,7 @@ def _respond_via_lambda(
     """Product path: fuse the synthetic day, then deterministic generate_response."""
     fusion_mod, engine_mod = _production_fusion()
     if fusion_mod is None or engine_mod is None:
-        raise RuntimeError("lambda engine requires services.fusion and services.aria_engine")
+        raise RuntimeError("lambda engine requires aria_core.fusion and aria_core.aria_engine")
 
     safe = _sanitize_chat_message(message)
     if chat_payload is not None:
@@ -2218,7 +2218,7 @@ def _respond_via_lambda(
         orch = dict(row.get("orchestration") or {})
         orch.update(
             {
-                "learner": "services.contextual_learner",
+                "learner": "aria_core.contextual_learner",
                 "owner": "live-backend",
                 "consumer": "dummy-test",
                 "durable": True,
@@ -2697,7 +2697,7 @@ def respond(
         orch = dict(row.get("orchestration") or {})
         orch.update(
             {
-                "learner": "services.contextual_learner",
+                "learner": "aria_core.contextual_learner",
                 "owner": "live-backend",
                 "consumer": "dummy-test",
                 "durable": True,

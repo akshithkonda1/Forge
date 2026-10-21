@@ -20,9 +20,9 @@ import _bootstrap  # noqa: F401
 
 from aria_core import aria_guidance_policy as gp  # noqa: E402
 from aria_core import speak_guard  # noqa: E402
-from services import aria_engine  # noqa: E402
-from services import guidance  # noqa: E402
-from services.aria_engine import (  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
+from aria_core import guidance  # noqa: E402
+from aria_core.aria_engine import (  # noqa: E402
     ARIAContext,
     ReadinessContext,
     SleepContext,
@@ -289,7 +289,7 @@ class RouteTriageTests(unittest.TestCase):
         self.assertNotEqual(body.get("guidance_band"), guidance.CARE)
 
     def test_triage_turns_skip_bedrock_swarm_memory_and_persona(self):
-        from services import contextual_learner
+        from aria_core import contextual_learner
         from services.aria_context import CoachContextEngine
 
         previous = os.environ.get("ARIA_BEDROCK_ENABLED")
@@ -305,7 +305,7 @@ class RouteTriageTests(unittest.TestCase):
         engine.update_context(uid, {"last_insights": list(living.last_insights)})
         before_persona = asdict(contextual_learner.load(uid))
         try:
-            with patch("services.aria_engine._default_converse", boom), patch(
+            with patch("aria_core.aria_engine._default_converse", boom), patch(
                 "aria_core.aria_engine._default_converse", boom
             ), patch("services.aria_swarm.run_swarm", boom):
                 first = self._chat(uid, "I took too many pills")

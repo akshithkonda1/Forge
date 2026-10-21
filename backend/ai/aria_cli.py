@@ -39,7 +39,7 @@ from backend._paths import ensure_lambda_on_path
 
 ensure_lambda_on_path()
 
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 
 
 # --- Sample users ------------------------------------------------------------

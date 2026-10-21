@@ -50,6 +50,7 @@ REPO = Path(__file__).resolve().parents[1]
 # Files where a slot's default id lives. Only exact, whole-id matches change.
 TARGET_FILES = (
     "backend/infra/lambda/ai_router.py",
+    "backend/infra/lambda/aria_core/model_suite.py",
     "backend/infra/lambda/aria_core/aria_engine.py",
     "backend/ai/app/routes/archetype.py",
     "backend/infra/main.tf",
@@ -107,11 +108,11 @@ SLOTS = (
          re.compile(r'MODEL_PRIMARY:[^\n]*?"((?:global\.|us\.)?anthropic\.[^"]+)"')),
     Slot("chat fast", "sonnet", "backend/infra/lambda/aria_core/aria_engine.py",
          re.compile(r'MODEL_FAST:[^\n]*?"((?:global\.|us\.)?anthropic\.[^"]+)"')),
-    Slot("router slot 1", "sonnet", "backend/infra/lambda/ai_router.py",
+    Slot("router slot 1", "sonnet", "backend/infra/lambda/aria_core/model_suite.py",
          re.compile(r'"AI_ROUTER_MODEL_1_ID",\s*"([^"]+)"')),
-    Slot("router slot 2", "opus", "backend/infra/lambda/ai_router.py",
+    Slot("router slot 2", "opus", "backend/infra/lambda/aria_core/model_suite.py",
          re.compile(r'"AI_ROUTER_MODEL_2_ID",\s*"([^"]+)"')),
-    Slot("router slot 3", "grok", "backend/infra/lambda/ai_router.py",
+    Slot("router slot 3", "grok", "backend/infra/lambda/aria_core/model_suite.py",
          re.compile(r'"AI_ROUTER_MODEL_3_ID",\s*"([^"]+)"')),
 )
 

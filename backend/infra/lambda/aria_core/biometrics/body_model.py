@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from services import aria_engine
+    from aria_core import aria_engine
 
 from . import estimators, statistics as st
 from .estimators import Estimate
@@ -370,7 +370,7 @@ class BodyModel:
 
     def to_aria_context(self, permissions: "aria_engine.DataPermissions | None" = None) -> "aria_engine.ARIAContext":
         """Project the model onto ARIAContext, skipping permission-denied domains."""
-        from services import aria_engine
+        from aria_core import aria_engine
 
         perms = permissions or aria_engine.DataPermissions.allow_all()
 

@@ -37,7 +37,7 @@ class FeedbackEngine:
 
     def _learn_reaction(self, user_id: str, reaction: str) -> None:
         try:
-            from services import contextual_learner
+            from aria_core import contextual_learner
 
             persona = contextual_learner.load(user_id)
             contextual_learner.apply_reaction_outcome(persona, reaction)
@@ -50,7 +50,7 @@ class FeedbackEngine:
 
     def _learn_workout(self, user_id: str, completed: bool, feedback: str | None = None) -> None:
         try:
-            from services import contextual_learner
+            from aria_core import contextual_learner
 
             persona = contextual_learner.load(user_id)
             living = self.context_engine.get_or_create_context(user_id)

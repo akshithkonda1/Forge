@@ -7,7 +7,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 from backend.ai import aria_cli  # noqa: E402
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 
 
 CANONICAL_KEYS = {
@@ -65,7 +65,7 @@ class ModeTests(unittest.TestCase):
     def test_permissions_redact_and_report(self):
         perms = aria_engine.DataPermissions.from_payload({"deny": ["sleep"]})
         env = _respond("should I train today?", "depleted", permissions=perms)
-        self.assertEqual(env["restricted_domains"], ["sleep"])
+        self.assertEqual(set(env["restricted_domains"]), {"sleep", "clinical_data"})
         # The user's specific sleep numbers must not leak (deep-sleep fraction is 12%).
         self.assertNotIn("12%", json.dumps(env))
 

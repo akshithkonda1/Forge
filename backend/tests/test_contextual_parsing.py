@@ -2,7 +2,7 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import contextual_parsing as cp  # noqa: E402
+from aria_core import contextual_parsing as cp  # noqa: E402
 
 
 class WordBoundaryTests(unittest.TestCase):

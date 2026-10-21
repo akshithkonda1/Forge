@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from ai_router import AIRouter, RouteRequest, RoutingError
 from responses import RouteError, ok
+from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text
 from seed_data import today_iso
 from services import coach_context, scoring
 from storage import dynamodb, keys
@@ -44,7 +45,9 @@ def _safe_route(payload: dict[str, Any], fallback: str) -> dict[str, Any]:
 
 
 def handle_post_coach_message(user_id: str, body: dict) -> dict:
-    content = str(body.get("content") or "").strip()
+    from aria_core.safety_rails import apply_rails
+
+    content = sanitize_user_text(str(body.get("content") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
     if not content:
         raise RouteError(400, "Request body must include non-empty 'content'.")
 
@@ -72,7 +75,7 @@ def handle_post_coach_message(user_id: str, body: dict) -> dict:
     return ok({
         "id": f"coach-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
         "role": "trainer",
-        "content": routed["answer"],
+        "content": apply_rails(str(routed["answer"] or "")),
         "timestamp": _now_iso(),
         "fallback": routed.get("fallback", False),
     })
@@ -103,7 +106,10 @@ def handle_post_coach_workout_plan(user_id: str, _body: dict) -> dict:
         f"Suggested focus: {baseline['focus']} ({baseline['suggestedType']}, "
         f"{baseline['intensity']} intensity).{plan_clause}"
     )
+    from aria_core.safety_rails import apply_rails
+
     routed = _safe_route(payload, fallback)
+    routed["answer"] = apply_rails(str(routed.get("answer") or ""))
 
     # `PLAN#{date}` is read in 4 places (this file, routes/workouts.py,
     # routes/dashboard.py) but was never written anywhere — GET /workouts/today
@@ -171,10 +177,12 @@ def handle_post_coach_sleep_insight(user_id: str, _body: dict) -> dict:
             f"{recovery['previous']}). Protect a consistent wind-down window to lift "
             "deep-sleep minutes."
         )
+    from aria_core.safety_rails import apply_rails
+
     routed = _safe_route(payload, fallback)
     return ok({
         "recoveryTrend": recovery,
-        "insight": routed["answer"],
+        "insight": apply_rails(str(routed.get("answer") or "")),
         "fallback": routed.get("fallback", False),
     })
 
@@ -199,9 +207,11 @@ def handle_post_coach_progress_review(user_id: str, _body: dict) -> dict:
             f"Training load is {load['trend']} ({load['current']} vs {load['previous']}). "
             "Keep current intensity but rotate movement patterns to break the plateau."
         )
+    from aria_core.safety_rails import apply_rails
+
     routed = _safe_route(payload, fallback)
     return ok({
         "trainingLoad": load,
-        "review": routed["answer"],
+        "review": apply_rails(str(routed.get("answer") or "")),
         "fallback": routed.get("fallback", False),
     })

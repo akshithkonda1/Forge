@@ -8,10 +8,10 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine, fusion  # noqa: E402
-from services.aria_engine import ARIAContext, DataPermissions, VitalsContext  # noqa: E402
-from services.biometrics import BodyModel  # noqa: E402
-from services.biometrics.types import MetricType, Observation  # noqa: E402
+from aria_core import aria_engine, fusion  # noqa: E402
+from aria_core.aria_engine import ARIAContext, DataPermissions, VitalsContext  # noqa: E402
+from aria_core.biometrics import BodyModel  # noqa: E402
+from aria_core.biometrics.types import MetricType, Observation  # noqa: E402
 
 
 def _now():

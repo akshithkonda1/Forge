@@ -5,17 +5,17 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine  # noqa: E402
-from services.biometrics import (  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
+from aria_core.biometrics import (  # noqa: E402
     BodyModel,
     MetricType,
     classify_batch,
     classify_sample,
     estimators,
 )
-from services.biometrics import statistics as st  # noqa: E402
-from services.biometrics.classify import Reject  # noqa: E402
-from services.biometrics.types import Observation, System, spec  # noqa: E402
+from aria_core.biometrics import statistics as st  # noqa: E402
+from aria_core.biometrics.classify import Reject  # noqa: E402
+from aria_core.biometrics.types import Observation, System, spec  # noqa: E402
 
 BASE = datetime(2026, 6, 10, tzinfo=timezone.utc)
 
@@ -301,7 +301,7 @@ class EstimatorTests(unittest.TestCase):
         )
 
     def test_web_confirmed_bumps_fitness_age_confidence(self):
-        from services.biometrics import aging_norms
+        from aria_core.biometrics import aging_norms
 
         aging_norms.reset_for_tests()
         self.addCleanup(aging_norms.reset_for_tests)
@@ -315,18 +315,18 @@ class EstimatorTests(unittest.TestCase):
 
     def test_aging_norms_confirm_skips_network_during_unittest(self):
         from unittest.mock import patch
-        from services.biometrics import aging_norms
+        from aria_core.biometrics import aging_norms
 
         aging_norms.reset_for_tests()
         self.addCleanup(aging_norms.reset_for_tests)
-        with patch("services.biometrics.aging_norms.urlopen") as mock_urlopen:
+        with patch("aria_core.biometrics.aging_norms.urlopen") as mock_urlopen:
             self.assertFalse(aging_norms.confirm())
             mock_urlopen.assert_not_called()
 
     def test_aging_norms_confirm_accepts_oxygen_deep_in_the_page(self):
         import os
         from unittest.mock import MagicMock, patch
-        from services.biometrics import aging_norms
+        from aria_core.biometrics import aging_norms
 
         aging_norms.reset_for_tests()
         self.addCleanup(aging_norms.reset_for_tests)
@@ -337,7 +337,7 @@ class EstimatorTests(unittest.TestCase):
         response.__enter__ = MagicMock(return_value=response)
         response.__exit__ = MagicMock(return_value=False)
         with patch.dict(os.environ, {"FORGE_AGING_WEB": "1"}):
-            with patch("services.biometrics.aging_norms.urlopen", return_value=response):
+            with patch("aria_core.biometrics.aging_norms.urlopen", return_value=response):
                 self.assertTrue(aging_norms.confirm())
         self.assertTrue(aging_norms.web_confirmed())
         self.assertEqual(aging_norms.web_source_title(), "MedlinePlus: Exercise Stress Test / VO2")
@@ -358,11 +358,11 @@ class _FakeBackend:
 
 class ModelEstimatorTests(unittest.TestCase):
     def tearDown(self):
-        from services.biometrics import reset_estimators
+        from aria_core.biometrics import reset_estimators
         reset_estimators()
 
     def test_model_prediction_is_used_when_backend_answers(self):
-        from services.biometrics import ModelEstimator
+        from aria_core.biometrics import ModelEstimator
         backend = _FakeBackend({"value": 99, "state": "modeled", "confidence": 0.91, "method": "model:test"})
         out = ModelEstimator(MetricType.HEART_RATE, backend).estimate([60, 61, 62])
         self.assertEqual(out.value, 99)
@@ -371,13 +371,13 @@ class ModelEstimatorTests(unittest.TestCase):
         self.assertTrue(backend.calls)
 
     def test_falls_back_when_backend_abstains_or_raises(self):
-        from services.biometrics import ModelEstimator
+        from aria_core.biometrics import ModelEstimator
         for backend in (_FakeBackend(None), _FakeBackend(raises=True)):
             out = ModelEstimator(MetricType.HEART_RATE, backend).estimate([60, 61, 62])
             self.assertEqual(out.method, "robust_baseline")  # graceful, deterministic fallback
 
     def test_enable_registers_and_body_model_uses_it_transparently(self):
-        from services.biometrics import ModelEstimator, default_estimator, enable_model_estimators
+        from aria_core.biometrics import ModelEstimator, default_estimator, enable_model_estimators
         backend = _FakeBackend({"value": 123, "state": "modeled", "method": "model:test"})
         switched = enable_model_estimators(backend, metrics=[MetricType.HEART_RATE])
         self.assertIn(MetricType.HEART_RATE, switched)
@@ -388,11 +388,11 @@ class ModelEstimatorTests(unittest.TestCase):
         self.assertEqual(snap.systems["cardiovascular"].metrics["heart_rate"].estimate.method, "model:test")
 
     def test_enable_is_noop_without_a_backend(self):
-        from services.biometrics import enable_model_estimators
+        from aria_core.biometrics import enable_model_estimators
         self.assertEqual(enable_model_estimators(None), [])
 
     def test_feature_vector_exposes_expected_features(self):
-        from services.biometrics import feature_vector
+        from aria_core.biometrics import feature_vector
         feats = feature_vector(MetricType.HRV_SDNN, [50, 52, 48, 51])
         for key in ("latest", "mean", "ewma", "robust_z", "trend_slope", "n"):
             self.assertIn(key, feats)

@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 from services import daily_story  # noqa: E402
-from services import fusion  # noqa: E402
+from aria_core import fusion  # noqa: E402
 
 NOW = datetime(2026, 6, 1, 9, 0, tzinfo=timezone.utc)
 
