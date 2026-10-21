@@ -540,6 +540,7 @@ class AIRouter:
         )
         from aria_core.model_suite import plan_route
         from aria_core.privacy import redact_for_log
+        from aria_core.rails import needs_model_verifier, validate_output
         from aria_core.suite import family_for_tier, parse_structured_reply
 
         started_at = time.monotonic()
@@ -633,8 +634,27 @@ class AIRouter:
                         structured = parse_structured_reply(result.answer)
             if not result.success:
                 self._raise_routing_failure(launched, results)
+            final_answer = validate_output(structured.answer or result.answer)
+            if needs_model_verifier(final_answer):
+                extra_reason = extra_reason or "rails_verifier"
+                verifier = self._model_by_family("sonnet")
+                verified = self._invoke_model(
+                    verifier,
+                    request,
+                    package_summaries,
+                    effective_package_size_bytes,
+                    deadline_seconds,
+                    tier=1,
+                    verifier=True,
+                    draft=final_answer,
+                )
+                launched.append(verifier)
+                results.append(verified)
+                if verified.success:
+                    final_answer = validate_output(
+                        parse_structured_reply(verified.answer).answer or verified.answer
+                    )
             primary = result
-            final_answer = structured.answer or result.answer
             agreement_label, agreement_score = _answer_agreement([result.answer])
             finalization = {
                 "mode": "single-model",
@@ -855,9 +875,7 @@ class AIRouter:
         consensus_answer = ""
         fallback_used = False
         fallback_reason = None
-        if agreement_label == "high":
-            consensus_answer = successes[0].answer
-        elif remaining_budget <= MIN_CONSENSUS_BUDGET_SECONDS:
+        if remaining_budget <= MIN_CONSENSUS_BUDGET_SECONDS:
             fallback_used = True
             fallback_reason = "timeout_budget_exhausted"
             warnings.append(
