@@ -14,14 +14,6 @@ import os
 import re
 from typing import Any
 
-from aria_core.untrusted import (
-    isolate as isolate_untrusted,
-    isolate_tool_output,
-    isolate_user_message as _isolate_user_message,
-    looks_like_prompt_injection,
-    sanitize_text as _sanitize_untrusted,
-)
-
 
 # --- Environment -------------------------------------------------------------
 
