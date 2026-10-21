@@ -68,9 +68,9 @@ k6 archive backend/loadtest/k6/baseline.js -O /tmp/forge-loadtest-baseline.tar
 - `boto3.client('bedrock-runtime'|…)` increments `bedrock_client` and raises
 - `BedrockGateway._get_bedrock_client` / `.converse` increment and raise
 - `urllib.request.urlopen` to `*.elevenlabs.io` increments `elevenlabs_http` and raises
-- `services.elevenlabs_voice` mint/tool/design helpers increment `elevenlabs_api` and raises
+- `urllib.request.urlopen` to `*.elevenlabs.io` still increments `elevenlabs_http` (legacy host block)
 - `urllib.request.urlopen` to `*.fish.audio` increments `fish_audio_http` and raises
-- `services.fish_audio_voice` speak/synthesize helpers increment `fish_audio_api` and raises
+- `services.fish_audio_voice` speak/synthesize/catalog helpers increment `fish_audio_api` and raises
 
 This is loadtest-only. Production paths are unchanged.
 

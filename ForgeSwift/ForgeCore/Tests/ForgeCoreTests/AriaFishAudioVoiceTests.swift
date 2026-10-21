@@ -8,6 +8,9 @@ final class AriaFishAudioVoiceTests: XCTestCase {
         XCTAssertFalse(empty.isConfigured)
         XCTAssertEqual(empty.model, AriaFishAudioVoice.defaultModel)
         XCTAssertEqual(AriaFishAudioVoice.defaultModel, "s2.1-pro-free")
+        XCTAssertEqual(AriaFishAudioVoice.paidModel, "s2.1-pro")
+        XCTAssertFalse(AriaFishAudioVoice.allowedModels.contains("s1"))
+        XCTAssertEqual(AriaFishAudioVoice.backendPath, "ai/voice/speak")
         XCTAssertNil(AriaFishAudioVoice.makeRequest(text: "Hey — I'm ARIA.", config: empty))
     }
 
@@ -93,9 +96,15 @@ final class AriaFishAudioVoiceTests: XCTestCase {
         XCTAssertNil(request?.value(forHTTPHeaderField: "model"))
         let body = try? JSONSerialization.jsonObject(with: request?.httpBody ?? Data()) as? [String: Any]
         XCTAssertEqual(body?["text"] as? String, "I'm ARIA.")
+        XCTAssertEqual(body?["voice_id"] as? String, nil)
         XCTAssertNil(
             AriaFishAudioVoice.makeBackendRequest(text: "   ", baseURL: live)
         )
+        let ember = AriaVoiceCatalog.Selection(profileID: "ember", voiceID: "voice-ember-1", speed: 1.05)
+        let switched = AriaFishAudioVoice.makeBackendRequest(text: "Next line.", baseURL: live, selection: ember)
+        let switchedBody = try? JSONSerialization.jsonObject(with: switched?.httpBody ?? Data()) as? [String: Any]
+        XCTAssertEqual(switchedBody?["voice_id"] as? String, "voice-ember-1")
+        XCTAssertEqual(switchedBody?["profile_id"] as? String, "ember")
     }
 
     func testBackendSpeechDecodesAudioAndNeverTreatsTheKeyAsAudio() {
@@ -125,6 +134,7 @@ final class AriaFishAudioVoiceTests: XCTestCase {
         XCTAssertEqual(AriaFishAudioVoice.sanitizeModel(nil), "s2.1-pro-free")
         XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("s2.1-pro"), "s2.1-pro")
         XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("s2.1-pro-free"), "s2.1-pro-free")
+        XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("s1"), "s2.1-pro-free")
     }
 
     func testRequestUsesBearerAndModelHeaderWithoutEmbeddingAHardcodedSecret() {

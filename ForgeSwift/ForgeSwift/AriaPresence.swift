@@ -158,9 +158,8 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     /// Speaks `text` as the dummy/local fill-in while a character session is
-    /// active. Production live ARIA is ConvAI — this never enqueues Apple TTS
-    /// as her live mouth. Onboarding, welcome, and Train stay quiet until a
-    /// voice session starts or they unmute.
+    /// active. Production live ARIA is Fish Audio — this never enqueues Apple
+    /// TTS as her live mouth. A busy Fish slot leaves the text reply on screen.
     ///
     /// Pass `interrupt: false` to queue behind a line that is already playing.
     func speak(
@@ -232,7 +231,8 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     ) {
         guard let request = AriaFishAudioVoice.makeBackendRequest(
             text: text,
-            baseURL: AriaService.shared.baseURL
+            baseURL: AriaService.shared.baseURL,
+            selection: AriaVoiceCatalog.Selection.load()
         ) else { return }
         playFishAudio(request: request, interrupt: interrupt, session: session, viaBackend: true)
     }
@@ -258,11 +258,18 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
                 if viaBackend {
                     let (payload, _) = try await ForgeAPI.send(request)
                     guard generation == fishGeneration else { return }
+                    if AriaFishAudioVoice.isVoiceBusy(payload) {
+                        await MainActor.run { AriaVoiceProfileStore.shared.noteBusy(true) }
+                        isSpeaking = false
+                        AriaVoiceSession.shared.mouthDidFinish()
+                        return
+                    }
                     guard let speech = AriaFishAudioVoice.decodeBackendSpeech(payload) else {
                         isSpeaking = false
                         AriaVoiceSession.shared.mouthDidFinish()
                         return
                     }
+                    await MainActor.run { AriaVoiceProfileStore.shared.noteBusy(false) }
                     data = speech.audio
                 } else {
                     let (payload, response) = try await URLSession.shared.data(for: request)

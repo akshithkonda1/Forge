@@ -161,11 +161,11 @@ class AriaPauseTests(unittest.TestCase):
 
     def test_voice_routes_are_ungated(self):
         self.ssm.value = "true"
-        response = handler(event("GET", "/ai/voice/bootstrap"), None)
-        self.assertEqual(response["statusCode"], 503)
+        response = handler(event("GET", "/ai/voice"), None)
+        self.assertEqual(response["statusCode"], 200)
         payload = body(response)
         self.assertNotEqual(payload.get("error"), "aria_paused")
-        self.assertEqual(payload.get("code"), "elevenlabs_unconfigured")
+        self.assertEqual(payload.get("source"), "fallback")
         self.assertEqual(self.ssm.calls, 0)
 
     def test_health_is_ungated(self):
@@ -178,11 +178,11 @@ class AriaPauseTests(unittest.TestCase):
     def test_health_and_voice_stay_up_when_ssm_errors_fail_paused(self):
         self.ssm.error = RuntimeError("ssm timeout")
         health = handler(event("GET", "/health", user_id=None), None)
-        voice = handler(event("GET", "/ai/voice/bootstrap"), None)
+        voice = handler(event("GET", "/ai/voice"), None)
         self.assertEqual(health["statusCode"], 200)
         self.assertEqual(body(health)["status"], "ok")
         self.assertNotEqual(body(voice).get("error"), "aria_paused")
-        self.assertEqual(body(voice).get("code"), "elevenlabs_unconfigured")
+        self.assertEqual(body(voice).get("source"), "fallback")
         self.assertEqual(self.ssm.calls, 0)
 
     def test_unset_env_fails_open_without_ssm(self):
@@ -212,9 +212,9 @@ class AriaPauseRouteListTests(unittest.TestCase):
         ]
         ungated = [
             ("GET", "/health"),
-            ("GET", "/ai/voice/bootstrap"),
+            ("GET", "/ai/voice"),
+            ("PUT", "/ai/voice"),
             ("POST", "/ai/voice/speak"),
-            ("POST", "/ai/voice/fish-tts"),
             ("GET", "/chat/threads/current"),
             ("GET", "/dashboard/today"),
             ("POST", "/watch/aria/suggest"),

@@ -172,7 +172,7 @@ def _wrap_fish_audio(mod: Any) -> None:
     for name in (
         "speak",
         "synthesize",
-        "fish_tts",
+        "catalog",
         "require_api_key",
         "_stdlib_http",
     ):

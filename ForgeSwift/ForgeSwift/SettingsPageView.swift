@@ -20,6 +20,7 @@ struct SettingsPageView: View {
     @State private var showCoachingStylePicker = false
     @State private var showCoachingPersonalityPicker = false
     @State private var showSoulPicker = false
+    @State private var showVoicePicker = false
     @State private var showTrainingThemePicker = false
     @State private var showNutritionTargetsEditor = false
     @State private var showTermsSheet = false
@@ -39,6 +40,7 @@ struct SettingsPageView: View {
     // The Cycle controls read this store directly; observing it keeps them in step with changes.
     @ObservedObject private var cycleStore = MenstrualHealthStore.shared
     @ObservedObject private var soul = AriaSoulStore.shared
+    @ObservedObject private var voiceProfiles = AriaVoiceProfileStore.shared
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 
@@ -110,6 +112,9 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showSoulPicker) {
             AriaSoulPickerView()
+        }
+        .sheet(isPresented: $showVoicePicker) {
+            AriaVoicePickerView()
         }
         .sheet(isPresented: $showWhatIKnow) {
             NavigationStack {
@@ -266,6 +271,15 @@ struct SettingsPageView: View {
                     trailingText: soul.config.blend.dominant.label,
                     footnote: "Coach, Friend, or Drill Sergeant. Next reply uses it."
                 ) { showSoulPicker = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "waveform",
+                    iconColor: .ember,
+                    label: "ARIA voice",
+                    trailingText: voiceProfiles.selectedLabel,
+                    footnote: "How she sounds. Next spoken reply uses it."
+                ) { showVoicePicker = true }
 
                 SettingsHairline()
                 settingsLink(

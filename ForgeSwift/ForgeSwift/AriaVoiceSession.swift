@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import Foundation
 
 /// Character voice session. Unmute / the voice orb start this.
@@ -65,17 +66,10 @@ final class AriaVoiceSession {
         isActive = true
         lastError = nil
         startGeneration += 1
-        let generation = startGeneration
         applyPhase(captureMic ? .listening : .thinking)
 
-        // Session start already unmuted. Live ConvAI is the mouth; Dummy
-        // fill-in speaks via speakChatReply. A later mute() still stops both.
-        if chosen.requiresNetwork, AriaSpokenMute.allowsSpeech {
-            Task { await self.startLive(generation: generation) }
-            return
-        }
-
-        // Dummy / local testing (on-device brain). Mic is optional.
+        // Session start already unmuted. Fish TTS is the mouth via
+        // speakChatReply. Mic and brain stay on-device for every transport.
         if captureMic {
             speech.startListening()
         }
@@ -108,16 +102,12 @@ final class AriaVoiceSession {
     func unmute() {
         guard isActive, let transport else { return }
         guard AriaSpokenMute.allowsSpeech else { return }
-        if transport.requiresNetwork {
-            startGeneration += 1
-            let generation = startGeneration
-            speech?.cancel()
-            Task { await self.startLive(generation: generation) }
+        if transport.usesOnDeviceBrain || transport.requiresNetwork {
+            markListening()
         }
     }
 
-    /// After chat lands a trainer reply on dummy/local, play the fill-in.
-    /// Live ConvAI is already the mouth — do not also enqueue Apple TTS.
+    /// After chat lands a trainer reply, play the Fish (or dummy) fill-in.
     func speakChatReply(_ reply: AriaResponse) {
         guard isActive else { return }
         // Muted or nothing to say: no mouth callback is coming, so leave
@@ -128,10 +118,6 @@ final class AriaVoiceSession {
         applyPhase(.speaking)
         speech?.voiceState = .speaking
         AriaPresence.shared.speak(line)
-        if transport?.requiresNetwork == true {
-            // ConvAI is the mouth. Apple fill-in did not run.
-            return
-        }
         if !AriaPresence.shared.isSpeaking {
             markListening()
         }
@@ -167,7 +153,6 @@ final class AriaVoiceSession {
             return
         }
         guard isActive, phase == .speaking else { return }
-        guard transport?.usesOnDeviceBrain == true else { return }
         markListening()
     }
 
@@ -206,46 +191,10 @@ final class AriaVoiceSession {
     }
 
     private func startLive(generation: Int) async {
-        applyPhase(.thinking)
-        do {
-            let bootstrap = try await Self.fetchLiveBootstrap()
-            guard generation == startGeneration else { return }
-            if let key = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"],
-               AriaVoiceBootstrap.signedURLLooksLikeAPIKey(bootstrap.signedURL, apiKey: key) {
-                throw AriaVoiceSessionError.leakedAPIKey
-            }
-            guard let url = URL(string: bootstrap.signedURL),
-                  url.scheme == "wss" || url.scheme == "ws" else {
-                throw AriaVoiceSessionError.invalidSignedURL
-            }
-            let client = AriaLiveConvAIClient()
-            liveSocket = client
-            try await client.connect(
-                signedURL: url,
-                promptContext: bootstrap.promptContext,
-                onEvent: { [weak self] event in
-                    Task { @MainActor in
-                        self?.handleLiveEvent(event, generation: generation)
-                    }
-                }
-            )
-            guard generation == startGeneration else {
-                client.close()
-                return
-            }
-            applyPhase(.listening)
-            speech?.voiceState = .listening
-        } catch {
-            guard generation == startGeneration else { return }
-            // Live failure is silence — never Zoe, never a dummy upgrade.
-            lastError = "Voice session unavailable."
-            // Retire this attempt so the socket's late `.closed` cannot
-            // overwrite the error with idle before the user sees it.
-            startGeneration += 1
-            liveSocket?.close()
-            liveSocket = nil
-            applyPhase(.idle)
-            speech?.voiceState = .error("Voice session unavailable.")
+        guard generation == startGeneration else { return }
+        applyPhase(capturesMic ? .listening : .thinking)
+        if capturesMic {
+            speech?.startListening()
         }
     }
 
@@ -346,6 +295,81 @@ private struct VoiceToolResponse: Decodable {
         case result
         case proseSummary = "prose_summary"
         case message
+    }
+}
+
+/// Selected Fish voice. Independent of ``AriaSoul`` personality. Next speak
+/// reads this — no restart. Live catalog I/O stays in this file so
+/// ``AriaCharacterVoice`` remains network-free.
+@MainActor
+final class AriaVoiceProfileStore: ObservableObject {
+    static let shared = AriaVoiceProfileStore()
+
+    @Published private(set) var selection: AriaVoiceCatalog.Selection
+    @Published private(set) var catalog: AriaVoiceCatalog.Envelope?
+    @Published private(set) var lastBusy = false
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.selection = AriaVoiceCatalog.Selection.load(from: defaults)
+    }
+
+    var featured: [AriaVoiceCatalog.Profile] {
+        catalog?.featured ?? AriaVoiceCatalog.recipes
+    }
+
+    var selectedLabel: String {
+        if let id = selection.profileID, let row = featured.first(where: { $0.id == id }) {
+            return row.label
+        }
+        if let title = catalog?.voices.first(where: { $0.id == selection.voiceID })?.title {
+            return title
+        }
+        return "Warm"
+    }
+
+    func select(_ profile: AriaVoiceCatalog.Profile) {
+        selection = AriaVoiceCatalog.apply(selection: selection, to: profile)
+        persist()
+        Task { await saveToAccount() }
+    }
+
+    func select(voice: AriaVoiceCatalog.Voice) {
+        selection = AriaVoiceCatalog.Selection(profileID: nil, voiceID: voice.id, speed: 1.0)
+        persist()
+        Task { await saveToAccount() }
+    }
+
+    func refreshCatalog() async {
+        guard let request = AriaFishAudioVoice.makeCatalogRequest(baseURL: AriaService.shared.baseURL) else {
+            return
+        }
+        guard let (data, _) = try? await ForgeAPI.send(request),
+              let decoded = try? JSONDecoder().decode(AriaVoiceCatalog.Envelope.self, from: data) else {
+            return
+        }
+        catalog = decoded
+        if selection.voiceID == nil, let incoming = decoded.selected.voiceID {
+            selection = decoded.selected
+            persist()
+        }
+    }
+
+    func persist() {
+        selection.persist(to: defaults)
+    }
+
+    func saveToAccount() async {
+        guard let request = AriaFishAudioVoice.makePersistRequest(
+            baseURL: AriaService.shared.baseURL,
+            selection: selection
+        ) else { return }
+        _ = try? await ForgeAPI.send(request)
+    }
+
+    func noteBusy(_ busy: Bool) {
+        lastBusy = busy
     }
 }
 
