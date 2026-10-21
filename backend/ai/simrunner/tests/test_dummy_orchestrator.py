@@ -91,7 +91,7 @@ class DummyOrchestratorTests(unittest.TestCase):
 
         ensure_lambda_on_path()
         from aria_core import prompt_guard
-        from services import aria_engine as engine_mod
+        from aria_core import aria_engine as engine_mod
 
         calls = {"n": 0}
         real = engine_mod.generate_response
@@ -610,7 +610,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         from backend.ai.simrunner.aria_simrunner import bedrock_client
 
         ensure_lambda_on_path()
-        from services import aria_engine as engine_mod
+        from aria_core import aria_engine as engine_mod
 
         def boom(*_args, **_kwargs):
             raise AssertionError("dummy lambda engine must not call Bedrock")
@@ -632,8 +632,8 @@ class DummyOrchestratorTests(unittest.TestCase):
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from services import aria_engine as engine_mod
-        from services import fusion as fusion_mod
+        from aria_core import aria_engine as engine_mod
+        from aria_core import fusion as fusion_mod
 
         with patch.object(fusion_mod, "fuse_turn", wraps=fusion_mod.fuse_turn) as fuse:
             with patch.object(
@@ -704,7 +704,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from services import fusion as fusion_mod
+        from aria_core import fusion as fusion_mod
 
         captured: dict = {}
         original = fusion_mod.fuse_turn

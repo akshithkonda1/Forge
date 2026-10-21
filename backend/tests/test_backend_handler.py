@@ -6,7 +6,7 @@ import _bootstrap  # noqa: F401
 
 from handler import handler  # noqa: E402
 from routes import coach as coach_routes  # noqa: E402
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 from services import scoring  # noqa: E402
 from storage import dynamodb as dynamodb_store  # noqa: E402
 
@@ -425,7 +425,7 @@ class CoachRouteTests(unittest.TestCase):
         payload = body(response)
         self.assertEqual(payload["reasoning_source"], "bedrock")
         self.assertIn("Live read", payload["message"])
-        self.assertEqual(payload["model"], "global.anthropic.claude-opus-5-5")
+        self.assertEqual(payload["model"], "global.anthropic.claude-sonnet-5-5")
 
     def test_aria_chat_falls_back_when_bedrock_disabled(self):
         uid = "aria-default-user"

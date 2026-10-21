@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from responses import RouteError, ok
-from security import demo_data_enabled
+from security import MAX_CHAT_MESSAGE_CHARS, demo_data_enabled, sanitize_user_text
 from seed_data import default_chat_messages, default_sleep, default_workout, today_iso
 from services import scoring
 from storage import dynamodb, keys
@@ -59,7 +59,7 @@ def _sleep_reply(user_id: str, msg_id: str, now: str) -> dict[str, Any]:
             "role": "trainer",
             "content": (
                 "I do not have any sleep logged for you yet, so I cannot read your "
-                "recovery trend. Connect a sleep source or log a night and I will "
+                "readiness trend. Connect a sleep source or log a night and I will "
                 "pick it up from there."
             ),
             "timestamp": now,
@@ -191,7 +191,9 @@ def handle_get_chat_thread(user_id: str) -> dict:
 
 
 def handle_post_chat_message(user_id: str, body: dict) -> dict:
-    content = str(body.get("content") or "").strip()
+    from aria_core.safety_rails import apply_rails
+
+    content = sanitize_user_text(str(body.get("content") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
     if not content:
         raise RouteError(400, "Request body must include non-empty 'content'.")
 
@@ -204,6 +206,7 @@ def handle_post_chat_message(user_id: str, body: dict) -> dict:
         "timestamp": now,
     }
     trainer_msg = _trainer_response(user_id, content)
+    trainer_msg["content"] = apply_rails(str(trainer_msg.get("content") or ""))
 
     _persist_message(user_id, thread_id, user_msg)
     _persist_message(user_id, thread_id, trainer_msg)

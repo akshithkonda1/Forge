@@ -19,8 +19,8 @@ from unittest.mock import patch
 import _bootstrap  # noqa: F401
 
 from aria_core import state_read  # noqa: E402
-from services import aria_engine  # noqa: E402
-from services import guidance  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
+from aria_core import guidance  # noqa: E402
 
 CARDIAC_REPLY = (
     "Call 911 now. Stop what you're doing and sit or lie down somewhere safe. "
@@ -529,7 +529,7 @@ class ChatRouteSafetyTests(unittest.TestCase):
 
     def test_safety_turns_do_not_write_memory_or_persona(self):
         from services.aria_context import CoachContextEngine
-        from services import contextual_learner
+        from aria_core import contextual_learner
 
         uid = "safety-memory-lock"
         engine = CoachContextEngine()
@@ -581,7 +581,7 @@ class ChatRouteSafetyTests(unittest.TestCase):
 
         try:
             with patch(
-                "services.aria_engine._default_converse", boom
+                "aria_core.aria_engine._default_converse", boom
             ), patch(
                 "aria_core.aria_engine._default_converse", boom
             ), patch(
@@ -665,7 +665,7 @@ class ChatRouteSafetyTests(unittest.TestCase):
         )
         try:
             with patch(
-                "services.aria_engine._default_converse", boom
+                "aria_core.aria_engine._default_converse", boom
             ), patch(
                 "aria_core.aria_engine._default_converse", boom
             ), patch(

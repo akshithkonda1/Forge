@@ -6,8 +6,8 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import body_library as B  # noqa: E402
-from services import aria_engine  # noqa: E402
+from aria_core import body_library as B  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 
 
 class LibraryTests(unittest.TestCase):

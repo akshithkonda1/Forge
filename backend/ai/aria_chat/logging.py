@@ -86,7 +86,7 @@ _REDACTED_BANDS = frozenset({"emergency", "triage", "coach_with_care"})
 
 
 def _is_emergency_user_text(text: str) -> bool:
-    from services import guidance
+    from aria_core import guidance
 
     return guidance.classify_band(text or "") in (guidance.EMERGENCY, guidance.TRIAGE)
 

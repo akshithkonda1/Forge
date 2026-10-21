@@ -26,15 +26,15 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine, context_plan, fusion  # noqa: E402
-from services.aria_engine import (  # noqa: E402
+from aria_core import aria_engine, context_plan, fusion  # noqa: E402
+from aria_core.aria_engine import (  # noqa: E402
     ARIAContext,
     ReadinessContext,
     SleepContext,
     TrainingContext,
 )
-from services.biometrics import BodyModel  # noqa: E402
-from services.biometrics.types import MetricType, Observation  # noqa: E402
+from aria_core.biometrics import BodyModel  # noqa: E402
+from aria_core.biometrics.types import MetricType, Observation  # noqa: E402
 
 
 class BodyModelSleepDebtProjectionTests(unittest.TestCase):

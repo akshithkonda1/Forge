@@ -243,7 +243,7 @@ class ProviderNoSpendGates(unittest.TestCase):
         from backend.ai.simrunner.aria_simrunner import bedrock_client
 
         ensure_lambda_on_path()
-        from services import aria_engine as engine_mod
+        from aria_core import aria_engine as engine_mod
 
         def boom(*_a, **_k):
             raise AssertionError("Dummy/offline must not spend: Bedrock/live invoke")

@@ -9,7 +9,7 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 from services.aria_context import CoachContextEngine  # noqa: E402
 from services.aria_user_model import build_user_model  # noqa: E402
 from storage import dynamodb, keys  # noqa: E402

@@ -65,10 +65,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from services import aria_engine
-from services.biometrics.body_model import BodyModel
-from services.biometrics.classify import _timestamp
-from services.biometrics.types import MetricType, Observation, spec
+from aria_core import aria_engine
+from aria_core.biometrics.body_model import BodyModel
+from aria_core.biometrics.classify import _timestamp
+from aria_core.biometrics.types import MetricType, Observation, spec
 from storage import dynamodb, keys
 
 
@@ -136,13 +136,13 @@ def build_user_model(
     body_ctx: aria_engine.ARIAContext | None = None
     try:
         from services.coach_context import gather_user_context  # local import to avoid cycle
-        from services.biometrics import statistics as st
+        from aria_core.biometrics import statistics as st
 
         hist = gather_user_context(uid)
         recent_sleep_rows = hist.get("recentSleep") or []
         obs = _observations_from_history(recent_sleep_rows, hist.get("recentWorkouts") or [])
         if obs:
-            from services.fusion import _age, _sex_female
+            from aria_core.fusion import _age, _sex_female
 
             model = BodyModel.from_observations(
                 obs, age_years=_age(payload), sex_female=_sex_female(payload)

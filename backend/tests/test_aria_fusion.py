@@ -17,8 +17,8 @@ import _bootstrap  # noqa: F401
 
 from handler import handler  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import speak_quality  # noqa: E402
-from services import aria_engine, contextual_learner, fusion  # noqa: E402
-from services.aria_engine import (  # noqa: E402
+from aria_core import aria_engine, contextual_learner, fusion  # noqa: E402
+from aria_core.aria_engine import (  # noqa: E402
     ARIAContext,
     LifestyleContext,
     ReadinessContext,
@@ -287,7 +287,7 @@ class FusionContractTests(unittest.TestCase):
         self.assertNotIn("except Exception", inspect.getsource(fusion.load_persona))
 
     def test_fuel_and_clarify_change_the_session(self):
-        from services import body_library as B
+        from aria_core import body_library as B
 
         proceed = B.maybe_suggest(
             "What should I train today?",

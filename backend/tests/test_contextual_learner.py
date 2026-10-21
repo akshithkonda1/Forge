@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine, contextual_learner  # noqa: E402
+from aria_core import aria_engine, contextual_learner  # noqa: E402
 from storage import dynamodb, keys  # noqa: E402
 
 from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
@@ -241,7 +241,7 @@ class DummyConsumesProductionLearnerTests(unittest.TestCase):
         text = Path(src).read_text()
         self.assertNotIn("TD_ALPHA", text)
         self.assertNotIn("self_trainer", text)
-        self.assertIn("services.contextual_learner", text)
+        self.assertIn("aria_core.contextual_learner", text)
         self.assertIn("live-backend", text)
 
     def test_respond_attaches_the_same_learner_sidecar(self):

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 
-from services.biometrics import classify_batch
+from aria_core.biometrics import classify_batch
 from services.open_wearables import adapt_webhook, map_open_wearables_type
 from services.open_wearables.vocabulary import FORGE_METRICS
 

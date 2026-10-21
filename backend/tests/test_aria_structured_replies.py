@@ -7,7 +7,7 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine as A  # noqa: E402
+from aria_core import aria_engine as A  # noqa: E402
 
 REC = {"context": {
     "sleep": {"durationMinutes": 360, "deepMinutes": 45, "remMinutes": 70, "efficiency": 0.82, "hrv": 44, "nightsAvailable": 14},

@@ -17,7 +17,7 @@ import urllib.request
 from typing import Any, Callable
 
 from responses import RouteError
-from services import aria_engine
+from aria_core import aria_engine
 from services.provider_secrets import load_ai_provider_secret
 
 ELEVEN_API = "https://api.elevenlabs.io"
@@ -125,7 +125,7 @@ def living_context_block(user_id: str, body: dict[str, Any] | None = None) -> st
         (body or {}).get("permissions")
     )
     try:
-        from services import fusion as fusion_mod
+        from aria_core import fusion as fusion_mod
 
         fused = fusion_mod.fuse_turn(
             user_id, payload, permissions, persist=False, load_learner=False
@@ -218,7 +218,7 @@ def run_tool(body: dict[str, Any], *, user_id: str) -> dict[str, Any]:
     payload = dict(body)
     payload["user_id"] = user_id
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
-    from services import fusion as fusion_mod
+    from aria_core import fusion as fusion_mod
 
     fused = fusion_mod.fuse_turn(
         user_id, payload, permissions, persist=False, load_learner=True

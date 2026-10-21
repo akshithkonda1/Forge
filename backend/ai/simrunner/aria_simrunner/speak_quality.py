@@ -244,7 +244,7 @@ def medical_hits(text: str) -> list[str]:
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from services import guidance
+        from aria_core import guidance
 
         if guidance.contains_prescriptive_medical_language(raw):
             if "prescriptive-medical" not in {f.lower() for f in found}:

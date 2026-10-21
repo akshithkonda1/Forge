@@ -89,7 +89,12 @@ class RequestShapeTests(unittest.TestCase):
             self.assertIsNone(additional)
 
     def test_models_that_accept_sampling_keep_it(self):
-        for model in ("anthropic.claude-sonnet-4-6", "anthropic.claude-haiku-4-5", "global.xai.grok-4.6"):
+        for model in (
+            "anthropic.claude-sonnet-4-6",
+            "anthropic.claude-haiku-4-5",
+            "global.xai.grok-4.6",
+            "global.xai.grok-4.7",
+        ):
             inference, additional = converse_request_shape(model, max_tokens=700, temperature=0.3)
             self.assertEqual(inference, {"maxTokens": 700, "temperature": 0.3}, model)
             self.assertIsNone(additional)
@@ -125,14 +130,16 @@ class GatewayConverseTests(unittest.TestCase):
     def test_grok_request_is_unchanged(self):
         client = _FakeClient()
         with _Env(ARIA_BEDROCK_ENABLED="true"):
-            _call(_gateway(client), "global.xai.grok-4.6")
-        self.assertEqual(client.calls[0]["inferenceConfig"], {"maxTokens": 700, "temperature": 0.3})
+            _call(_gateway(client), "global.xai.grok-4.7")
+        # Gateway hard-caps maxTokens at HARD_MAX_TOKENS (512) even if the
+        # caller asked for 700. Grok still receives temperature.
+        self.assertEqual(client.calls[0]["inferenceConfig"], {"maxTokens": 512, "temperature": 0.3})
         self.assertNotIn("additionalModelRequestFields", client.calls[0])
 
 
 class DefaultModelTests(unittest.TestCase):
     def test_router_and_chat_default_to_claude_5_5(self):
-        from services import aria_engine
+        from aria_core import aria_engine
 
         models = ai_router.default_models()
         self.assertEqual(models[0].model_id, "global.anthropic.claude-sonnet-5-5")
@@ -140,8 +147,10 @@ class DefaultModelTests(unittest.TestCase):
         self.assertEqual(models[2].model_id, "global.xai.grok-4.7")
         self.assertEqual(aria_engine.LIVE_MODEL_IDS[aria_engine.MODEL_PRIMARY], "global.anthropic.claude-opus-5-5")
         self.assertEqual(aria_engine.LIVE_MODEL_IDS[aria_engine.MODEL_FAST], "global.anthropic.claude-sonnet-5-5")
+        self.assertEqual(aria_engine.LIVE_MODEL_IDS[aria_engine.MODEL_GROK], "global.xai.grok-4.7")
         for model in models[:2]:
             self.assertFalse(ai_router.accepts_sampling_params(model.model_id))
+        self.assertTrue(ai_router.accepts_sampling_params(models[2].model_id))
 
 
 if __name__ == "__main__":

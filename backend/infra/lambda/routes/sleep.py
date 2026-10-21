@@ -7,7 +7,7 @@ from typing import Any
 from responses import RouteError, ok
 from security import assert_body_user_matches_auth, demo_data_enabled
 from seed_data import default_sleep
-from services import aria_engine
+from aria_core import aria_engine
 from storage import dynamodb, keys
 
 # A frame at the client's own downscale settings (1024px, JPEG q0.55, same

@@ -5,7 +5,7 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 from services import provider_capabilities as caps  # noqa: E402
 
 

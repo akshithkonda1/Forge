@@ -26,7 +26,7 @@ from typing import Any
 
 from responses import RouteError, ok
 from security import assert_body_user_matches_auth, sanitize_user_text
-from services import aria_engine
+from aria_core import aria_engine
 
 # A frame at the client's own downscale settings (1024px, JPEG q0.55) lands well
 # under this; the cap is here so a malformed or hostile client cannot push a

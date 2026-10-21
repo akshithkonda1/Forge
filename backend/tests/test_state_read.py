@@ -14,7 +14,7 @@ import unittest
 import _bootstrap  # noqa: F401
 
 from aria_core import aria_engine, speak_guard, state_read  # noqa: E402
-from services.aria_engine import (  # noqa: E402
+from aria_core.aria_engine import (  # noqa: E402
     ARIAContext,
     LifestyleContext,
     ProgressContext,
@@ -508,7 +508,7 @@ class AttachAndPathTests(unittest.TestCase):
 
     def test_user_vault_note_matching_a_phrase_survives(self):
         from aria_core import contextual_learner, fusion
-        from services.aria_engine import DataPermissions
+        from aria_core.aria_engine import DataPermissions
 
         note = "lighter week than usual"
         self.assertIn(note, state_read.phrase_bank())
@@ -543,7 +543,7 @@ class AttachAndPathTests(unittest.TestCase):
 
     def test_fuse_turn_and_stamp_drop_a_state_read_from_memory(self):
         from aria_core import contextual_learner, fusion
-        from services.aria_engine import DataPermissions
+        from aria_core.aria_engine import DataPermissions
 
         phrase = state_read.SHORT_NIGHT[0]
         joined = f"{phrase}, so keep it easy."
@@ -603,7 +603,7 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
     """Nyx Scout day-14: equal 7.3 h called short, sentence twice, digits, Why."""
 
     def test_equal_and_near_usual_are_never_short(self):
-        from services.aria_engine import SLEEP_SHORT_MARGIN_MIN, _interpret_sleep
+        from aria_core.aria_engine import SLEEP_SHORT_MARGIN_MIN, _interpret_sleep
 
         class _Base:
             sleep_duration_min = 7.3 * 60
@@ -633,7 +633,7 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
             self.assertNotEqual(sig.direction, "negative", (night, sig.interpretation))
 
     def test_state_read_clause_never_has_digits_across_grid(self):
-        from services.aria_engine import _interpret_sleep
+        from aria_core.aria_engine import _interpret_sleep
 
         class _Base:
             def __init__(self, usual_min):
@@ -721,8 +721,8 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
         from backend.ai.simrunner.backend_simulator import model_registry as reg
         from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
         from backend.ai.simrunner.backend_simulator.data_generator import build_context
-        from services import fusion as fusion_mod
-        from services import aria_engine as engine_mod
+        from aria_core import fusion as fusion_mod
+        from aria_core import aria_engine as engine_mod
 
         permissions = engine_mod.DataPermissions.allow_all()
         markers = ("short night", "short for you", "around your usual", "below your usual")
@@ -791,8 +791,8 @@ class PartBBaselineBackfillTests(unittest.TestCase):
         from backend.ai.simrunner.backend_simulator import model_registry as reg
         from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
         from backend.ai.simrunner.backend_simulator.data_generator import build_context
-        from services import fusion as fusion_mod
-        from services.aria_engine import DataPermissions
+        from aria_core import fusion as fusion_mod
+        from aria_core.aria_engine import DataPermissions
 
         model = reg.get_models_by_tier(1)[0]
         stream = generate_stream(model["behavioral_profile"], seed=14)
@@ -826,8 +826,8 @@ class PartBBaselineBackfillTests(unittest.TestCase):
         (AriaOnDeviceHealthPolicy); nights are the /ai/observe snapshot
         fuse_turn reloads when this turn has none.
         """
-        from services import fusion as fusion_mod
-        from services.aria_engine import DataPermissions
+        from aria_core import fusion as fusion_mod
+        from aria_core.aria_engine import DataPermissions
 
         uid = "ios-chat-user"
         fusion_mod.fuse_turn(
@@ -865,8 +865,8 @@ class PartBBaselineBackfillTests(unittest.TestCase):
         self.assertIn(clause, state_read.SHORT_NIGHT, clause)
 
     def test_ios_shaped_payload_with_too_few_nights_stays_silent(self):
-        from services import fusion as fusion_mod
-        from services.aria_engine import DataPermissions
+        from aria_core import fusion as fusion_mod
+        from aria_core.aria_engine import DataPermissions
 
         uid = "ios-chat-thin"
         fusion_mod.fuse_turn(
@@ -902,8 +902,8 @@ class PartBBaselineBackfillTests(unittest.TestCase):
 
         from aria_core.biometrics.body_model import BodyModel
         from aria_core.biometrics.types import MetricType, Observation
-        from services import fusion as fusion_mod
-        from services.aria_engine import DataPermissions
+        from aria_core import fusion as fusion_mod
+        from aria_core.aria_engine import DataPermissions
 
         obs = [
             Observation(
@@ -931,8 +931,8 @@ class PartBBaselineBackfillTests(unittest.TestCase):
         self.assertEqual(restored.sleep.nights_available, 10)
 
     def test_overlay_keeps_a_client_sent_baseline(self):
-        from services import fusion as fusion_mod
-        from services.aria_engine import DataPermissions
+        from aria_core import fusion as fusion_mod
+        from aria_core.aria_engine import DataPermissions
 
         payload = {
             "include_stored": False,
@@ -1055,7 +1055,7 @@ class JoinAndPhraseTests(unittest.TestCase):
 
     def test_user_note_with_embedded_phrase_survives_fuse_and_stamp(self):
         from aria_core import contextual_learner, fusion
-        from services.aria_engine import DataPermissions
+        from aria_core.aria_engine import DataPermissions
 
         note = "Had a lighter week than usual because of travel"
         payload = {"context": {"lifestyle": {"recentPatterns": [note]}}}
@@ -1149,7 +1149,7 @@ class InsightTakeawayTests(unittest.TestCase):
 
 class AcwrAndGuideLabelTests(unittest.TestCase):
     def test_lambda_and_dummy_never_speak_acwr(self):
-        from services.aria_engine import generate_response
+        from aria_core.aria_engine import generate_response
         from aria_core.aria_engine import _VITALS_SPEAK as lambda_vitals
         from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (
             _VITALS_SPEAK as dummy_vitals,

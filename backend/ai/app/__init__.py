@@ -1,1 +1,0 @@
-"""Forge × ARIA intelligence engine."""

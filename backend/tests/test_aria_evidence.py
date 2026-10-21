@@ -6,8 +6,8 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine, aria_evidence  # noqa: E402
-from services.aria_engine import (  # noqa: E402
+from aria_core import aria_engine, aria_evidence  # noqa: E402
+from aria_core.aria_engine import (  # noqa: E402
     ARIAContext,
     ReadinessContext,
     SleepContext,
@@ -187,7 +187,7 @@ class LazyHandlerImportTests(unittest.TestCase):
             "import sys\n"
             f"sys.path.insert(0, {str(root / 'infra' / 'lambda')!r})\n"
             "import handler\n"
-            "assert 'services.aria_engine' not in sys.modules\n"
+            "assert 'aria_core.aria_engine' not in sys.modules\n"
             "print('ok')\n"
         )
         proc = subprocess.run(
