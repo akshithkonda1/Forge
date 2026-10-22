@@ -69,9 +69,9 @@ final class WeeklyAriaReviewStore: ObservableObject {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        let cleaned = Dictionary(uniqueKeysWithValues: questions.map { q in
+        let cleaned = Dictionary(questions.map { q in
             (q.id, answers[q.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
-        })
+        }, uniquingKeysWith: { first, _ in first })
 
         var facts: [String] = []
         if let energy = cleaned["energy"], !energy.isEmpty { facts.append("Weekly energy: \(energy)") }
