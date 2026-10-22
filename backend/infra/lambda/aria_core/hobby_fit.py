@@ -482,6 +482,36 @@ def lifestyle_time(hobbies: list[dict[str, Any]], today: str, week_days: list[st
     return {"engagedThisWeek": count, "trend": trend, "line": line}
 
 
+def engage(workouts: list[dict[str, Any]], existing: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge workout hints onto existing hobby rows. Duplicate ids keep first."""
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in existing:
+        item_id = str(row.get("id") or "").strip()
+        if not item_id or item_id in by_id:
+            continue
+        by_id[item_id] = dict(row)
+    for workout in workouts:
+        mapped = hobby_from_workout(
+            str(workout.get("name") or ""),
+            str(workout.get("type") or workout.get("typ") or ""),
+            str(workout.get("dateISO") or workout.get("date_iso") or ""),
+        )
+        if not mapped:
+            continue
+        item_id = mapped["id"]
+        current = by_id.get(item_id)
+        if current is None:
+            by_id[item_id] = mapped
+            continue
+        mapped_date = mapped.get("last_engaged_at") or ""
+        current_date = current.get("last_engaged_at") or ""
+        if mapped_date and mapped_date > current_date:
+            updated = dict(current)
+            updated["last_engaged_at"] = mapped_date
+            by_id[item_id] = updated
+    return sorted(by_id.values(), key=lambda row: str(row.get("label") or ""))
+
+
 def hobby_from_workout(name: str, typ: str, date_iso: str) -> dict[str, Any] | None:
     blob = f"{name} {typ}".lower()
     engaged = _engaged(date_iso)
