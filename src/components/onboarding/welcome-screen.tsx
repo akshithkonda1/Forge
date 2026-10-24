@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AriaMark } from "@/components/brand/aria-mark";
+import { ForgeStrikeMark } from "@/components/brand/forge-strike-mark";
 import {
   ForgeBrandMark,
   PremiumAtmosphere,
@@ -11,9 +12,20 @@ import {
   PremiumPrimaryButton,
   PremiumProgressDots,
 } from "@/components/brand/premium-atmosphere";
+import { FORGE_WELCOME, forgeWelcomeTagline } from "@/lib/forge-welcome";
 import { cn } from "@/lib/utils";
 
 const HOOKS = [
+  {
+    id: FORGE_WELCOME.firstPageId,
+    kicker: FORGE_WELCOME.firstPageKicker,
+    title: forgeWelcomeTagline(),
+    body: FORGE_WELCOME.firstPageBody,
+    reward: "",
+    accent: "#FF6B2B",
+    frost: "#A9D8FF",
+    icon: "+",
+  },
   {
     id: "aria",
     kicker: "Meet your coach",
@@ -113,7 +125,9 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           <PremiumEntrance key={`visual-${hook.id}`} index={0} className="mb-7">
             <PremiumFloat className="relative flex h-48 w-52 items-center justify-center">
               <PremiumPresenceBloom size={210} accent={hook.accent} frost={hook.frost} />
-              {hook.id === "aria" || hook.id === "forge" ? (
+              {hook.id === FORGE_WELCOME.firstPageId ? (
+                <ForgeStrikeMark size={140} className="relative z-10" />
+              ) : hook.id === "aria" || hook.id === "forge" ? (
                 <AriaMark size={140} speaking={hook.id === "aria"} label="ARIA" className="relative z-10" />
               ) : (
                 <div className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] shadow-[0_0_40px_rgba(247,244,240,0.06)]">
@@ -143,16 +157,18 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
               {hook.body}
             </p>
           </PremiumEntrance>
-          <PremiumEntrance key={`reward-${hook.id}`} index={4}>
-            <p
-              className={cn(
-                "mt-4 text-[13px] font-medium",
-                hook.id === "forge" ? "text-ember/90" : "text-text-tertiary"
-              )}
-            >
-              {hook.reward}
-            </p>
-          </PremiumEntrance>
+          {hook.reward ? (
+            <PremiumEntrance key={`reward-${hook.id}`} index={4}>
+              <p
+                className={cn(
+                  "mt-4 text-[13px] font-medium",
+                  hook.id === "forge" ? "text-ember/90" : "text-text-tertiary"
+                )}
+              >
+                {hook.reward}
+              </p>
+            </PremiumEntrance>
+          ) : null}
         </div>
 
         {/* CTA outside PremiumEntrance — no sheen/overflow/transform on the press target. */}

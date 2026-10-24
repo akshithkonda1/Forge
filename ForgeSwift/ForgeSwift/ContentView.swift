@@ -33,7 +33,7 @@ struct ContentView: View {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
-                    // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
+                    // Decorative: keep VoiceOver off the wordmark / tagline as it fades.
                     .accessibilityHidden(true)
                     // Never block Home if the hide animation stalls.
                     .allowsHitTesting(false)
@@ -96,31 +96,23 @@ struct ForgeSplashScreen: View {
                         frost: Color(hex: "A9D8FF"),
                         live: false
                     )
-                    AuroraOrbView(
-                        state: .idle,
-                        amplitude: 0.62,
-                        mood: .energized,
-                        size: 148,
-                        followPresence: false
-                    )
-                    .environment(\.forgeMinimalAnimation, true)
+                    ForgeStrikeMark(size: 168, labeled: false)
                 }
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
 
                 VStack(spacing: FDS.Spacing.md) {
-                    HStack(spacing: FDS.Spacing.md) {
-                        ForgeBrandMark(size: 22)
-                        Text("FORGE")
-                            .font(ForgeType.display)
-                            .tracking(6)
-                            .foregroundColor(Color.paper)
-                    }
+                    Text("FORGE")
+                        .font(ForgeType.display)
+                        .tracking(6)
+                        .foregroundColor(Color.paper)
 
-                    Text("Forged.")
+                    Text(ForgeWelcomeCopy.tagline)
                         .font(ForgeType.micro)
-                        .tracking(ForgeType.eyebrowTracking)
                         .foregroundColor(.textTertiary)
+                        .multilineTextAlignment(.center)
+                        .forgeWrapping()
+                        .padding(.horizontal, ForgeLayout.screenInset)
                 }
                 .opacity(logoOpacity)
                 .offset(y: textOffset)

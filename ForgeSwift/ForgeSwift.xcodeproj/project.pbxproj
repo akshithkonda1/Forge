@@ -50,6 +50,7 @@
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SIGIL0012F9FF867004091AA /* AriaSigil.swift */; };
 		1FIRE0022F9FF867004091AA /* ForgeFire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FIRE0012F9FF867004091AA /* ForgeFire.swift */; };
+		1STRK0022F9FF867004091AA /* ForgeStrikeMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1STRK0012F9FF867004091AA /* ForgeStrikeMark.swift */; };
 		1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0282F9FF867004091AA /* AriaPresence.swift */; };
 		1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */; };
 		1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */; };
@@ -360,6 +361,7 @@
 		A69C5E8D6A38B1C55A04BB31 /* AriaSafetyChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */; };
 		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
 		1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04500000000000000A /* ForgeSplashFireTests.swift */; };
+		1TEST05400000000000000A /* ForgeStrikeMarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST05300000000000000A /* ForgeStrikeMarkTests.swift */; };
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
 		1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */; };
@@ -506,6 +508,7 @@
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
 		1SIGIL0012F9FF867004091AA /* AriaSigil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigil.swift; sourceTree = "<group>"; };
 		1FIRE0012F9FF867004091AA /* ForgeFire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeFire.swift; sourceTree = "<group>"; };
+		1STRK0012F9FF867004091AA /* ForgeStrikeMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeStrikeMark.swift; sourceTree = "<group>"; };
 		1ARIA0282F9FF867004091AA /* AriaPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPresence.swift; sourceTree = "<group>"; };
 		1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWelcomeChime.swift; sourceTree = "<group>"; };
 		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
@@ -572,6 +575,7 @@
 		F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSafetyChatTests.swift; sourceTree = "<group>"; };
 		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
 		1TEST04500000000000000A /* ForgeSplashFireTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSplashFireTests.swift; sourceTree = "<group>"; };
+		1TEST05300000000000000A /* ForgeStrikeMarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeStrikeMarkTests.swift; sourceTree = "<group>"; };
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
 		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
 		1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
@@ -1065,6 +1069,7 @@
 				1NAV022F9FF867004091AA /* ForgeNavigation.swift */,
 				1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */,
 				1PREM0012F9FF867004091AA /* PremiumAtmosphere.swift */,
+				1STRK0012F9FF867004091AA /* ForgeStrikeMark.swift */,
 				1AUTH0042F9FF867004091AA /* AuthSignInView.swift */,
 				1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */,
 				AA0002000000000000000006 /* OnboardingView.swift */,
@@ -1388,6 +1393,7 @@
 				1TEST03B00000000000000A /* FriendFirstOnboardingTests.swift */,
 				1TEST02500000000000000A /* AriaSigilTests.swift */,
 				1TEST04500000000000000A /* ForgeSplashFireTests.swift */,
+				1TEST05300000000000000A /* ForgeStrikeMarkTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
 				1TEST03300000000000000A /* AriaVoiceSessionTests.swift */,
 				F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */,
@@ -1843,6 +1849,7 @@
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */,
 				1FIRE0022F9FF867004091AA /* ForgeFire.swift in Sources */,
+				1STRK0022F9FF867004091AA /* ForgeStrikeMark.swift in Sources */,
 				1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */,
 				1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
@@ -2042,6 +2049,7 @@
 				1TEST03C00000000000000A /* FriendFirstOnboardingTests.swift in Sources */,
 				1TEST02600000000000000A /* AriaSigilTests.swift in Sources */,
 				1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */,
+				1TEST05400000000000000A /* ForgeStrikeMarkTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
 				1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */,
 				A69C5E8D6A38B1C55A04BB31 /* AriaSafetyChatTests.swift in Sources */,

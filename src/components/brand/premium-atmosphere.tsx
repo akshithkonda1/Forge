@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ForgeStrikeMark } from "@/components/brand/forge-strike-mark";
 import { cn } from "@/lib/utils";
 
 /** Soft mesh wash — Oura / Whoop–class depth with living drift. */
@@ -117,20 +118,16 @@ export function PremiumPresenceBloom({
   );
 }
 
-export function ForgeBrandMark({ size = 22, className }: { size?: number; className?: string }) {
-  return (
-    <span
-      className={cn("premium-brand-mark inline-block shrink-0", className)}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.28,
-        background: "linear-gradient(135deg, rgba(247,244,240,0.95), rgba(255,77,0,0.92), #C43A00)",
-        boxShadow: "inset 0 0 0 0.8px rgba(255,255,255,0.28), 0 2px 10px rgba(255,77,0,0.28)",
-      }}
-      aria-hidden
-    />
-  );
+export function ForgeBrandMark({
+  size = 22,
+  labeled = false,
+  className,
+}: {
+  size?: number;
+  labeled?: boolean;
+  className?: string;
+}) {
+  return <ForgeStrikeMark size={size} labeled={labeled} className={className} />;
 }
 
 export function PremiumPrimaryButton({

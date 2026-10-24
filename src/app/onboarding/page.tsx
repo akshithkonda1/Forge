@@ -62,7 +62,7 @@ export default function OnboardingPage() {
       <div className="relative mx-auto flex min-h-[100dvh] max-w-lg flex-col items-center justify-center bg-background">
         <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.55} />
         <div className="relative z-10 flex flex-col items-center gap-3">
-          <ForgeBrandMark size={22} />
+          <ForgeBrandMark size={22} labeled />
           <p className="text-xs font-medium uppercase tracking-[0.28em] text-text-tertiary">
             Loading…
           </p>

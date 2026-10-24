@@ -177,6 +177,16 @@ private struct AuthHookPage: Identifiable {
 
     static let all: [AuthHookPage] = [
         AuthHookPage(
+            id: ForgeWelcomeCopy.firstPageId,
+            kicker: ForgeWelcomeCopy.firstPageKicker,
+            title: ForgeWelcomeCopy.tagline,
+            body: ForgeWelcomeCopy.firstPageBody,
+            icon: "hammer.fill",
+            accent: Color.ember,
+            frost: ForgeProgressChrome.plate,
+            reward: ""
+        ),
+        AuthHookPage(
             id: "aria",
             kicker: "Meet your coach",
             title: AriaOnboardingGuide.welcomeTitle,
@@ -300,21 +310,33 @@ private struct AuthHookPageView: View {
                 .lineSpacing(4)
                 .forgeWrapping()
 
-            Text(page.reward)
-                .font(HomeType.label)
-                .foregroundColor(page.id == "forge" ? Color.ember : Color.textTertiary)
-                .multilineTextAlignment(.center)
+            if !page.reward.isEmpty {
+                Text(page.reward)
+                    .font(HomeType.label)
+                    .foregroundColor(page.id == "forge" ? Color.ember : Color.textTertiary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .padding(.horizontal, ForgeLayout.screenInset)
     }
 
     @ViewBuilder
     private var visual: some View {
-        if page.id == "aria" {
+        if page.id == ForgeWelcomeCopy.firstPageId {
+            brandVisual
+        } else if page.id == "aria" {
             ariaVisual
         } else {
             iconVisual
         }
+    }
+
+    private var brandVisual: some View {
+        ZStack {
+            PremiumPresenceBloom(size: 170, accent: page.accent, frost: page.frost, live: false)
+            ForgeStrikeMark(size: 148)
+        }
+        .frame(width: 190, height: 190)
     }
 
     private var ariaVisual: some View {
@@ -367,6 +389,12 @@ private struct AuthHookPageView: View {
         // Flat paper glyphs; the page accent stays on the single CTA.
         LinearGradient.flat(Color.paper)
     }
+}
+
+enum AuthWelcomePages {
+    static var count: Int { AuthHookPage.all.count }
+    static var firstId: String { AuthHookPage.all.first?.id ?? "" }
+    static var firstTitle: String { AuthHookPage.all.first?.title ?? "" }
 }
 
 private extension Array {

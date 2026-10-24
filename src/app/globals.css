@@ -567,6 +567,103 @@
   animation: premium-speckle 5.5s ease-in-out infinite;
 }
 
+/* One-shot Forge strike. Idle pose is the settled hammer. Reduce Motion stays still. */
+.forge-strike-mark {
+  display: block;
+  overflow: visible;
+}
+
+.forge-strike-hammer {
+  transform-box: view-box;
+  transform-origin: 54px 58px;
+  transform: rotate(-16deg);
+}
+
+.forge-strike-flame {
+  transform-box: view-box;
+  transform-origin: 42px 72px;
+}
+
+.forge-strike-glow,
+.forge-strike-spark {
+  opacity: 0;
+}
+
+.forge-strike-mark:not(.is-static):not(.is-compact) .forge-strike-hammer {
+  animation: forge-strike-hammer 0.55s cubic-bezier(0.22, 0.82, 0.2, 1) both;
+}
+
+.forge-strike-mark:not(.is-static):not(.is-compact) .forge-strike-flame {
+  animation: forge-strike-flame 0.55s cubic-bezier(0.22, 0.82, 0.2, 1) both;
+}
+
+.forge-strike-mark:not(.is-static):not(.is-compact) .forge-strike-glow {
+  animation: forge-strike-glow 0.55s ease-out both;
+}
+
+.forge-strike-mark:not(.is-static):not(.is-compact) .forge-strike-spark {
+  animation: forge-strike-spark 0.55s ease-out both;
+}
+
+@keyframes forge-strike-hammer {
+  0%,
+  22% {
+    transform: rotate(-44deg);
+  }
+  40% {
+    transform: rotate(8deg);
+  }
+  62%,
+  100% {
+    transform: rotate(-16deg);
+  }
+}
+
+@keyframes forge-strike-flame {
+  0%,
+  38% {
+    transform: scale(0.94, 0.72);
+  }
+  46% {
+    transform: scale(1.05, 1.16);
+  }
+  88%,
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes forge-strike-glow {
+  0%,
+  38% {
+    opacity: 0;
+  }
+  46% {
+    opacity: 0.55;
+  }
+  88%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes forge-strike-spark {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  52% {
+    opacity: 0.85;
+    transform: translate(var(--spark-x), var(--spark-y)) scale(1);
+  }
+  76%,
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--spark-x) * 1.35), calc(var(--spark-y) * 1.35)) scale(0.2);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .premium-enter,
   .premium-sheet-rise,
@@ -586,7 +683,11 @@
   .premium-bloom-breathe,
   .premium-bloom-orbit,
   .premium-cta-sheen,
-  .premium-brand-mark {
+  .premium-brand-mark,
+  .forge-strike-hammer,
+  .forge-strike-flame,
+  .forge-strike-glow,
+  .forge-strike-spark {
     animation: none !important;
   }
 

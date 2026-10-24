@@ -42,19 +42,13 @@ struct PremiumPresenceBloom: View {
     }
 }
 
-/// Compact Forge mark — a solid ember tile with a hairline edge. No sheen.
+/// Compact Forge mark — procedural hammer-and-flame silhouette.
 struct ForgeBrandMark: View {
     var size: CGFloat = 22
+    var labeled: Bool = false
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(Color.ember)
-            .frame(width: size, height: size)
-            .overlay(
-                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.5)
-            )
-            .accessibilityHidden(true)
+        ForgeStrikeMark(size: size, labeled: labeled)
     }
 }
 

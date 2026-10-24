@@ -1,0 +1,14 @@
+{
+  "kind": "forge-welcome",
+  "notes": "ONE place to switch the live welcome tagline. Change activeIndex only: 0 primary, 1 heat, 2 work. iOS ForgeWelcomeCopy and web FORGE_WELCOME must stay lockstep with this file. Do not invent a second list.",
+  "activeIndex": 0,
+  "taglines": [
+    "Forged, not promised. The rest is you.",
+    "We bring the heat. You do the shaping.",
+    "Stronger than you came in, if you put in the work."
+  ],
+  "markLabel": "Forge mark, a hammer striking a flame",
+  "firstPageId": "brand",
+  "firstPageKicker": "Forge",
+  "firstPageBody": "A calm place to train and live. The work is still yours."
+}

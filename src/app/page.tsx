@@ -9,14 +9,14 @@ import { HomePage } from "@/components/home/home-page";
 import { ChatPage } from "@/components/chat/chat-page";
 import { WorkoutPage } from "@/components/workout/workout-page";
 import { AriaIntro } from "@/components/brand/aria-intro";
-import { AriaMark } from "@/components/brand/aria-mark";
+import { ForgeStrikeMark } from "@/components/brand/forge-strike-mark";
 import {
-  ForgeBrandMark,
   PremiumAtmosphere,
   PremiumFloat,
   PremiumPresenceBloom,
 } from "@/components/brand/premium-atmosphere";
 import { forgeSplashHoldMs, peekPersistedOnboarded } from "@/lib/forge-splash";
+import { forgeWelcomeTagline } from "@/lib/forge-welcome";
 import { cn } from "@/lib/utils";
 
 const SleepPage = dynamic(
@@ -56,10 +56,8 @@ function TabSkeleton({ label }: { label: string }) {
 }
 
 function BootSplash({
-  live = false,
   compact = false,
 }: {
-  live?: boolean;
   compact?: boolean;
 }) {
   return (
@@ -68,20 +66,19 @@ function BootSplash({
       <div className="relative z-10 flex flex-col items-center">
         {compact ? (
           <div className="relative flex h-28 w-28 items-center justify-center">
-            <AriaMark size={72} speaking={false} label="ARIA" className="relative z-10" />
+            <ForgeStrikeMark size={72} className="relative z-10" />
           </div>
         ) : (
           <PremiumFloat className="relative flex h-56 w-56 items-center justify-center">
             <PremiumPresenceBloom size={220} />
-            <AriaMark size={148} speaking={live} label="ARIA" className="relative z-10" />
+            <ForgeStrikeMark size={148} className="relative z-10" />
           </PremiumFloat>
         )}
-        <div className="premium-enter mt-5 flex items-center gap-2.5 text-[28px] font-semibold tracking-[0.22em] text-text-primary">
-          <ForgeBrandMark size={22} />
+        <div className="premium-enter mt-5 text-[28px] font-semibold tracking-[0.22em] text-text-primary">
           FORGE
         </div>
-        <p className="premium-kicker-glow mt-3 text-xs font-medium uppercase tracking-[0.32em] text-text-tertiary">
-          {compact ? "Loading…" : "Forged."}
+        <p className="mt-3 max-w-xs text-center text-xs font-medium text-text-tertiary">
+          {compact ? "Loading…" : forgeWelcomeTagline()}
         </p>
       </div>
     </div>
@@ -182,7 +179,7 @@ export default function Page() {
   }, [activeTab]);
 
   if (showSplash) {
-    return <BootSplash live={!returning} compact={returning} />;
+    return <BootSplash compact={returning} />;
   }
 
   if (!hasHydrated) {
