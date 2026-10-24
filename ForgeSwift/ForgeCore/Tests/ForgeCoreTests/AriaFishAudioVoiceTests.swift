@@ -30,6 +30,7 @@ final class AriaFishAudioVoiceTests: XCTestCase {
             environment: [
                 AriaFishAudioVoice.apiKeyEnvironment: " env-key ",
                 AriaFishAudioVoice.modelEnvironment: AriaFishAudioVoice.paidModel,
+                AriaFishAudioVoice.paidOptInEnvironment: "true",
             ],
             infoDictionary: [
                 AriaFishAudioVoice.infoKeyAPIKey: "plist-key",
@@ -132,9 +133,16 @@ final class AriaFishAudioVoiceTests: XCTestCase {
     func testUnknownModelFallsBackToFreeTier() {
         XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("not-a-model"), "s2.1-pro-free")
         XCTAssertEqual(AriaFishAudioVoice.sanitizeModel(nil), "s2.1-pro-free")
-        XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("s2.1-pro"), "s2.1-pro")
+        XCTAssertEqual(
+            AriaFishAudioVoice.sanitizeModel("s2.1-pro"),
+            "s2.1-pro-free",
+            "Paid model requires FISH_AUDIO_USE_PAID"
+        )
+        XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("s2.1-pro", paidOptIn: true), "s2.1-pro")
         XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("s2.1-pro-free"), "s2.1-pro-free")
         XCTAssertEqual(AriaFishAudioVoice.sanitizeModel("s1"), "s2.1-pro-free")
+        XCTAssertEqual(AriaFishAudioVoice.requireModel(""), "s2.1-pro-free")
+        XCTAssertEqual(AriaFishAudioVoice.freePromoEnds, "2026-11-30")
     }
 
     func testRequestUsesBearerAndModelHeaderWithoutEmbeddingAHardcodedSecret() {
@@ -153,6 +161,8 @@ final class AriaFishAudioVoiceTests: XCTestCase {
         let body = try? JSONSerialization.jsonObject(with: request?.httpBody ?? Data()) as? [String: Any]
         XCTAssertEqual(body?["text"] as? String, "I'm ARIA.")
         XCTAssertEqual(body?["format"] as? String, "mp3")
+        XCTAssertEqual(body?["model"] as? String, "s2.1-pro-free")
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "model"), "s2.1-pro-free")
         XCTAssertEqual(body?["reference_id"] as? String, "aria-ref")
         XCTAssertFalse((request?.url?.absoluteString ?? "").contains("test-key"))
     }

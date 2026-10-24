@@ -203,6 +203,7 @@ export function ChatPage() {
   // -----------------------------------------------------------------------
 
   const speakReply = useCallback((text: string) => {
+    // Local mock chat is Dummy: on-device only. Never fetch Fish / Polly.
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text.slice(0, 420));

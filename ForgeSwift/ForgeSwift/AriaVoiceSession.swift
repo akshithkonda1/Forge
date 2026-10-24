@@ -7,10 +7,11 @@ import ForgeCore
 ///
 /// Transport uses the same two gates as `AriaService.sendMessage`, in the same
 /// order, and never silently upgrades dummy → cloud. Dummy and local testing
-/// stay on-device (SpeechManager STT + dummy/local brain via chat). Live opens
-/// ElevenLabs ConvAI with a short-lived signed URL from Forge — the API key
-/// never lands on the phone. A 911 / triage session is the exception: it is
-/// always on-device (`keepingOnDevice`), so ARIA's own copy is what is said.
+/// stay on-device (SpeechManager STT + dummy/local brain via chat). Live
+/// speaks through Fish Audio (`POST /ai/voice/speak`). ElevenLabs ConvAI
+/// remains in this file as a disabled next-evolution slot — it is never
+/// started. A 911 / triage session is the exception: it is always on-device
+/// (`keepingOnDevice`), so ARIA's own copy is what is said.
 @MainActor
 @Observable
 final class AriaVoiceSession {

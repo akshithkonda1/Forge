@@ -49,31 +49,44 @@ final class AriaVoiceSessionTests: XCTestCase {
     }
 
     func testFishAudioMouthRequiresAConfiguredKey() {
-        XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: true, hasKey: true))
-        XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: false))
-        XCTAssertTrue(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: true))
         XCTAssertFalse(
-            AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
+            AriaVoiceMouth.allowsCloudVoice(isDummy: true, isLocalTesting: false, offline: false)
+        )
+        XCTAssertFalse(
+            AriaVoiceMouth.allowsCloudVoice(isDummy: false, isLocalTesting: true, offline: false)
+        )
+        XCTAssertFalse(
+            AriaVoiceMouth.allowsCloudVoice(isDummy: false, isLocalTesting: false, offline: true)
+        )
+        XCTAssertTrue(
+            AriaVoiceMouth.allowsCloudVoice(isDummy: false, isLocalTesting: false, offline: false)
+        )
+        XCTAssertFalse(
+            AriaVoiceMouth.shouldEnqueueFishAudio(
                 isMuted: false,
-                hasLocalKey: false,
-                backendReachable: false
+                hasKey: true,
+                allowsCloudVoice: true
             ),
-            "Dummy-offline must not POST Hex"
+            "Production never sends a local Fish key"
         )
         XCTAssertFalse(
             AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
                 isMuted: false,
-                hasLocalKey: true,
-                backendReachable: true
-            )
+                hasLocalKey: false,
+                backendReachable: true,
+                allowsCloudVoice: false
+            ),
+            "Dummy / offline must not POST Hex"
         )
         XCTAssertTrue(
             AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
                 isMuted: false,
                 hasLocalKey: false,
-                backendReachable: true
+                backendReachable: true,
+                allowsCloudVoice: true
             )
         )
+        XCTAssertFalse(AriaCharacterVoice.elevenLabsProviderEnabled)
         let store = InMemorySecureStore()
         let missing = AriaVoiceMouth.currentFishAudioConfig(
             environment: [:],

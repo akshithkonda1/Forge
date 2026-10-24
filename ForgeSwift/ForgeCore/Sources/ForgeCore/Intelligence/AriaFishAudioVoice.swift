@@ -22,6 +22,10 @@ public enum AriaFishAudioVoice: Sendable {
     public static let backendPath = "ai/voice/speak"
     public static let defaultModel = "s2.1-pro-free"
     public static let paidModel = "s2.1-pro"
+    public static let paidOptInEnvironment = "FISH_AUDIO_USE_PAID"
+    /// Free promo ends this day. After it, Hex falls back unless re-enabled.
+    public static let freePromoEnds = "2026-11-30"
+    public static let onDeviceCode = "tts_on_device"
     public static let previewText =
         "I'm ARIA. Let's look at how you actually slept and what that means for training today. One next move, not a new identity."
     public static let voiceBusyCode = "fish_voice_busy"
@@ -78,8 +82,10 @@ public enum AriaFishAudioVoice: Sendable {
             secureStoreValue,
             infoDictionary[infoKeyAPIKey] as? String
         )
+        let paid = paidOptIn(environment: environment)
         let model = sanitizeModel(
-            firstNonEmpty(environment[modelEnvironment], infoDictionary[infoKeyModel] as? String)
+            firstNonEmpty(environment[modelEnvironment], infoDictionary[infoKeyModel] as? String),
+            paidOptIn: paid
         )
         let reference = firstNonEmpty(
             environment[referenceEnvironment],
@@ -109,10 +115,22 @@ public enum AriaFishAudioVoice: Sendable {
         return tokens.contains { lower.contains($0) }
     }
 
-    public static func sanitizeModel(_ raw: String?) -> String {
+    public static func paidOptIn(environment: [String: String]) -> Bool {
+        let raw = (environment[paidOptInEnvironment] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        return ["1", "true", "yes", "on"].contains(raw)
+    }
+
+    public static func sanitizeModel(_ raw: String?, paidOptIn: Bool = false) -> String {
         let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if allowedModels.contains(trimmed) { return trimmed }
+        if paidOptIn && trimmed == paidModel { return paidModel }
         return defaultModel
+    }
+
+    public static func requireModel(_ raw: String?, paidOptIn: Bool = false) -> String {
+        let chosen = sanitizeModel(raw, paidOptIn: paidOptIn)
+        return chosen.isEmpty ? defaultModel : chosen
     }
 
     /// Bearer + `model` header + JSON `{ text, format }`. Nil when the key
@@ -123,11 +141,12 @@ public enum AriaFishAudioVoice: Sendable {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(config.model, forHTTPHeaderField: "model")
+        request.setValue(requireModel(config.model), forHTTPHeaderField: "model")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = [
             "text": line,
             "format": "mp3",
+            "model": requireModel(config.model),
             "mp3_bitrate": 128,
             "normalize": true,
             "latency": "normal",
@@ -179,6 +198,14 @@ public enum AriaFishAudioVoice: Sendable {
             options: []
         )
         return request
+    }
+
+    public static func isOnDeviceFallback(_ data: Data) -> Bool {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return false
+        }
+        return (json["provider"] as? String) == "on_device"
+            || (json["code"] as? String) == onDeviceCode
     }
 
     public static func isVoiceBusy(_ data: Data) -> Bool {

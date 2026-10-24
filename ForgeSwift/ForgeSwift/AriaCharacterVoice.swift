@@ -11,14 +11,15 @@ import ForgeCore
 ///   is real; spoken audio is a local fill-in so testers hear that a mouth ran.
 ///   Not compact Samantha, and never a cloned character.
 /// * **Local testing** — same session UX, on-device brain, DEBUG fill-in.
-/// * **Live** — Fish Audio S2.1-Pro via `POST /ai/voice/speak`. Apple catalog
-///   TTS is never the production mouth. A busy Fish slot shows the text reply.
-/// * **Fish Audio** — the only cloud TTS (`docs.fish.audio`). Hex keeps
-///   `FISH_AUDIO_API_KEY` on Lambda (env / Secrets). The phone POSTs
-///   `/ai/voice/speak`. Dummy / Device Hub may also resolve a local key
-///   from env, Keychain (`forge.voice.fishAudio.apiKey`), or Info.plist.
-///   Bearer + `model` header (`s2.1-pro-free` default). Dummy-offline
-///   never calls Hex. No local key and no backend means this path is off.
+/// * **Live** — preferred mouth is Fish Audio S2.1 via `POST /ai/voice/speak`.
+///   Fallback order: Fish → Polly → on-device. Apple catalog TTS is not the
+///   preferred live mouth. Busy / quota / privacy-unguaranteed lines use
+///   on-device. ElevenLabs ConvAI is a disabled next-evolution slot.
+/// * **Fish Audio** — preferred cloud TTS (`docs.fish.audio`). Hex keeps
+///   `FISH_AUDIO_API_KEY` in SSM / Secrets Manager. The phone POSTs
+///   `/ai/voice/speak` and never holds the production key. Dummy / offline
+///   never call Fish, Polly, or ElevenLabs. The `model` header is always
+///   `s2.1-pro-free` unless an explicit paid opt-in is set.
 ///
 /// This file must stay network-free (`URLSession` / `URLRequest`). Routing is
 /// decided here; live I/O lives in `AriaVoiceSession`.
@@ -42,12 +43,18 @@ enum AriaCharacterVoice: Sendable {
     /// Production never uses Apple Zoe / Samantha as ARIA.
     static let productionUsesAppleTTS = false
 
-    /// Live stream failure stays quiet. Dummy never silently "upgrades" to cloud.
+    /// Live stream failure stays quiet unless the server asked for on-device
+    /// (quota, privacy, promo, or 429 after retries). Dummy never upgrades.
     static let liveFailureFallsBackToAppleTTS = false
     static let dummyUpgradesToLiveOnFailure = false
+    static let quotaFallsBackToOnDevice = true
+    static let privacyFallsBackToOnDevice = true
 
-    /// Fish Audio is a configured mouth, not a silent upgrade from Dummy.
+    /// Fish Audio is the preferred live mouth, not a silent upgrade from Dummy.
     static let dummyUpgradesToFishAudioOnFailure = false
+
+    /// ElevenLabs ConvAI remains in this target as a disabled slot.
+    static let elevenLabsProviderEnabled = false
 }
 
 /// Same gates as `AriaService.sendMessage`, in the same order: test-ready dummy
@@ -129,18 +136,36 @@ enum AriaVoiceMouth: Sendable {
         return reply.message.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Local Fish Audio only when a live key is present and they have not muted.
-    static func shouldEnqueueFishAudio(isMuted: Bool, hasKey: Bool) -> Bool {
-        !isMuted && hasKey
+    /// Dummy / local testing / dummy-offline never open a cloud mouth.
+    static func allowsCloudVoice(
+        isDummy: Bool,
+        isLocalTesting: Bool,
+        offline: Bool
+    ) -> Bool {
+        !(isDummy || isLocalTesting || offline)
     }
 
-    /// Hex proxy when the phone has no key. Dummy-offline is not reachable.
+    /// Local Fish key is not a production path. Live speaks through Hex.
+    static func shouldEnqueueFishAudio(
+        isMuted: Bool,
+        hasKey: Bool,
+        allowsCloudVoice: Bool = false
+    ) -> Bool {
+        _ = hasKey
+        _ = allowsCloudVoice
+        _ = isMuted
+        return false
+    }
+
+    /// Hex proxy. Dummy / offline never reach here.
     static func shouldEnqueueFishAudioViaBackend(
         isMuted: Bool,
         hasLocalKey: Bool,
-        backendReachable: Bool
+        backendReachable: Bool,
+        allowsCloudVoice: Bool
     ) -> Bool {
-        !isMuted && !hasLocalKey && backendReachable
+        _ = hasLocalKey
+        return !isMuted && backendReachable && allowsCloudVoice
     }
 
     static func currentFishAudioConfig(

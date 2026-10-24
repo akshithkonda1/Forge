@@ -170,15 +170,26 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     ) {
         guard AriaSpokenMute.allowsSpeech else { return }
         guard AriaSpeechPrep.spokenLine(in: text) != nil else { return }
+        let offline = AriaFishAudioVoice.isDummyOfflineAPI(AriaService.shared.baseURL)
+        let allowsCloud = AriaVoiceMouth.allowsCloudVoice(
+            isDummy: AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy,
+            isLocalTesting: AriaOperatingMode.current.isLocalTesting,
+            offline: offline
+        )
         let fish = AriaVoiceMouth.currentFishAudioConfig()
-        if AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: fish.isConfigured) {
+        if AriaVoiceMouth.shouldEnqueueFishAudio(
+            isMuted: false,
+            hasKey: fish.isConfigured,
+            allowsCloudVoice: allowsCloud
+        ) {
             speakViaFishAudio(text, config: fish, interrupt: interrupt, session: session)
             return
         }
         if AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
             isMuted: false,
             hasLocalKey: fish.isConfigured,
-            backendReachable: AriaFishAudioVoice.isBackendReachable(AriaService.shared.baseURL)
+            backendReachable: AriaFishAudioVoice.isBackendReachable(AriaService.shared.baseURL),
+            allowsCloudVoice: allowsCloud
         ) {
             speakViaFishAudioBackend(text, interrupt: interrupt, session: session)
             return
@@ -220,7 +231,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         session: ForgePlaybackSession
     ) {
         guard let request = AriaFishAudioVoice.makeRequest(text: text, config: config) else { return }
-        playFishAudio(request: request, interrupt: interrupt, session: session, viaBackend: false)
+        playFishAudio(text, request: request, interrupt: interrupt, session: session, viaBackend: false)
     }
 
     /// Hex: Lambda holds `FISH_AUDIO_API_KEY`. Dummy-offline never reaches here.
@@ -229,15 +240,54 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         interrupt: Bool,
         session: ForgePlaybackSession
     ) {
+        let cleaned = AriaTTSPrivacy.sanitize(text)
+        guard cleaned.canSendToCloud else {
+            speakOnDeviceFallback(text, interrupt: interrupt, session: session)
+            return
+        }
         guard let request = AriaFishAudioVoice.makeBackendRequest(
-            text: text,
+            text: cleaned.text,
             baseURL: AriaService.shared.baseURL,
             selection: AriaVoiceCatalog.Selection.load()
         ) else { return }
-        playFishAudio(request: request, interrupt: interrupt, session: session, viaBackend: true)
+        playFishAudio(cleaned.text, request: request, interrupt: interrupt, session: session, viaBackend: true)
+    }
+
+    private func speakOnDeviceFallback(
+        _ text: String,
+        interrupt: Bool,
+        session: ForgePlaybackSession
+    ) {
+        let transport = AriaVoiceSession.shared.activeTransport ?? .dummy
+        guard AriaVoiceMouth.shouldEnqueueAppleUtterance(
+            isMuted: false,
+            sessionActive: AriaVoiceSession.shared.isActive || AriaCharacterVoice.quotaFallsBackToOnDevice,
+            transport: transport.usesOnDeviceBrain ? transport : .localTesting
+        ) || AriaCharacterVoice.quotaFallsBackToOnDevice else {
+            isSpeaking = false
+            AriaVoiceSession.shared.mouthDidFinish()
+            return
+        }
+        guard AriaSpokenVoice.hasInstalledIdentity() else {
+            isSpeaking = false
+            AriaVoiceSession.shared.mouthDidFinish()
+            return
+        }
+        let started = AriaSpeechPrep.enqueue(
+            text,
+            on: synthesizer,
+            interrupt: interrupt,
+            stopAt: .immediate,
+            session: session
+        )
+        isSpeaking = started
+        if !started {
+            AriaVoiceSession.shared.mouthDidFinish()
+        }
     }
 
     private func playFishAudio(
+        _ text: String,
         request: URLRequest,
         interrupt: Bool,
         session: ForgePlaybackSession,
@@ -258,15 +308,14 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
                 if viaBackend {
                     let (payload, _) = try await ForgeAPI.send(request)
                     guard generation == fishGeneration else { return }
-                    if AriaFishAudioVoice.isVoiceBusy(payload) {
+                    if AriaFishAudioVoice.isVoiceBusy(payload)
+                        || AriaFishAudioVoice.isOnDeviceFallback(payload) {
                         await MainActor.run { AriaVoiceProfileStore.shared.noteBusy(true) }
-                        isSpeaking = false
-                        AriaVoiceSession.shared.mouthDidFinish()
+                        speakOnDeviceFallback(text, interrupt: interrupt, session: session)
                         return
                     }
                     guard let speech = AriaFishAudioVoice.decodeBackendSpeech(payload) else {
-                        isSpeaking = false
-                        AriaVoiceSession.shared.mouthDidFinish()
+                        speakOnDeviceFallback(text, interrupt: interrupt, session: session)
                         return
                     }
                     await MainActor.run { AriaVoiceProfileStore.shared.noteBusy(false) }
@@ -295,10 +344,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
                 }
             } catch {
                 guard generation == fishGeneration else { return }
-                isSpeaking = false
-                // Failed line: hand the turn back so the orb leaves
-                // "ARIA speaking" and the mic reopens.
-                AriaVoiceSession.shared.mouthDidFinish()
+                speakOnDeviceFallback(text, interrupt: interrupt, session: session)
             }
         }
     }
