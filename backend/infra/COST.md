@@ -1,7 +1,8 @@
 # Forge AWS cost control
 
 Plan-only. **No apply.** Bedrock stays off (`aria_bedrock_enabled` default
-false). Scout stays off (`enable_scout` default false). The CloudWatch
+false). Scout stays off (`enable_scout` default false). Open Wearables
+stays off (`enable_open_wearables` default false). The CloudWatch
 dashboard stays off (`enable_cost_dashboard` default false — $3/month).
 
 ## Token audit
@@ -18,7 +19,7 @@ fail-paused), or when the per-user daily cap is exhausted.
 | `/coach/*` | `_safe_route` → `AIRouter` | Same as router + coach context block | same | Pause-gated at the handler. Falls back if Bedrock is off. |
 | `POST /workouts/form-check` `mode=briefing` | `generate_coach_text` | `live_system_prompt` + briefing task + snapshot ≤4k chars | 512 | **Not** handler-gated (degraded path stays up). Gateway + `is_aria_paused()` still block Converse. |
 | `POST /sleep/environment-check` | `generate_coach_vision` | Sleep specialist + image | 512 | Same: no Converse while paused. |
-| `POST /ai/voice/speak` | Fish Audio S2.1-Pro TTS (`s2.1-pro-free` default) | Outside AWS. Bedrock stays off. | — | HTTP stays up. 429 → text reply shown. |
+| `POST /ai/voice/speak` | Kokoro on-device TTS | Not an AWS spend. Bedrock stays off. | — | HTTP stays up. Leftover ElevenLabs / Fish SSM params are not created. |
 | `POST /ai/archetype` | simrunner `bedrock_client` when live | Short JSON instruction | 700 (simrunner only) | Lambda wraps and falls back locally. |
 | Scout `GrokBrain` | `plan` + `synthesize` | Plan ~200 tok out; synth 512 | 200 / **512** (was 700) | **Off** unless `enable_scout` and `aria_bedrock_enabled`. User-data no longer hardcodes Bedrock on. |
 | SimRunner `bedrock_client.converse` | `--live` CLI only | Eval prompts | 700 | Not in the Lambda plan. Dummy orchestrator never calls it. |
@@ -152,7 +153,8 @@ health/dashboard pennies.
 
 **What would make this expensive:** `aria_bedrock_enabled=true` without the
 daily cap, `enable_scout=true` (the box is ~$17/month before tokens — see
-the Scout handoff scenario below), `enable_cost_dashboard=true` (+$3), a
+the Scout handoff scenario below), `enable_open_wearables=true` (the box
+is ~$21/month at 100 MAU), `enable_cost_dashboard=true` (+$3), a
 second CloudTrail, or provisioned concurrency (CI-blocked).
 
 Leave `spend_guard_notification_email` for Akshith. The $25 budget fires

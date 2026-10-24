@@ -66,12 +66,9 @@ locals {
   ssm_aria_paused           = "/${local.name_prefix}/ai/ARIA_PAUSED"
   ssm_open_wearables_prefix = "/${local.name_prefix}/open-wearables"
 
-  ai_router_model_1_id   = var.ai_router_model_1_id != "" ? var.ai_router_model_1_id : "global.anthropic.claude-sonnet-5-5"
-  ai_router_model_2_id   = var.ai_router_model_2_id != "" ? var.ai_router_model_2_id : "global.anthropic.claude-opus-5-5"
-  ai_router_model_3_id   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.7"
-  ai_router_model_1_name = var.ai_router_model_1_name != "" ? var.ai_router_model_1_name : "Claude Sonnet 5.5"
-  ai_router_model_2_name = var.ai_router_model_2_name != "" ? var.ai_router_model_2_name : "Claude Opus 5.5"
-  ai_router_model_3_name = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Grok"
+  ai_router_model_1_id = var.ai_router_model_1_id != "" ? var.ai_router_model_1_id : "global.anthropic.claude-sonnet-5-5"
+  ai_router_model_2_id = var.ai_router_model_2_id != "" ? var.ai_router_model_2_id : "global.anthropic.claude-opus-5-5"
+  ai_router_model_3_id = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.7"
 
   bedrock_configured_profile_ids = distinct(compact([
     local.ai_router_model_1_id,
