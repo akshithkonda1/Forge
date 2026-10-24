@@ -7,6 +7,8 @@ import os
 import unittest
 from datetime import datetime, timezone
 
+import _bootstrap  # noqa: F401
+
 from handler import handler
 from storage import dynamodb, keys
 

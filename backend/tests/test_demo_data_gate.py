@@ -263,8 +263,14 @@ class IngestedMetricsTests(_EnvCase):
              "startedAt": f"{day}T09:00:00+00:00", "value": 100, "unit": "count"},
         ])
         metrics = body_of(handler(event("GET", "/dashboard/today"), None))["dailyMetrics"]
-        self.assertEqual(metrics["deepSleep"], 71)
-        self.assertEqual(metrics["totalSleep"], 390)
+        # /health/batch no longer seeds METRIC#, so dashboard dailyMetrics
+        # stay empty. The sleep session itself is still listed on /sleep.
+        self.assertIsNone(metrics["steps"])
+        self.assertIsNone(metrics["deepSleep"])
+        self.assertIsNone(metrics["totalSleep"])
+        listed = body_of(handler(event("GET", "/sleep", query={"days": "5"}), None))["sleep"]
+        self.assertEqual(listed[0]["deepMinutes"], 71)
+        self.assertEqual(listed[0]["totalHours"], 6.5)
 
 
 class ProductionProfileTests(_EnvCase):
