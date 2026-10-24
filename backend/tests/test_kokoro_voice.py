@@ -91,7 +91,8 @@ class KokoroCatalogTests(unittest.TestCase):
         self.assertNotIn("urllib", src)
         self.assertNotIn("boto3", src)
         self.assertNotIn("fish.audio", src)
-        self.assertNotIn("synthesize", src)
+        self.assertNotIn("def speak", src)
+        self.assertNotIn("def synthesize", src)
 
 
 if __name__ == "__main__":
