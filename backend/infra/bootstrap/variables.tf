@@ -2,6 +2,11 @@ variable "aws_region" {
   description = "AWS region for the Terraform state bucket."
   type        = string
   default     = "us-east-1"
+
+  validation {
+    condition     = can(regex("^[a-z]{2}(?:-[a-z]+)+-\\d+$", var.aws_region))
+    error_message = "aws_region must be a valid AWS region id (e.g. us-east-1)."
+  }
 }
 
 variable "skip_aws_provider_checks" {
@@ -26,6 +31,41 @@ variable "state_bucket_deploy_role_arn" {
   EOT
   type        = string
   default     = ""
+}
+
+variable "github_repository" {
+  description = "GitHub org/repo allowed to assume the deploy role via OIDC (e.g. akshithkonda1/Forge)."
+  type        = string
+  default     = "akshithkonda1/Forge"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_repository))
+    error_message = "github_repository must be org/repo."
+  }
+}
+
+variable "github_oidc_allowed_subs" {
+  description = <<-EOT
+    token.actions.githubusercontent.com:sub values allowed to assume the
+    deploy role. Defaults lock to main and the terraform-prod environment
+    used by the approval-gated apply job.
+  EOT
+  type        = list(string)
+  default = [
+    "repo:akshithkonda1/Forge:ref:refs/heads/main",
+    "repo:akshithkonda1/Forge:environment:terraform-prod",
+  ]
+
+  validation {
+    condition     = length(var.github_oidc_allowed_subs) > 0
+    error_message = "github_oidc_allowed_subs must list at least one repo/ref or environment claim."
+  }
+}
+
+variable "enable_github_oidc" {
+  description = "Create the GitHub OIDC provider and deploy role in this account. Default true — IAM is free."
+  type        = bool
+  default     = true
 }
 
 variable "tags" {

@@ -19,7 +19,11 @@ locals {
   deploy_role_arn = (
     var.skip_aws_provider_checks
     ? "arn:aws:iam::ci:role/ci-placeholder-deploy"
-    : var.state_bucket_deploy_role_arn
+    : (
+      var.state_bucket_deploy_role_arn != ""
+      ? var.state_bucket_deploy_role_arn
+      : try(aws_iam_role.github_deploy[0].arn, "")
+    )
   )
   deploy_role_name = (
     local.deploy_role_arn == ""
@@ -87,7 +91,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tf_state" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = "alias/aws/s3"
     }
     bucket_key_enabled = true
   }

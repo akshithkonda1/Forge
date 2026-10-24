@@ -107,7 +107,7 @@ column.**
 | DynamoDB on-demand | $1.25 / 1M WRU, $0.25 / 1M RRU | [DynamoDB pricing](https://aws.amazon.com/dynamodb/pricing/) |
 | CloudWatch Logs ingest | $0.50 / GB (first 5 GB free) | [CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/) |
 | CloudWatch dashboard | $3 / dashboard / month (flag off) | same |
-| AWS Budgets (no actions) | first 2 free | [Budgets](https://aws.amazon.com/aws-cost-management/aws-budgets/) |
+| AWS Budgets (alerts + one IAM action) | first 2 free; actions included | [Budgets](https://aws.amazon.com/aws-cost-management/aws-budgets/) |
 | Claude Sonnet 5.5 | $2 / $10 per 1M in/out | [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing); Bedrock list is on [Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) |
 | Claude Opus 5.5 | $5 / $25 per 1M in/out | same (Opus 5 family list) |
 | Grok 4.7 Global CRIS | $2 / $6 per 1M in/out | [Grok 4.7 model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-xai-grok-4-7.html) (Geo is $2.20 / $6.60; Scout default is `global.xai.grok-4.7`) |

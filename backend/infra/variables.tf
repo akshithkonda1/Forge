@@ -2,12 +2,22 @@ variable "aws_region" {
   description = "AWS region for the shared Forge backend."
   type        = string
   default     = "us-east-1"
+
+  validation {
+    condition     = can(regex("^[a-z]{2}(?:-[a-z]+)+-\\d+$", var.aws_region))
+    error_message = "aws_region must be a valid AWS region id (e.g. us-east-1)."
+  }
 }
 
 variable "project_name" {
   description = "Project slug used in resource names."
   type        = string
   default     = "forge"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{1,30}$", var.project_name))
+    error_message = "project_name must be 2–31 chars, start with a letter, and use only lowercase letters, digits, and hyphens."
+  }
 }
 
 variable "environment" {
@@ -43,6 +53,13 @@ variable "allowed_origins" {
   description = "CORS origins allowed to call the shared backend from web clients."
   type        = list(string)
   default     = ["http://localhost:3000"]
+
+  validation {
+    condition = length(var.allowed_origins) > 0 && alltrue([
+      for origin in var.allowed_origins : can(regex("^https?://", origin))
+    ])
+    error_message = "allowed_origins must be a non-empty list of http(s) origins."
+  }
 }
 
 variable "skip_aws_provider_checks" {
@@ -73,6 +90,14 @@ variable "log_retention_days" {
   type        = number
   default     = null
   nullable    = true
+
+  validation {
+    condition = var.log_retention_days == null || contains(
+      [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653],
+      var.log_retention_days
+    )
+    error_message = "log_retention_days must be null or a CloudWatch-supported retention value."
+  }
 }
 
 variable "lambda_memory_size" {
@@ -90,6 +115,13 @@ variable "lambda_architectures" {
   description = "Lambda instruction set. arm64 (Graviton) is cheaper than x86_64 at the same memory."
   type        = list(string)
   default     = ["arm64"]
+
+  validation {
+    condition = length(var.lambda_architectures) > 0 && alltrue([
+      for arch in var.lambda_architectures : contains(["arm64", "x86_64"], arch)
+    ])
+    error_message = "lambda_architectures must be a non-empty list of arm64 and/or x86_64."
+  }
 }
 
 variable "cognito_user_pool_tier" {
@@ -273,7 +305,7 @@ variable "cognito_deletion_protection" {
 
 variable "enable_alarms" {
   description = <<-EOT
-    Create the ops SNS topic, 7 standard CloudWatch alarms, and the HTTP API
+    Create the ops SNS topic, 8 standard CloudWatch alarms, and the HTTP API
     429 metric filter. Default true (free tier: first 10 standard alarms).
     All alarms use treat_missing_data = notBreaching and notify the one SNS
     topic. Email is attached only when spend_guard_notification_email is set.
@@ -332,12 +364,22 @@ variable "api_throttling_rate_limit" {
   description = "Steady-state requests per second for the HTTP API stage default route. 50 matches the previous hardcoded plan."
   type        = number
   default     = 50
+
+  validation {
+    condition     = var.api_throttling_rate_limit > 0
+    error_message = "api_throttling_rate_limit must be > 0."
+  }
 }
 
 variable "api_throttling_burst_limit" {
   description = "Burst request limit for the HTTP API stage default route. 100 matches the previous hardcoded plan."
   type        = number
   default     = 100
+
+  validation {
+    condition     = var.api_throttling_burst_limit > 0
+    error_message = "api_throttling_burst_limit must be > 0."
+  }
 }
 
 variable "aria_pause_fail_mode" {
@@ -365,7 +407,9 @@ variable "aria_bedrock_enabled" {
     statement that the model is missing. Turning it on still needs account
     model-access enablement (Anthropic Marketplace / FTU, xAI) and a geo/global
     runtime profile from us-east-1 — see ROADMAP_IAC_READINESS.md. IAM in this
-    module already allows anthropic.* and Grok CRIS (us.xai.* / global.xai.*).
+    module allows the specific us.* and global.* inference-profile ARNs for
+    the configured router (and Scout) model ids so Bedrock can route
+    cross-region. No anthropic.* / xai.* wildcards.
   EOT
   type        = bool
   default     = false
@@ -375,13 +419,18 @@ variable "ai_router_model_1_id" {
   description = <<-EOT
     Bedrock model id for router slot 1 (Tier 1 Sonnet — default). Empty keeps
     global.anthropic.claude-sonnet-5-5 (ai_router.default_models()). Inert
-    while aria_bedrock_enabled is false. US-only residency is
-    us.anthropic.claude-sonnet-5-5; In-Region runtime is not supported for
-    Claude 5.x on bedrock-runtime. The ladder selects by family, not slot
-    order: Sonnet → Grok → Opus → rare ensemble.
+    while aria_bedrock_enabled is false. Must be a us.* or global.* inference
+    profile — Bedrock may route internationally. In-Region runtime is not
+    supported for Claude 5.x on bedrock-runtime. The ladder selects by family,
+    not slot order: Sonnet → Grok → Opus → rare ensemble.
   EOT
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.ai_router_model_1_id == "" || can(regex("^(us|global)\\.", var.ai_router_model_1_id))
+    error_message = "ai_router_model_1_id must be empty (Global CRIS default) or a us.* / global.* inference profile."
+  }
 }
 
 variable "ai_router_model_1_name" {
@@ -394,11 +443,16 @@ variable "ai_router_model_2_id" {
   description = <<-EOT
     Bedrock model id for router slot 2 (Tier 3 Opus). Empty keeps
     global.anthropic.claude-opus-5-5 (ai_router.default_models()). Inert
-    while aria_bedrock_enabled is false. US-only residency is
-    us.anthropic.claude-opus-5-5. Used for complex planning, not default traffic.
+    while aria_bedrock_enabled is false. Must be a us.* or global.* inference
+    profile. Used for complex planning, not default traffic.
   EOT
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.ai_router_model_2_id == "" || can(regex("^(us|global)\\.", var.ai_router_model_2_id))
+    error_message = "ai_router_model_2_id must be empty (Global CRIS default) or a us.* / global.* inference profile."
+  }
 }
 
 variable "ai_router_model_2_name" {
@@ -409,16 +463,20 @@ variable "ai_router_model_2_name" {
 
 variable "ai_router_model_3_id" {
   description = <<-EOT
-    Bedrock model id for router slot 3 (Tier 2 Grok 4.7). Empty keeps the Lambda
-    fallback global.xai.grok-4.7 — the Grok 4.7 Global CRIS id on
-    bedrock-runtime (US Geo is us.xai.grok-4.7; the same model Scout uses).
-    Inert while aria_bedrock_enabled is false. Used when a request is more
-    complex than Sonnet should handle alone.
-    Do not set Grok 4.3 here (mantle In-Region only). A name that disagrees
-    with the id is worse than no name.
+    Bedrock model id for router slot 3 (Tier 2 Grok 4.7). Empty keeps
+    global.xai.grok-4.7 — the Grok 4.7 Global CRIS id (US Geo is
+    us.xai.grok-4.7; the same model Scout uses). Inert while
+    aria_bedrock_enabled is false. Used when a request is more complex than
+    Sonnet should handle alone. Do not set Grok 4.3 here (mantle In-Region
+    only). Must be a us.* or global.* inference profile.
   EOT
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.ai_router_model_3_id == "" || can(regex("^(us|global)\\.", var.ai_router_model_3_id))
+    error_message = "ai_router_model_3_id must be empty (Global CRIS default) or a us.* / global.* inference profile."
+  }
 }
 
 variable "ai_router_model_3_name" {
@@ -431,30 +489,42 @@ variable "enable_spend_guard" {
   description = <<-EOT
     Create the monthly AWS Budgets COST budget. Default true for the all-AWS
     step-1 stack so an apply cannot forget the $25/mo ceiling. First two AWS
-    Budgets are free. The budget only ALERTS — it never stops spend. ElevenLabs
-    charges are invisible to it (they are not AWS cost); the ElevenLabs cap
-    lives in the app quota, not this budget. Dummy-offline still must not
-    apply this module.
+    Budgets are free. Email alerts fire at 80% / 100% actual and 100%
+    forecasted. At 100% actual a budget action attaches a Deny-Bedrock IAM
+    policy to the API Lambda (and Scout / Open Wearables instance roles if
+    those flags are on). Dummy-offline still must not apply this module.
   EOT
   type        = bool
   default     = true
 }
 
 variable "spend_guard_limit_usd" {
-  description = "Monthly USD limit for the spend-guard budget. $25 is the 1k-MAU ceiling for this stack (Bedrock is a separate AWS line; ElevenLabs is not visible here)."
+  description = "Monthly USD limit for the spend-guard budget. $25 is the 1k-MAU ceiling for this stack while Bedrock and the always-on OSS boxes stay off."
   type        = number
   default     = 25
+
+  validation {
+    condition     = var.spend_guard_limit_usd > 0 && var.spend_guard_limit_usd <= 1000
+    error_message = "spend_guard_limit_usd must be between 0 (exclusive) and 1000."
+  }
 }
 
 variable "spend_guard_notification_email" {
   description = <<-EOT
     Required on a real apply when enable_spend_guard is true (lifecycle
     precondition). Subscribes this address at 80% actual, 100% actual, and
-    100% forecasted. Leave empty for Akshith to fill in. CI plan with
-    skip_aws_provider_checks may leave this empty.
+    100% forecasted, and is the budget-action subscriber. Leave empty for
+    Akshith to fill in. CI plan with skip_aws_provider_checks may leave this
+    empty.
   EOT
   type        = string
   default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = var.spend_guard_notification_email == "" || can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.spend_guard_notification_email))
+    error_message = "spend_guard_notification_email must be empty or look like an email address."
+  }
 }
 
 variable "aria_daily_request_cap" {
@@ -514,6 +584,11 @@ variable "scout_instance_type" {
   description = "Scout EC2 size. t4g.small (2 GB) fits SearXNG + Scout comfortably; t4g.micro halves the bill but runs tight."
   type        = string
   default     = "t4g.small"
+
+  validation {
+    condition     = can(regex("^t4g\\.(nano|micro|small|medium)$", var.scout_instance_type))
+    error_message = "scout_instance_type must be a small Graviton burstable size (t4g.nano|micro|small|medium)."
+  }
 }
 
 variable "scout_shared_key" {
@@ -530,9 +605,14 @@ variable "scout_domain" {
 }
 
 variable "scout_model_id" {
-  description = "Bedrock model Scout reasons with. Grok 4.7 Global cross-Region inference profile by default."
+  description = "Bedrock model Scout reasons with. Grok 4.7 Global cross-Region inference profile by default. us.* is also allowed."
   type        = string
   default     = "global.xai.grok-4.7"
+
+  validation {
+    condition     = can(regex("^(us|global)\\.", var.scout_model_id))
+    error_message = "scout_model_id must be a us.* or global.* inference profile."
+  }
 }
 
 variable "scout_searxng_image" {
@@ -557,4 +637,77 @@ variable "scout_throttling_rate_limit" {
   description = "API Gateway steady-state requests/second for POST /scout/research."
   type        = number
   default     = 1
+}
+
+# --- Open Wearables (self-hosted on AWS; open_wearables.tf) -------------------
+
+variable "enable_open_wearables" {
+  description = <<-EOT
+    Create Open Wearables on AWS: one small ARM EC2 running the official
+    compose stack (FastAPI, Celery, Postgres 18, Redis 8) plus SSM secrets
+    and POST /integrations/open-wearables/webhook. Off by default — nothing
+    is created or billed while false. This is AWS-hosted open source, not a
+    third-party SaaS and not on-prem. HealthKit / on-device health data
+    still never leaves the phone.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "open_wearables_instance_type" {
+  description = "Open Wearables EC2 size. t4g.small matches the 100-MAU estimate in docs/open-wearables-integration.md."
+  type        = string
+  default     = "t4g.small"
+
+  validation {
+    condition     = can(regex("^t4g\\.(nano|micro|small|medium)$", var.open_wearables_instance_type))
+    error_message = "open_wearables_instance_type must be a small Graviton burstable size (t4g.nano|micro|small|medium)."
+  }
+}
+
+variable "open_wearables_domain" {
+  description = "Hostname Caddy serves Open Wearables TLS for. Empty uses <elastic-ip-with-dashes>.sslip.io."
+  type        = string
+  default     = ""
+}
+
+variable "open_wearables_backend_image" {
+  description = "Pinned official Open Wearables backend image. Do not use latest/nightly in production."
+  type        = string
+  default     = "themomentum/open-wearables-backend:0.7.0"
+}
+
+variable "open_wearables_frontend_image" {
+  description = "Pinned official Open Wearables frontend image. The portal is operator-only, not a Forge client."
+  type        = string
+  default     = "themomentum/open-wearables-frontend:0.7.0"
+}
+
+variable "open_wearables_compose_version" {
+  description = "Docker Compose v2 release installed on the Open Wearables host."
+  type        = string
+  default     = "v2.29.7"
+}
+
+variable "open_wearables_volume_gb" {
+  description = "Encrypted gp3 root volume for the Open Wearables box (compose + Postgres data)."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.open_wearables_volume_gb >= 16 && var.open_wearables_volume_gb <= 80
+    error_message = "open_wearables_volume_gb must be 16–80. Raise only when retention requires it."
+  }
+}
+
+variable "open_wearables_throttling_burst_limit" {
+  description = "API Gateway burst limit for POST /integrations/open-wearables/webhook."
+  type        = number
+  default     = 20
+}
+
+variable "open_wearables_throttling_rate_limit" {
+  description = "API Gateway steady-state requests/second for the Open Wearables webhook."
+  type        = number
+  default     = 5
 }

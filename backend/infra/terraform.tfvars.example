@@ -31,10 +31,8 @@ allowed_origins = [
 #   "https://app.example.com/kotlin/auth/logout", # after assetlinks.json
 # ]
 
-# Seed ElevenLabs after apply so the values never land in Terraform state:
-#   aws ssm put-parameter --name /forge-dev/ai/ELEVENLABS_API_KEY \
-#     --type SecureString --overwrite --value 'replace-me'
-# Same for ELEVENLABS_ARIA_VOICE_ID and ELEVENLABS_ARIA_AGENT_ID.
+# Voice is on-device (Kokoro). Do not seed ElevenLabs or Fish Audio
+# parameters — Terraform no longer creates them.
 #
 # Before the first real apply, also seed the social IdP parameters Terraform
 # reads (names only; values stay out of this file):
@@ -74,9 +72,8 @@ tags = {
 # ai_router_model_3_name = "Grok"
 #
 # Spend guard is on by default ($25/mo). First two AWS Budgets are free.
-# Alerts at 80% actual, 100% actual, and 100% forecasted. The budget only
-# ALERTS — it never stops spend. ElevenLabs is invisible to it; that cap
-# lives in the app quota. Leave the email for Akshith to fill in.
+# Alerts at 80% actual, 100% actual, and 100% forecasted. At 100% actual a
+# budget action attaches a Deny-Bedrock policy. Leave the email for Akshith.
 # enable_spend_guard                = true
 # spend_guard_limit_usd             = 25
 # spend_guard_notification_email    = ""
@@ -110,7 +107,7 @@ tags = {
 # New accounts can be as low as 10.
 # account_concurrency_limit = 1000
 #
-# Free-tier standard alarms (7) + SNS. Email uses spend_guard_notification_email
+# Free-tier standard alarms (8) + SNS. Email uses spend_guard_notification_email
 # when that is non-empty.
 # enable_alarms = true
 #

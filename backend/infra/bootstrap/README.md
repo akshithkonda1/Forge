@@ -1,6 +1,7 @@
 # Forge Terraform state bootstrap
 
-Creates the SSE-S3 bucket that holds remote state for `backend/infra`.
+Creates the SSE-KMS (`alias/aws/s3`) bucket that holds remote state for
+`backend/infra`, plus the GitHub Actions OIDC deploy role.
 
 This root module stays on **local state**. It is the stack that creates
 the bucket (`forge-tf-state-<account-id>` by default), so it cannot store
