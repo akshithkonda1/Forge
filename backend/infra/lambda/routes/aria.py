@@ -759,10 +759,10 @@ def handle_get_ai_voice(
     user_id: str,
     query: dict[str, Any] | None = None,
 ) -> dict:
-    """GET /ai/voice — featured profiles + Fish library page."""
+    """GET /ai/voice — shipped Kokoro presets. Never synthesizes speech."""
     uid = _bind_user(body or {}, user_id)
     params = query or {}
-    from services import fish_audio_voice
+    from services import kokoro_voice
 
     try:
         page = int(params.get("page") or 1)
@@ -773,7 +773,7 @@ def handle_get_ai_voice(
     except (TypeError, ValueError):
         page_size = 20
     return ok(
-        fish_audio_voice.catalog(
+        kokoro_voice.catalog(
             uid,
             query=str(params.get("q") or params.get("query") or ""),
             page=page,
@@ -783,23 +783,8 @@ def handle_get_ai_voice(
 
 
 def handle_put_ai_voice(body: dict[str, Any], *, user_id: str) -> dict:
-    """PUT /ai/voice — persist the selected Fish voice. Next speak uses it."""
+    """PUT /ai/voice — persist the selected Kokoro preset. Speak stays on-device."""
     uid = _bind_user(body, user_id)
-    from services import fish_audio_voice
+    from services import kokoro_voice
 
-    return ok({"selected": fish_audio_voice.save_profile(uid, body)})
-
-
-def handle_post_ai_voice_speak(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/voice/speak — already-guarded ARIA prose → preferred Fish mouth.
-
-    Speak-only. Does not fuse, remember, observe, or re-run ``guard_speak``.
-    Dummy / on-device speech stays the default when the flag is off.
-    Fish is preferred; Polly then on-device are fallbacks. Body is
-    ``message`` or ``text``. Success is
-    ``{provider, format, model, audio_base64, voice_id, profile_id}``.
-    """
-    uid = _bind_user(body, user_id)
-    from services import fish_audio_voice
-
-    return ok(fish_audio_voice.speak(body, user_id=uid))
+    return ok({"selected": kokoro_voice.save_profile(uid, body)})

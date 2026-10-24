@@ -1,9 +1,10 @@
-"""ARIA voice — Fish Audio only. Dummy stays local; the key never leaves Lambda."""
+"""ARIA voice — Kokoro only. Hex never synthesizes. TTS text stays on the phone."""
 
 from __future__ import annotations
 
 import json
 import os
+import socket
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -11,10 +12,8 @@ from unittest.mock import patch
 import _bootstrap  # noqa: F401
 
 from handler import handler  # noqa: E402
-from responses import RouteError  # noqa: E402
-from services import fish_audio_voice  # noqa: E402
-from services import provider_secrets  # noqa: E402
 from security import PAID_AI_ROUTES  # noqa: E402
+from services import provider_secrets  # noqa: E402
 
 from test_backend_handler import body, event  # noqa: E402
 
@@ -22,24 +21,47 @@ REPO = Path(__file__).resolve().parents[2]
 SWIFT_VOICE = REPO / "ForgeSwift" / "ForgeSwift" / "AriaCharacterVoice.swift"
 SWIFT_SESSION = REPO / "ForgeSwift" / "ForgeSwift" / "AriaVoiceSession.swift"
 SWIFT_SPOKEN = REPO / "ForgeSwift" / "ForgeSwift" / "AriaSpokenVoice.swift"
-ELEVEN = REPO / "backend" / "infra" / "lambda" / "services" / "elevenlabs_voice.py"
+SWIFT_PRESENCE = REPO / "ForgeSwift" / "ForgeSwift" / "AriaPresence.swift"
+KOKORO_CORE = (
+    REPO
+    / "ForgeSwift"
+    / "ForgeCore"
+    / "Sources"
+    / "ForgeCore"
+    / "Intelligence"
+    / "AriaKokoroVoice.swift"
+)
+KOKORO_PY = REPO / "backend" / "infra" / "lambda" / "services" / "kokoro_voice.py"
+
+
+class _BlockedNetwork:
+    def __enter__(self):
+        def blocked(*_a, **_k):
+            raise AssertionError("network must stay blocked for Kokoro-only voice")
+
+        self._socket = patch.object(socket, "socket", side_effect=blocked)
+        self._create = patch.object(socket, "create_connection", side_effect=blocked)
+        self._socket.start()
+        self._create.start()
+        return self
+
+    def __exit__(self, *_exc):
+        self._create.stop()
+        self._socket.stop()
+        return False
 
 
 class VoiceStackConsolidationTests(unittest.TestCase):
-    def test_elevenlabs_slot_is_disabled_not_the_live_mouth(self):
-        self.assertTrue(ELEVEN.exists())
-        src = ELEVEN.read_text(encoding="utf-8")
-        self.assertIn("ARIA_ELEVENLABS_VOICE_ENABLED", src)
-        self.assertIn("reserved", src.lower())
+    def test_cloud_vendor_modules_are_gone(self):
+        services = REPO / "backend" / "infra" / "lambda" / "services"
+        self.assertFalse((services / "fish_audio_voice.py").exists())
+        self.assertFalse((services / "polly_voice.py").exists())
+        self.assertFalse((services / "elevenlabs_voice.py").exists())
+        self.assertTrue(KOKORO_PY.exists())
+        src = KOKORO_PY.read_text(encoding="utf-8")
+        self.assertIn("af_heart", src)
+        self.assertIn("Apache-2.0", src)
         self.assertNotIn("https://", src)
-        os.environ.pop("ARIA_ELEVENLABS_VOICE_ENABLED", None)
-        from services import elevenlabs_voice
-        from responses import RouteError
-
-        self.assertFalse(elevenlabs_voice.voice_enabled())
-        with self.assertRaises(RouteError) as raised:
-            elevenlabs_voice.synthesize("I'm ARIA.")
-        self.assertEqual(raised.exception.code, "elevenlabs_disabled")
 
     def test_removed_routes_are_not_found(self):
         os.environ["ENVIRONMENT"] = "test"
@@ -49,41 +71,33 @@ class VoiceStackConsolidationTests(unittest.TestCase):
             ("POST", "/ai/voice/tool"),
             ("POST", "/ai/voice/design"),
             ("POST", "/ai/voice/fish-tts"),
+            ("POST", "/ai/voice/speak"),
         )
         for method, path in gone:
             response = handler(event(method, path, {} if method != "GET" else None, user_id="user-1"), None)
             self.assertEqual(response["statusCode"], 404, path)
+        self.assertNotIn("/ai/voice/speak", PAID_AI_ROUTES)
 
     def test_dummy_session_file_mentions_dummy_first(self):
         session = SWIFT_SESSION.read_text(encoding="utf-8")
         self.assertIn("AriaVoiceTransport.resolveCurrent", session)
         self.assertIn("shouldUseTestReadyDummy", SWIFT_VOICE.read_text(encoding="utf-8"))
         self.assertNotIn("api.elevenlabs.io", SWIFT_VOICE.read_text(encoding="utf-8"))
+        self.assertNotIn("api.fish.audio", SWIFT_VOICE.read_text(encoding="utf-8"))
 
-    def test_fish_audio_hex_path_uses_the_single_speak_route(self):
+    def test_ios_mouth_is_kokoro_only(self):
         voice = SWIFT_VOICE.read_text(encoding="utf-8")
-        presence = (
-            REPO / "ForgeSwift" / "ForgeSwift" / "AriaPresence.swift"
-        ).read_text(encoding="utf-8")
-        core = (
-            REPO
-            / "ForgeSwift"
-            / "ForgeCore"
-            / "Sources"
-            / "ForgeCore"
-            / "Intelligence"
-            / "AriaFishAudioVoice.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("shouldEnqueueFishAudioViaBackend", voice)
-        self.assertIn("speakViaFishAudioBackend", presence)
-        self.assertIn("ForgeAPI.send", presence)
-        self.assertIn("ai/voice/speak", core)
-        self.assertNotIn("ai/voice/fish-tts", core)
-        self.assertIn("dummy-offline", core)
-        self.assertIn("s2.1-pro-free", core)
-        self.assertIn("s2.1-pro", core)
-        self.assertNotIn('"s1"', core)
-        self.assertIn("Bearer", core)
+        presence = SWIFT_PRESENCE.read_text(encoding="utf-8")
+        core = KOKORO_CORE.read_text(encoding="utf-8")
+        self.assertIn("shouldEnqueueKokoro", voice)
+        self.assertIn("AriaKokoroEngine.speak", presence)
+        self.assertNotIn("speakViaFishAudio", presence)
+        self.assertNotIn("ForgeAPI.send", presence)
+        self.assertIn("kokoro-82m", core)
+        self.assertIn("af_heart", core)
+        self.assertIn("Apache-2.0", core)
+        self.assertNotIn("s2.1-pro-free", core)
+        self.assertNotIn("Bearer", core)
         self.assertNotIn("sk_", core)
 
 
@@ -98,9 +112,9 @@ class VoiceMustRunContractTests(unittest.TestCase):
         self.assertNotIn(
             "guard isDebugBuild",
             mouth,
-            "TestFlight Dummy-offline has no ConvAI — Release fill-in must run",
+            "TestFlight Dummy-offline has no cloud mouth — Release Kokoro must run",
         )
-        self.assertIn("return transport.usesOnDeviceBrain", mouth)
+        self.assertIn("return true", mouth)
 
     def test_new_voice_session_unmutes_so_the_mouth_can_run(self):
         spoken = SWIFT_SPOKEN.read_text(encoding="utf-8")
@@ -119,10 +133,7 @@ class ProviderSecretTests(unittest.TestCase):
             key: os.environ.get(key)
             for key in (
                 "ELEVENLABS_API_KEY",
-                "ELEVENLABS_ARIA_VOICE_ID",
-                "ELEVENLABS_ARIA_AGENT_ID",
                 "FISH_AUDIO_API_KEY",
-                "FISH_AUDIO_MODEL",
                 "AI_PROVIDER_SECRET_ARN",
             )
         }
@@ -135,182 +146,57 @@ class ProviderSecretTests(unittest.TestCase):
             else:
                 os.environ[key] = value
 
-    def test_env_key_is_used_without_boto(self):
+    def test_voice_vendor_keys_are_not_loaded(self):
         os.environ["ELEVENLABS_API_KEY"] = "sk_test_live_key"
-        creds = provider_secrets.load_ai_provider_secret(
-            get_secret_value=lambda _arn: '{"ELEVENLABS_API_KEY":"from-secret"}'
-        )
-        self.assertEqual(creds["ELEVENLABS_API_KEY"], "sk_test_live_key")
-
-    def test_secret_fills_when_env_empty(self):
-        os.environ.pop("ELEVENLABS_API_KEY", None)
-        os.environ["AI_PROVIDER_SECRET_ARN"] = "arn:aws:secretsmanager:us-east-1:1:secret:ai"
+        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_live_key"
         creds = provider_secrets.load_ai_provider_secret(
             get_secret_value=lambda _arn: json.dumps(
                 {
                     "ELEVENLABS_API_KEY": "from-secret",
-                    "ELEVENLABS_ARIA_VOICE_ID": "voice_aria",
-                    "ELEVENLABS_ARIA_AGENT_ID": "agent_aria",
-                }
-            )
-        )
-        self.assertEqual(creds["ELEVENLABS_API_KEY"], "from-secret")
-        self.assertEqual(creds["ELEVENLABS_ARIA_VOICE_ID"], "voice_aria")
-
-    def test_fish_audio_env_key_is_used_without_boto(self):
-        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_live_key"
-        os.environ["FISH_AUDIO_MODEL"] = "s2.1-pro-free"
-        creds = provider_secrets.load_ai_provider_secret(
-            get_secret_value=lambda _arn: '{"FISH_AUDIO_API_KEY":"from-secret"}'
-        )
-        self.assertEqual(creds["FISH_AUDIO_API_KEY"], "fish_test_live_key")
-        self.assertEqual(creds["FISH_AUDIO_MODEL"], "s2.1-pro-free")
-        self.assertEqual(
-            provider_secrets._PARAMETER_ENV["FISH_AUDIO_API_KEY"],
-            "FISH_AUDIO_API_KEY_PARAMETER_NAME",
-        )
-
-    def test_fish_audio_secret_fills_when_env_empty(self):
-        os.environ.pop("FISH_AUDIO_API_KEY", None)
-        os.environ.pop("FISH_AUDIO_MODEL", None)
-        os.environ["AI_PROVIDER_SECRET_ARN"] = "arn:aws:secretsmanager:us-east-1:1:secret:ai"
-        creds = provider_secrets.load_ai_provider_secret(
-            get_secret_value=lambda _arn: json.dumps(
-                {
                     "FISH_AUDIO_API_KEY": "from-secret-fish",
-                    "FISH_AUDIO_MODEL": "s2.1-pro-free",
                 }
             )
         )
-        self.assertEqual(creds["FISH_AUDIO_API_KEY"], "from-secret-fish")
-        self.assertEqual(creds["FISH_AUDIO_MODEL"], "s2.1-pro-free")
+        self.assertNotIn("ELEVENLABS_API_KEY", creds)
+        self.assertNotIn("FISH_AUDIO_API_KEY", creds)
+        self.assertNotIn("FISH_AUDIO_API_KEY", provider_secrets._PARAMETER_ENV)
+        self.assertNotIn("ELEVENLABS_API_KEY", provider_secrets._KEYS)
 
 
 class VoiceRouteTests(unittest.TestCase):
     def setUp(self):
         provider_secrets.reset_cache()
-        fish_audio_voice.reset_cache()
         os.environ["ENVIRONMENT"] = "test"
         os.environ["FORGE_ALLOW_ANON_TEST_USER"] = "true"
         os.environ.pop("ELEVENLABS_API_KEY", None)
         os.environ.pop("FISH_AUDIO_API_KEY", None)
-        os.environ.pop("FISH_AUDIO_MODEL", None)
-        os.environ.pop("FISH_AUDIO_USE_PAID", None)
         os.environ.pop("AI_PROVIDER_SECRET_ARN", None)
         os.environ.pop("ARIA_FISH_VOICE_ENABLED", None)
 
     def tearDown(self):
         provider_secrets.reset_cache()
-        fish_audio_voice.reset_cache()
         os.environ.pop("ELEVENLABS_API_KEY", None)
         os.environ.pop("FISH_AUDIO_API_KEY", None)
-        os.environ.pop("FISH_AUDIO_MODEL", None)
-        os.environ.pop("FISH_AUDIO_USE_PAID", None)
-        os.environ.pop("ARIA_FISH_VOICE_ENABLED", None)
 
-    def test_catalog_without_key_is_fallback_not_a_key_leak(self):
-        response = handler(event("GET", "/ai/voice", user_id="user-1"), None)
+    def test_catalog_is_kokoro_presets_with_network_blocked(self):
+        with _BlockedNetwork():
+            response = handler(event("GET", "/ai/voice", user_id="user-1"), None)
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertEqual(payload["source"], "fallback")
-        self.assertEqual(payload["model"], "s2.1-pro-free")
+        self.assertEqual(payload["source"], "kokoro")
+        self.assertEqual(payload["model"], "kokoro-82m")
+        self.assertEqual(payload["aria_preset"], "af_heart")
+        self.assertEqual(payload["featured"][0]["voice_id"], "af_heart")
         self.assertNotIn("bearer", json.dumps(payload).lower())
+        self.assertNotIn("fish", json.dumps(payload).lower())
 
-    def test_speak_without_key_is_unconfigured(self):
-        os.environ["ARIA_FISH_VOICE_ENABLED"] = "true"
-        response = handler(
-            event("POST", "/ai/voice/speak", {"text": "I'm ARIA."}, user_id="user-1"),
-            None,
-        )
-        self.assertEqual(response["statusCode"], 503)
-        payload = body(response)
-        self.assertEqual(payload["code"], "fish_unconfigured")
-        blob = json.dumps(payload).lower()
-        self.assertNotIn("bearer", blob)
-        self.assertNotIn("authorization", blob)
-        self.assertIn("/ai/voice/speak", PAID_AI_ROUTES)
-
-    def test_speak_empty_text_is_rejected(self):
-        os.environ["ARIA_FISH_VOICE_ENABLED"] = "true"
-        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_never_echo"
-        provider_secrets.reset_cache()
-        response = handler(
-            event("POST", "/ai/voice/speak", {"text": "   "}, user_id="user-1"),
-            None,
-        )
-        self.assertEqual(response["statusCode"], 400)
-        self.assertEqual(body(response)["code"], "fish_audio_empty_text")
-
-    def test_speak_uses_bearer_and_free_model_and_never_echoes_the_key(self):
-        import base64
-
-        os.environ["ARIA_FISH_VOICE_ENABLED"] = "true"
-        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_never_echo"
-        os.environ["FISH_AUDIO_MODEL"] = "s2.1-pro-free"
-        provider_secrets.reset_cache()
-        audio = b"ID3fake-mp3"
-
-        def fake_http(method, url, headers, raw):
-            self.assertEqual(method, "POST")
-            self.assertEqual(url, fish_audio_voice.FISH_TTS_URL)
-            self.assertEqual(headers.get("Authorization"), "Bearer fish_test_never_echo")
-            self.assertEqual(headers.get("model"), "s2.1-pro-free")
-            self.assertEqual(headers.get("Content-Type"), "application/json")
-            payload = json.loads(raw.decode("utf-8"))
-            self.assertEqual(payload["text"], "I'm ARIA.")
-            self.assertEqual(payload["format"], "mp3")
-            return 200, audio
-
-        synthesized = fish_audio_voice.synthesize("  I'm ARIA.  ", http=fake_http)
-        self.assertEqual(synthesized, audio)
-
-        with patch.object(fish_audio_voice, "_stdlib_http", fake_http):
+    def test_speak_route_is_gone_with_network_blocked(self):
+        with _BlockedNetwork():
             response = handler(
-                event(
-                    "POST",
-                    "/ai/voice/speak",
-                    {"text": "I'm ARIA.", "voice_id": "voice-warm-1"},
-                    user_id="user-1",
-                ),
+                event("POST", "/ai/voice/speak", {"text": "I'm ARIA."}, user_id="user-1"),
                 None,
             )
-
-        self.assertEqual(response["statusCode"], 200)
-        payload = body(response)
-        self.assertEqual(payload["format"], "mp3")
-        self.assertEqual(payload["model"], "s2.1-pro-free")
-        self.assertEqual(payload["voice_id"], "voice-warm-1")
-        self.assertEqual(payload["audio_base64"], base64.b64encode(audio).decode("ascii"))
-        blob = json.dumps(payload)
-        self.assertNotIn("fish_test_never_echo", blob)
-        self.assertNotIn("Authorization", blob)
-        self.assertNotIn("Bearer", blob)
-
-    def test_unknown_model_and_s1_fall_back_to_free_tier(self):
-        self.assertEqual(fish_audio_voice.sanitize_model("not-a-model"), "s2.1-pro-free")
-        self.assertEqual(fish_audio_voice.sanitize_model(None), "s2.1-pro-free")
-        self.assertEqual(fish_audio_voice.sanitize_model("s1"), "s2.1-pro-free")
-        self.assertEqual(fish_audio_voice.DEFAULT_MODEL, "s2.1-pro-free")
-        headers = fish_audio_voice.build_headers("fish_test_never_echo", "garbage")
-        self.assertEqual(headers["Authorization"], "Bearer fish_test_never_echo")
-        self.assertEqual(headers["model"], "s2.1-pro-free")
-
-    def test_preview_uses_the_sample_line(self):
-        seen: list[str] = []
-
-        def fake_http(_method, _url, _headers, raw):
-            seen.append(json.loads(raw.decode("utf-8"))["text"])
-            return 200, b"ID3"
-
-        os.environ["ARIA_FISH_VOICE_ENABLED"] = "true"
-        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_never_echo"
-        spoken = fish_audio_voice.speak(
-            {"preview": True, "voice_id": "voice-warm-1"},
-            user_id="user-1",
-            http=fake_http,
-        )
-        self.assertEqual(seen, [fish_audio_voice.PREVIEW_TEXT])
-        self.assertTrue(spoken["preview"])
+        self.assertEqual(response["statusCode"], 404)
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ for row by Python (`backend/tests/test_safety_triage.py`) and Swift
 
 ## Capabilities by path
 
-| | iOS Dummy orchestra | iOS Local testing | iOS Live (`/ai/chat`) | iOS offline fallback | Python Dummy chat | `/ai/chat` Lambda | `/ai/voice/speak` (Fish Audio) |
+| | iOS Dummy orchestra | iOS Local testing | iOS Live (`/ai/chat`) | iOS offline fallback | Python Dummy chat | `/ai/chat` Lambda | On-device Kokoro |
 |---|---|---|---|---|---|---|---|
 | 911 / first aid / refer-out | on-device, before the Dummy runs | on-device | on-device, before the network | on-device | guidance.py | guidance.py | guidance.py, but the phone hands safety turns to chat first (below) |
 | Voice-first triage (ask, then 911 / doctor / care line) | yes | yes | yes | yes | `safety` block (no audio) | `safety` block for the client | not here: the phone takes the turn over |
@@ -32,9 +32,9 @@ for row by Python (`backend/tests/test_safety_triage.py`) and Swift
 | Memory / persona / Bedrock on a safety turn | skipped | skipped | skipped (`safety_lock`) | skipped | redacted in logs | skipped (`safety_lock`) | Bedrock skipped; nothing persisted |
 | Cloud LLM | never | never | only with `ARIA_BEDROCK_ENABLED` | never | never (`assert_dummy_engine`) | only with `ARIA_BEDROCK_ENABLED` | Bedrock flag, as `/ai/chat` |
 
-Voice: every 911 or triage session runs on this iPhone's own voice (Apple speech
-out, on-device speech recognition in), whatever mode ARIA is in. On Live, a chat
-turn never opens ConvAI for a safety session (`AriaVoiceTransport.keepingOnDevice`).
+Voice: every 911 or triage session runs on this iPhone (Kokoro out, on-device
+speech recognition in), whatever mode ARIA is in. On Live, a chat
+turn never opens a cloud mouth for a safety session (`AriaVoiceTransport.keepingOnDevice`).
 If a ConvAI conversation hits a safety turn, the tool call is decided on the phone
 and handed to chat (`store.openChat`), so ARIA's copy is spoken verbatim and the
 answer resolves case by case. The mic opens after the question, never before it.

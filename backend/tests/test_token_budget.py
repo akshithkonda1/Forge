@@ -17,7 +17,7 @@ from ai_router import (  # noqa: E402
     reset_response_cache,
 )
 from storage import dynamodb as dynamodb_store  # noqa: E402
-from token_budget import reserve, reserve_voice_chars, set_user  # noqa: E402
+from token_budget import reserve, set_user  # noqa: E402
 from responses import RouteError  # noqa: E402
 
 
@@ -32,7 +32,6 @@ class TokenBudgetTests(unittest.TestCase):
         set_user(None)
         os.environ.pop("ARIA_DAILY_REQUEST_CAP", None)
         os.environ.pop("ARIA_DAILY_TOKEN_CAP", None)
-        os.environ.pop("ARIA_FISH_DAILY_CHAR_CAP", None)
         dynamodb_store.clear_local_store()
 
     def test_second_request_is_allowed_and_third_is_429(self):
@@ -49,14 +48,6 @@ class TokenBudgetTests(unittest.TestCase):
             reserve(tokens=300)
         self.assertEqual(ctx.exception.status_code, 429)
         self.assertEqual(ctx.exception.code, "aria_daily_token_cap")
-
-    def test_voice_char_cap_blocks_before_fish(self):
-        os.environ["ARIA_FISH_DAILY_CHAR_CAP"] = "10"
-        reserve_voice_chars(6, user_id="voice-user")
-        with self.assertRaises(RouteError) as ctx:
-            reserve_voice_chars(6, user_id="voice-user")
-        self.assertEqual(ctx.exception.code, "fish_daily_char_cap")
-        os.environ.pop("ARIA_FISH_DAILY_CHAR_CAP", None)
 
     def test_zero_caps_disable_enforcement(self):
         os.environ["ARIA_DAILY_REQUEST_CAP"] = "0"

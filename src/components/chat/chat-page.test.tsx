@@ -28,7 +28,7 @@ describe("ChatPage speech", () => {
     useAppStore.setState({ activeTab: "home" });
   });
 
-  it("never fetches Fish Audio from the Dummy chat mouth", () => {
+  it("never fetches a cloud TTS API from the Dummy chat mouth", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     render(<ChatPage />);

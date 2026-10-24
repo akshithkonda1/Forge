@@ -5,24 +5,17 @@ import ForgeCore
 ///
 /// Creating a voice here means a locked **speaker**, not a new LLM. The brain
 /// is still Forge (`AriaDummyOrchestrator` / `LocalTestingOrchestrator` /
-/// `aria_engine`). The mouth is:
+/// `aria_engine`). The mouth is Kokoro-82M on this iPhone:
 ///
-/// * **Dummy / Device Hub / loopback / TestFlight Dummy-offline** — session UX
-///   is real; spoken audio is a local fill-in so testers hear that a mouth ran.
-///   Not compact Samantha, and never a cloned character.
-/// * **Local testing** — same session UX, on-device brain, DEBUG fill-in.
-/// * **Live** — preferred mouth is Fish Audio S2.1 via `POST /ai/voice/speak`.
-///   Fallback order: Fish → Polly → on-device. Apple catalog TTS is not the
-///   preferred live mouth. Busy / quota / privacy-unguaranteed lines use
-///   on-device. ElevenLabs ConvAI is a disabled next-evolution slot.
-/// * **Fish Audio** — preferred cloud TTS (`docs.fish.audio`). Hex keeps
-///   `FISH_AUDIO_API_KEY` in SSM / Secrets Manager. The phone POSTs
-///   `/ai/voice/speak` and never holds the production key. Dummy / offline
-///   never call Fish, Polly, or ElevenLabs. The `model` header is always
-///   `s2.1-pro-free` unless an explicit paid opt-in is set.
+/// * **Every transport** — Dummy, Device Hub, local testing, dummy-offline,
+///   and live — speaks with the same on-device Kokoro preset. TTS text never
+///   leaves the phone.
+/// * **Load failure** — if Kokoro cannot load, the line stays on screen and
+///   the failure is logged locally. There is no Apple, Fish, Polly, or
+///   ElevenLabs fallback.
 ///
 /// This file must stay network-free (`URLSession` / `URLRequest`). Routing is
-/// decided here; live I/O lives in `AriaVoiceSession`.
+/// decided here; playback lives in `AriaPresence`.
 enum AriaCharacterVoice: Sendable {
     static let voiceName = "ARIA"
 
@@ -34,27 +27,19 @@ enum AriaCharacterVoice: Sendable {
 
     /// Preview line for the Settings sample. Spoken content is coaching,
     /// not a demo reel.
-    static let designPreviewText = AriaFishAudioVoice.previewText
+    static let designPreviewText = AriaKokoroVoice.previewText
 
-    /// Locked live-mouth stack. Byte-for-byte with ``fish_audio_voice.py``.
-    static let liveTTSModel = AriaFishAudioVoice.defaultModel
-    static let livePaidTTSModel = AriaFishAudioVoice.paidModel
+    /// Locked on-device mouth. Byte-for-byte with ``kokoro_voice.py``.
+    static let liveTTSModel = AriaKokoroVoice.model
+    static let ariaPreset = AriaKokoroVoice.ariaPreset
 
     /// Production never uses Apple Zoe / Samantha as ARIA.
     static let productionUsesAppleTTS = false
 
-    /// Live stream failure stays quiet unless the server asked for on-device
-    /// (quota, privacy, promo, or 429 after retries). Dummy never upgrades.
+    /// Load failure stays quiet. Do not ask Apple to cover for Kokoro.
     static let liveFailureFallsBackToAppleTTS = false
     static let dummyUpgradesToLiveOnFailure = false
-    static let quotaFallsBackToOnDevice = true
-    static let privacyFallsBackToOnDevice = true
-
-    /// Fish Audio is the preferred live mouth, not a silent upgrade from Dummy.
-    static let dummyUpgradesToFishAudioOnFailure = false
-
-    /// ElevenLabs ConvAI remains in this target as a disabled slot.
-    static let elevenLabsProviderEnabled = false
+    static let appleEmergencyFallbackEnabled = AriaKokoroVoice.appleEmergencyFallbackEnabled
 }
 
 /// Same gates as `AriaService.sendMessage`, in the same order: test-ready dummy
@@ -89,12 +74,11 @@ enum AriaVoiceTransport: String, Equatable, Sendable {
         self == .dummy || self == .localTesting
     }
 
+    /// Chat / brain may need the network. The mouth never does.
     var requiresNetwork: Bool { self == .live }
 
     /// A safety session speaks ARIA's own 911 / triage copy on this iPhone
-    /// and hears the answer with on-device speech, so chat decides it. The
-    /// live voice agent (ConvAI) would put its own words on an emergency and
-    /// has no pending triage question to resolve "yes" / "no" against.
+    /// and hears the answer with on-device speech, so chat decides it.
     func keepingOnDevice(_ onDevice: Bool) -> AriaVoiceTransport {
         onDevice && requiresNetwork ? .localTesting : self
     }
@@ -110,24 +94,29 @@ enum AriaVoiceMouth: Sendable {
         #endif
     }
 
-    /// Dummy / local-testing mouth. Live uses Fish Audio; a busy slot stays
-    /// on the text reply. Release Dummy-offline must still fill in.
+    /// Dummy / local-testing / live all use Kokoro. Release Dummy-offline
+    /// must still try the on-device engine.
     static func allowsDummyFillIn(
         transport: AriaVoiceTransport,
         isDebugBuild: Bool = AriaVoiceMouth.isDebugBuild
     ) -> Bool {
         _ = isDebugBuild
-        return transport.usesOnDeviceBrain
+        _ = transport
+        return true
     }
 
+    /// Apple TTS is never ARIA's mouth.
     static func shouldEnqueueAppleUtterance(
         isMuted: Bool,
         sessionActive: Bool,
         transport: AriaVoiceTransport?,
         isDebugBuild: Bool = AriaVoiceMouth.isDebugBuild
     ) -> Bool {
-        guard !isMuted, sessionActive, let transport else { return false }
-        return allowsDummyFillIn(transport: transport, isDebugBuild: isDebugBuild)
+        _ = isMuted
+        _ = sessionActive
+        _ = transport
+        _ = isDebugBuild
+        return false
     }
 
     static func spokenLine(from reply: AriaResponse) -> String {
@@ -136,62 +125,42 @@ enum AriaVoiceMouth: Sendable {
         return reply.message.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Dummy / local testing / dummy-offline never open a cloud mouth.
+    /// Cloud TTS is gone. Dummy / live / offline all stay on-device.
     static func allowsCloudVoice(
         isDummy: Bool,
         isLocalTesting: Bool,
         offline: Bool
     ) -> Bool {
-        !(isDummy || isLocalTesting || offline)
-    }
-
-    /// Local Fish key is not a production path. Live speaks through Hex.
-    static func shouldEnqueueFishAudio(
-        isMuted: Bool,
-        hasKey: Bool,
-        allowsCloudVoice: Bool = false
-    ) -> Bool {
-        _ = hasKey
-        _ = allowsCloudVoice
-        _ = isMuted
+        _ = isDummy
+        _ = isLocalTesting
+        _ = offline
         return false
     }
 
-    /// Hex proxy. Dummy / offline never reach here.
-    static func shouldEnqueueFishAudioViaBackend(
+    /// Kokoro is the only enqueue. Mute and an idle session stay silent.
+    static func shouldEnqueueKokoro(
         isMuted: Bool,
-        hasLocalKey: Bool,
-        backendReachable: Bool,
-        allowsCloudVoice: Bool
+        sessionActive: Bool
     ) -> Bool {
-        _ = hasLocalKey
-        return !isMuted && backendReachable && allowsCloudVoice
+        !isMuted && sessionActive
     }
 
-    static func currentFishAudioConfig(
-        environment: [String: String] = ProcessInfo.processInfo.environment,
-        infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:],
-        secureStore: SecureStore? = nil
-    ) -> AriaFishAudioVoice.Config {
-        let stored: String?
-        if let secureStore {
-            stored = try? secureStore.string(forKey: AriaFishAudioVoice.keychainAPIKeyAccount)
-        } else {
-            stored = try? KeychainStore().string(forKey: AriaFishAudioVoice.keychainAPIKeyAccount)
-        }
-        return AriaFishAudioVoice.resolve(
-            environment: environment,
-            infoDictionary: infoDictionary,
-            secureStoreValue: stored
+    static func currentKokoroConfig(
+        selection: AriaVoiceCatalog.Selection = AriaVoiceCatalog.Selection.load()
+    ) -> AriaKokoroVoice.Config {
+        AriaKokoroVoice.Config(
+            voiceID: selection.voiceID
+                ?? AriaVoiceCatalog.recipe(id: selection.profileID ?? "warm")?.voiceID
+                ?? AriaKokoroVoice.ariaPreset,
+            speed: selection.speed
         )
     }
 }
 
-/// Local session config. Dummy and loopback short-circuit here — never call
-/// Fish until a line is ready to speak.
+/// Local session config. Dummy and loopback short-circuit here.
 struct AriaVoiceBootstrap: Equatable, Sendable {
     var transport: AriaVoiceTransport
-    /// Retired ConvAI field. Live Fish speak does not use a signed URL.
+    /// Retired ConvAI field. Kokoro speak does not use a signed URL.
     var signedURL: String?
     var voiceName: String
     var sampleRate: Int
@@ -209,7 +178,7 @@ struct AriaVoiceBootstrap: Equatable, Sendable {
         )
     }
 
-    /// True when a live bootstrap leaked the provider key onto the phone.
+    /// True when a live bootstrap leaked a provider key onto the phone.
     static func signedURLLooksLikeAPIKey(_ signedURL: String, apiKey: String) -> Bool {
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedKey.isEmpty else { return false }

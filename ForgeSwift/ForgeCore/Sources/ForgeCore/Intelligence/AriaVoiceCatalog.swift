@@ -1,15 +1,13 @@
 import Foundation
 
-/// ARIA voice profiles — Fish Audio library plus a small featured set.
+/// ARIA voice profiles — shipped Kokoro-82M presets only.
 ///
 /// Featured names are original traits. They never use a trademarked character
-/// or a real actor. Voice ids come from `GET /ai/voice` (Fish `GET /model`).
+/// or a real actor. Voice ids are Kokoro presets (`af_heart` and friends).
 public enum AriaVoiceCatalog: Sendable {
     public static let path = "ai/voice"
-    public static let speakPath = "ai/voice/speak"
-    public static let defaultModel = AriaFishAudioVoice.defaultModel
-    public static let paidModel = AriaFishAudioVoice.paidModel
-    public static let previewText = AriaFishAudioVoice.previewText
+    public static let defaultModel = AriaKokoroVoice.model
+    public static let previewText = AriaKokoroVoice.previewText
 
     public static let featuredIDs = ["warm", "calm", "neutral", "spark", "ember"]
 
@@ -120,13 +118,13 @@ public enum AriaVoiceCatalog: Sendable {
         }
     }
 
-    /// Featured recipes without live ids — used until `GET /ai/voice` returns.
+    /// Featured recipes mapped onto shipped Kokoro presets.
     public static let recipes: [Profile] = [
-        Profile(id: "warm", label: "Warm", description: "Close, unhurried, a woman in the room.", speed: 1.0),
-        Profile(id: "calm", label: "Calm", description: "Even, low, a man who is not in a hurry.", speed: 0.95),
-        Profile(id: "neutral", label: "Neutral", description: "Clear and even. Not styled as a man or a woman.", speed: 1.0),
-        Profile(id: "spark", label: "Spark", description: "Brighter and a little faster. Still a coach, not a bit.", speed: 1.08),
-        Profile(id: "ember", label: "Ember", description: "Blunt, gruff, confident. A young tomboy coach — original voice, not a character impression.", speed: 1.05),
+        Profile(id: "warm", label: "Warm", description: "Close, unhurried, a woman in the room.", speed: 1.0, voiceID: "af_heart"),
+        Profile(id: "calm", label: "Calm", description: "Even, low, a man who is not in a hurry.", speed: 0.95, voiceID: "am_michael"),
+        Profile(id: "neutral", label: "Neutral", description: "Clear and even. Not styled as a man or a woman.", speed: 1.0, voiceID: "af_sarah"),
+        Profile(id: "spark", label: "Spark", description: "Brighter and a little faster. Still a coach, not a bit.", speed: 1.08, voiceID: "af_aoede"),
+        Profile(id: "ember", label: "Ember", description: "Blunt, gruff, confident. A young tomboy coach — original voice, not a character impression.", speed: 1.05, voiceID: "af_bella"),
     ]
 
     public static func isFeaturedID(_ id: String) -> Bool {
@@ -145,24 +143,16 @@ public enum AriaVoiceCatalog: Sendable {
         )
     }
 
-    /// Next `POST /ai/voice/speak` body. Switching the selection changes `voice_id`.
+    /// Local Kokoro selection. This is not a cloud speak body — Hex never
+    /// receives the spoken line.
     public static func speakBody(
         text: String,
         selection: Selection,
         preview: Bool = false
     ) -> [String: Any] {
-        var body: [String: Any] = [
-            "text": text,
-            "preview": preview,
-            "speed": selection.speed,
-        ]
-        if let profileID = selection.profileID, !profileID.isEmpty {
-            body["profile_id"] = profileID
-        }
-        if let voiceID = selection.voiceID, !voiceID.isEmpty {
-            body["voice_id"] = voiceID
-        }
-        return body
+        _ = text
+        _ = preview
+        return persistBody(selection)
     }
 
     public static func persistBody(_ selection: Selection) -> [String: Any] {
@@ -173,7 +163,7 @@ public enum AriaVoiceCatalog: Sendable {
     }
 
     public static func catalogURL(baseURL: URL, query: String = "", page: Int = 1) -> URL? {
-        guard AriaFishAudioVoice.isBackendReachable(baseURL) else { return nil }
+        guard AriaKokoroVoice.isBackendReachable(baseURL) else { return nil }
         var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)
         var items = [
             URLQueryItem(name: "page", value: String(max(1, page))),

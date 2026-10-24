@@ -188,35 +188,15 @@ class ProviderNoSpendGates(unittest.TestCase):
             self.assertNotIn("/ai/voice/fish-tts", src)
             self.assertNotIn("api.fish.audio", src)
 
-        from backend._paths import ensure_lambda_on_path
-
-        ensure_lambda_on_path()
-        eleven = (
+        services = (
             pathlib.Path(__file__).resolve().parents[3]
             / "infra"
             / "lambda"
             / "services"
-            / "elevenlabs_voice.py"
         )
-        self.assertTrue(eleven.exists(), "ElevenLabs stays as a disabled provider slot")
-        slot = eleven.read_text(encoding="utf-8")
-        self.assertIn("elevenlabs_disabled", slot)
-        self.assertNotIn("https://", slot)
-
-        from services import fish_audio_voice
-
-        def fish_boom(*_a, **_k):
-            raise AssertionError("Dummy must not reach Fish Audio")
-
-        fish_names = ("speak", "synthesize", "catalog", "require_api_key")
-        fish_originals = {name: getattr(fish_audio_voice, name) for name in fish_names}
-        try:
-            for name in fish_names:
-                setattr(fish_audio_voice, name, fish_boom)
-            dummy.respond("What should I train today?", seed=1, engine="lambda")
-        finally:
-            for name, fn in fish_originals.items():
-                setattr(fish_audio_voice, name, fn)
+        self.assertFalse((services / "elevenlabs_voice.py").exists())
+        self.assertFalse((services / "fish_audio_voice.py").exists())
+        dummy.respond("What should I train today?", seed=1, engine="lambda")
 
     def test_capability_stub_if_present_is_do_not_invoke(self):
         caps = nyx.try_load_provider_capabilities()

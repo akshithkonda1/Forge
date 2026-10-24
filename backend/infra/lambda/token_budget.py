@@ -1,10 +1,10 @@
-"""Per-user daily Bedrock request/token caps and Fish speak char cap.
+"""Per-user daily Bedrock request/token caps.
 
-Both caps are config (env). Defaults are conservative so a leaked JWT cannot
+Caps are config (env). Defaults are conservative so a leaked JWT cannot
 run up a Bedrock bill. Set a cap to ``0`` to disable that counter. Reservation
 happens *before* Converse using ``max_tokens`` as the output-side estimate;
 input tokens are not known until after the call, so this is a ceiling, not a
-precise meter.
+precise meter. There is no voice-char cap — Kokoro is on-device.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from responses import RouteError
 
 DEFAULT_DAILY_REQUEST_CAP = 40
 DEFAULT_DAILY_TOKEN_CAP = 20_000
-DEFAULT_FISH_DAILY_CHAR_CAP = 20_000
 
 _active_user = ""
 
@@ -37,37 +36,6 @@ def daily_request_cap() -> int:
 
 def daily_token_cap() -> int:
     return _env_int("ARIA_DAILY_TOKEN_CAP", DEFAULT_DAILY_TOKEN_CAP)
-
-
-def daily_voice_char_cap() -> int:
-    """Per-user daily UTF-8 char cap for Fish / Polly speak. ``0`` disables."""
-    return _env_int("ARIA_FISH_DAILY_CHAR_CAP", DEFAULT_FISH_DAILY_CHAR_CAP)
-
-
-def reserve_voice_chars(chars: int, *, user_id: str | None = None) -> None:
-    """Raise ``RouteError(429)`` when this speak would exceed the daily cap."""
-    uid = (user_id or current_user()).strip()
-    if not uid:
-        return
-    cap = daily_voice_char_cap()
-    if cap <= 0:
-        return
-    delta = max(0, int(chars))
-    if not delta:
-        return
-    if delta > cap:
-        raise RouteError(
-            429,
-            "Daily voice character budget exceeded.",
-            code="fish_daily_char_cap",
-        )
-    _bump(
-        uid,
-        action="aria-fish-daily-chars",
-        delta=delta,
-        limit=cap,
-        code="fish_daily_char_cap",
-    )
 
 
 def reserve(*, tokens: int, user_id: str | None = None) -> None:

@@ -1,10 +1,12 @@
 import Foundation
 
-/// Zero-leakage gate for text that might reach a cloud TTS API.
+/// Fail-closed gate for text that must never leave this phone toward TTS.
 ///
-/// Names, emails, phones, and health-metric numbers stay on this phone.
-/// Qualitative coaching may leave. If this cannot guarantee the line is
-/// clean, the mouth falls back to on-device.
+/// Kokoro is on-device, so spoken lines do not go to a vendor. This
+/// sanitizer still refuses names, emails, phones, and health-metric
+/// numbers if anything tries to send a cloud payload. Qualitative
+/// coaching is marked clean; `canSendToCloud` is informational only —
+/// the runtime never posts TTS.
 public enum AriaTTSPrivacy: Sendable {
     public static let canaryName = "AkshithKondaCanary"
     public static let canaryEmail = "akshith.canary@forge.test"

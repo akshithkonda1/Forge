@@ -1,16 +1,11 @@
 """Cached loader for AI provider credentials.
 
-Production Fish key is Parameter Store / Secrets Manager only:
-
-* ``FISH_AUDIO_API_KEY_PARAMETER_NAME`` → e.g. ``/forge-dev/ai/FISH_AUDIO_API_KEY``
-* or JSON key ``FISH_AUDIO_API_KEY`` on ``AI_PROVIDER_SECRET_ARN``
-
-ElevenLabs keys stay in this loader as a reserved next-evolution slot.
-They are not the live mouth. This PR does not create or rotate AWS
-parameters. Tests and a local Lambda may overlay process env. Empty
-overlay values do not wipe a key that came from SSM / Secrets Manager.
-The phone never receives these values — ``generate_client_config``
-refuses them in Info-Add.plist.
+Voice no longer reads Fish or ElevenLabs keys. Those vendors are not on
+the runtime mouth. This loader keeps a generic store for remaining AI
+secrets (Bedrock stays off). Tests and a local Lambda may overlay process
+env. Empty overlay values do not wipe a key that came from SSM / Secrets
+Manager. The phone never receives these values — ``generate_client_config``
+refuses voice-vendor markers in Info-Add.plist.
 """
 
 from __future__ import annotations
@@ -21,20 +16,21 @@ from typing import Any, Callable
 
 _SECRET_CACHE: dict[str, Any] | None = None
 
-_KEYS = (
-    "ELEVENLABS_API_KEY",
-    "ELEVENLABS_ARIA_VOICE_ID",
-    "ELEVENLABS_ARIA_AGENT_ID",
-    "FISH_AUDIO_API_KEY",
-    "FISH_AUDIO_MODEL",
-)
+# Voice-vendor keys are intentionally absent. Do not add FISH_AUDIO_* or
+# ELEVENLABS_* back — Kokoro is on-device and those lookups are dead.
+_KEYS: tuple[str, ...] = ()
 
-_PARAMETER_ENV = {
-    "ELEVENLABS_API_KEY": "ELEVENLABS_API_KEY_PARAMETER_NAME",
-    "ELEVENLABS_ARIA_VOICE_ID": "ELEVENLABS_ARIA_VOICE_ID_PARAMETER_NAME",
-    "ELEVENLABS_ARIA_AGENT_ID": "ELEVENLABS_ARIA_AGENT_ID_PARAMETER_NAME",
-    "FISH_AUDIO_API_KEY": "FISH_AUDIO_API_KEY_PARAMETER_NAME",
-}
+_PARAMETER_ENV: dict[str, str] = {}
+
+_VOICE_VENDOR_KEYS = frozenset(
+    {
+        "FISH_AUDIO_API_KEY",
+        "FISH_AUDIO_MODEL",
+        "ELEVENLABS_API_KEY",
+        "ELEVENLABS_ARIA_VOICE_ID",
+        "ELEVENLABS_ARIA_AGENT_ID",
+    }
+)
 
 
 def reset_cache() -> None:
@@ -48,9 +44,9 @@ def load_ai_provider_secret(
 ) -> dict[str, str]:
     """Return provider credentials as a string map.
 
-    Lookup order per key: non-empty process env, then Parameter Store /
-    Secrets Manager. Missing / unreadable stores yield an empty map rather
-    than raising — callers decide whether that is a 503 or a dummy-only product.
+    Voice-vendor keys are dropped even if they appear in env or the store.
+    Lookup order per remaining key: non-empty process env, then Parameter
+    Store / Secrets Manager. Missing / unreadable stores yield an empty map.
     """
     global _SECRET_CACHE
     if _SECRET_CACHE is None:
@@ -58,6 +54,8 @@ def load_ai_provider_secret(
 
     merged: dict[str, str] = {}
     for key in _KEYS:
+        if key in _VOICE_VENDOR_KEYS:
+            continue
         env = (os.getenv(key) or "").strip()
         if env:
             merged[key] = env
@@ -65,7 +63,7 @@ def load_ai_provider_secret(
         raw = _SECRET_CACHE.get(key)
         if isinstance(raw, str) and raw.strip() and raw.strip() != "UNSET":
             merged[key] = raw.strip()
-    return merged
+    return {key: value for key, value in merged.items() if key not in _VOICE_VENDOR_KEYS}
 
 
 def _read_store(

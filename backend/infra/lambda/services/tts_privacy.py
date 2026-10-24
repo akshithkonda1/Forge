@@ -1,9 +1,9 @@
-"""Zero-leakage sanitizer for text that might reach a cloud TTS API.
+"""Fail-closed sanitizer for text that must never leave toward a TTS API.
 
-No user name, email, phone, street address, or health-metric number may be
-sent to Fish, Polly, or ElevenLabs, or written to a log. Qualitative coaching
-("Sleep was short. Train easy.") is allowed. If this module cannot guarantee
-the line is clean, the mouth falls back to on-device.
+Kokoro is on-device, so spoken lines do not go to a vendor. This module
+still refuses names, emails, phones, street addresses, and health-metric
+numbers if anything tries to build a cloud TTS payload. Qualitative
+coaching ("Sleep was short. Train easy.") is marked clean.
 
 This module never logs the input or the cleaned text.
 """
