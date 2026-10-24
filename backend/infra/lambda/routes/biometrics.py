@@ -1,11 +1,9 @@
-"""POST /ai/observe — ingest raw health samples (incoming) plus the user's
-stored metrics (already in the app), classify and fuse them into a body-model
-snapshot, and project that onto the ARIA coaching context.
+"""POST /ai/observe — health samples are not accepted or stored.
 
-This is the seam where data from one source interacts with another: the request
-carries fresh samples from any device/app, ``query_prefix`` pulls what's already
-been written via /health/batch, and both are classified onto the same canonical
-types before the body model reasons over the union.
+HealthKit ingest, Health Scout completeness, BodyModel, and daily story
+run on-device. This route may still carry a coaching message (voice) so
+ARIA can answer without a health warehouse. ``samples`` / ``vitals`` are
+stripped; nothing is written to METRIC# or ARIA#BODY_SNAPSHOT.
 """
 
 from __future__ import annotations
@@ -91,6 +89,17 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     if len(raw) > 500:
         raise RouteError(400, "samples batch too large (max 500).")
 
+    # Health payloads are not accepted or persisted. BodyModel lives on-device.
+    health_rejected = len(raw)
+    if body.get("vitals") is not None:
+        health_rejected += 1
+    body = {
+        k: v
+        for k, v in body.items()
+        if k not in ("samples", "vitals", "include_stored")
+    }
+    body["include_stored"] = False
+
     message = sanitize_user_text(str(body.get("message") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
 
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
@@ -98,44 +107,32 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
         uid,
         body,
         permissions,
-        include_stored=bool(body.get("include_stored", True)),
-        persist=True,
+        include_stored=False,
+        persist=False,
         load_learner=True,
     )
     context = fused.context
 
-    # Daily story: rolling 18h+ cadence, not tied to this specific call having
-    # fresh samples. When due and there's enough signal, rebuild and cache it;
-    # otherwise hand back whatever was last generated so the client always has
-    # something to show once one exists. See aria_context.needs_daily_story.
-    story_payload: dict[str, Any] | None = None
-    if uid:
-        if _context.needs_daily_story(uid):
-            story = daily_story_mod.build_daily_story(context, fused.baselines)
-            if story is not None:
-                story_payload = story.to_dict()
-                _context.save_daily_story(uid, story_payload)
-            else:
-                story_payload = _context.latest_daily_story(uid)
-        else:
-            story_payload = _context.latest_daily_story(uid)
-
     payload: dict[str, Any] = {
         "user_id": uid,
-        "classification": fused.classification
-        or {"accepted": 0, "rejected": 0, "rejects": []},
-        "snapshot": fused.snapshot or {},
+        "classification": {
+            "accepted": 0,
+            "rejected": health_rejected,
+            "rejects": (
+                [{"reason": "health_stays_on_device"}] * health_rejected
+                if health_rejected
+                else []
+            ),
+        },
+        "snapshot": {},
         "aria_context": _context_payload(context),
         "restricted_domains": fused.restricted or permissions.restricted(),
-        "fusion": fused.fusion_sidecar(),
-        "daily_story": story_payload,
+        "fusion": {**fused.fusion_sidecar(), "health_persisted": False},
+        "daily_story": None,
+        "notice": "Health data always stays on device, never goes to a server.",
     }
 
-    # Real-time vitals safety monitor. During an active session, a sustained,
-    # plausibly-real life-threatening pattern raises an escalation intent that the
-    # client turns into an actual emergency call (Emergency SOS). The backend
-    # decides and records; it never dials 911 itself.
-    _apply_vitals_monitor(body, uid, payload)
+    # Vitals are health data. Do not persist an emergency audit of them.
 
     from aria_core import contextual_learner
 

@@ -113,7 +113,7 @@ class OverlayAndPersistTests(unittest.TestCase):
         self.assertEqual(merged.sleep.duration_minutes, 300)
         self.assertEqual(merged.readiness.recovery_score, 44)
 
-    def test_observe_persists_snapshot_chat_refuses_stale_client_sleep(self):
+    def test_observe_does_not_persist_health_snapshot(self):
         uid = "fuse-chat-user"
         samples = _sleep_hrv_samples(duration_min=300)
         status, observed = _post(
@@ -122,11 +122,10 @@ class OverlayAndPersistTests(unittest.TestCase):
             user_id=uid,
         )
         self.assertEqual(status, 200)
-        self.assertEqual(observed["fusion"]["source"], "body_model")
-        stored = dynamodb.get_item(**keys.aria_body_snapshot_key(uid))
-        self.assertIsNotNone(stored)
-        observed_sleep = observed["aria_context"]["sleep"]["duration_minutes"]
-        self.assertAlmostEqual(observed_sleep, 300, places=0)
+        self.assertEqual(observed["snapshot"], {})
+        self.assertFalse(observed["fusion"].get("health_persisted", True))
+        self.assertIsNone(dynamodb.get_item(**keys.aria_body_snapshot_key(uid)))
+        self.assertTrue(observed["notice"].startswith("Health data always stays on device"))
 
         status, chat = _post(
             "/ai/chat",
@@ -141,16 +140,12 @@ class OverlayAndPersistTests(unittest.TestCase):
             user_id=uid,
         )
         self.assertEqual(status, 200)
-        self.assertEqual(chat["fusion"]["source"], "persisted")
-        self.assertIn("sleep", chat["fusion"]["owned_domains"])
-        self.assertNotEqual(chat["fusion"]["source"], "payload")
-        # Client asked for a green-light 8h night; ingested truth is the short night.
-        self.assertEqual(chat["fusion"]["stance"], "protect")
-        action = (chat.get("card") or {}).get("action") or chat["fusion"].get("action") or ""
-        self.assertTrue(action)
-        self.assertNotIn("Green light", action)
+        # Observe no longer seeds a body snapshot. Chat cannot inherit
+        # HealthKit truth from the server.
+        self.assertNotEqual(chat["fusion"]["source"], "persisted")
+        self.assertIsNone(dynamodb.get_item(**keys.aria_body_snapshot_key(uid)))
 
-    def test_chat_and_observe_share_the_same_body_for_one_turn(self):
+    def test_chat_and_observe_do_not_share_a_server_body(self):
         uid = "fuse-share-user"
         samples = _sleep_hrv_samples(duration_min=430, hrv_start=55)
         _, observed = _post(
@@ -163,10 +158,8 @@ class OverlayAndPersistTests(unittest.TestCase):
             {"user_id": uid, "message": "how am I recovering?", "include_stored": False},
             user_id=uid,
         )
-        self.assertEqual(chat["fusion"]["source"], "persisted")
-        obs_rec = observed["aria_context"]["readiness"]["recovery_score"]
-        # Chat must not invent a second recovery number from an empty client bag.
-        self.assertIsNotNone(obs_rec)
+        self.assertEqual(observed["snapshot"], {})
+        self.assertNotEqual(chat["fusion"]["source"], "persisted")
         self.assertIn(chat["fusion"]["persona_status"], ("loaded", "cold_start"))
         self.assertNotEqual(chat["fusion"]["persona_status"], "skipped")
 
@@ -246,7 +239,7 @@ class PersonaErrorAndInsightTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(chat.get("context_updates"), {})
         self.assertEqual(chat.get("reasoning_source"), "deterministic")
-        self.assertEqual(chat["fusion"]["source"], "persisted")
+        self.assertNotEqual(chat["fusion"]["source"], "persisted")
         self.assertIn(chat["fusion"]["stance"], contextual_learner.STANCES)
         reloaded = contextual_learner.load(uid)
         self.assertEqual(reloaded.last_stance, "proceed")

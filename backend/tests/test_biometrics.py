@@ -561,10 +561,10 @@ class ObserveRouteTests(unittest.TestCase):
             "message": "how am I recovering?",
         }, as_user="obs-user")
         self.assertEqual(status, 200)
-        self.assertEqual(payload["classification"]["accepted"], 7)
-        self.assertEqual(payload["classification"]["rejected"], 1)
-        self.assertIn("autonomic", payload["snapshot"]["systems"])
-        self.assertIsNotNone(payload["aria_context"]["readiness"]["recovery_score"])
+        self.assertEqual(payload["classification"]["accepted"], 0)
+        self.assertEqual(payload["classification"]["rejected"], 8)
+        self.assertEqual(payload["snapshot"], {})
+        self.assertTrue(payload["notice"].startswith("Health data always stays on device"))
         self.assertEqual(payload["aria_response"]["schema_version"], aria_engine.SCHEMA_VERSION)
 
     def test_observe_fuses_stored_metrics_with_incoming(self):
@@ -581,13 +581,15 @@ class ObserveRouteTests(unittest.TestCase):
             "samples": [{"type": "hrv", "value": 48, "unit": "ms",
                          "timestamp": (BASE + timedelta(days=3)).isoformat()}]},
             as_user=uid)[1]
-        self.assertEqual(fused["classification"]["accepted"], 4)  # 3 stored + 1 incoming
+        self.assertEqual(fused["classification"]["accepted"], 0)
+        self.assertEqual(fused["snapshot"], {})
 
         incoming_only = self._post("/ai/observe", {
             "user_id": uid, "include_stored": False,
             "samples": [{"type": "hrv", "value": 48, "unit": "ms", "timestamp": BASE.isoformat()}]},
             as_user=uid)[1]
-        self.assertEqual(incoming_only["classification"]["accepted"], 1)
+        self.assertEqual(incoming_only["classification"]["accepted"], 0)
+        self.assertEqual(incoming_only["snapshot"], {})
 
     def test_observe_rejects_anonymous_requests(self):
         # Replaces `test_observe_requires_user_id`, whose premise is gone: the
@@ -604,7 +606,9 @@ class ObserveRouteTests(unittest.TestCase):
                           "timestamp": BASE.isoformat()}]},
             as_user="token-user")
         self.assertEqual(status, 200)
-        self.assertEqual(payload["classification"]["accepted"], 1)
+        self.assertEqual(payload["classification"]["accepted"], 0)
+        self.assertEqual(payload["classification"]["rejected"], 1)
+        self.assertEqual(payload["snapshot"], {})
 
     def test_observe_refuses_a_body_claiming_another_user(self):
         # The privilege-escalation guard `assert_body_user_matches_auth` exists

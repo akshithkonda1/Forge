@@ -152,8 +152,9 @@ class IngestionRouteTests(unittest.TestCase):
 
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertEqual(payload["accepted"], 1)
-        self.assertEqual(payload["rejected"], 0)
+        self.assertEqual(payload["accepted"], 0)
+        self.assertEqual(payload["rejected"], 1)
+        self.assertIn("Health data always stays on device", payload["errors"][0]["message"])
 
     def test_health_batch_non_numeric_value_does_not_crash_batch(self):
         # normalize_metric used to do `value * factor` unconditionally for a
@@ -182,8 +183,8 @@ class IngestionRouteTests(unittest.TestCase):
 
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertEqual(payload["accepted"], 1)
-        self.assertEqual(payload["rejected"], 0)
+        self.assertEqual(payload["accepted"], 0)
+        self.assertEqual(payload["rejected"], 1)
 
     def test_health_batch_rejects_unknown_metric_type(self):
         response = handler(
