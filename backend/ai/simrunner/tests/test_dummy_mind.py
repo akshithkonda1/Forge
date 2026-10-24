@@ -370,6 +370,34 @@ class DummyZeroLeakageTests(unittest.TestCase):
         self.assertNotIn(str(CANARY_HRV), blob)
         self.assertNotIn(str(CANARY_SLEEP), blob)
 
+    def test_health_needles_do_not_rewrite_turn_id(self):
+        """Profile values like 44/70 must not rewrite uuid hex inside turn_id."""
+        from backend.ai.aria_chat import logging as chatlog
+
+        turn_id = "sample-sess-0008-aa44bb70"
+        session_id = "sample-sess"
+        needles = [CANARY_NAME, str(CANARY_HRV), str(CANARY_SLEEP), "44", "70"]
+        record = chatlog.build_record(
+            session_id=session_id,
+            turn_id=turn_id,
+            turn=8,
+            seed=4,
+            install_pseudonym="pseudo-canary",
+            memory_enabled=True,
+            user_message=f"Hi I'm {CANARY_NAME}, my HRV is {CANARY_HRV}.",
+            envelope={"message": "ok", "prose_summary": "ok", "guidance_band": "coach"},
+            payload={
+                "user_name": CANARY_NAME,
+                "context": {"sleep": {"hrv": CANARY_HRV, "remMinutes": 70}},
+            },
+            needles=needles,
+        )
+        self.assertEqual(record["turn_id"], turn_id)
+        self.assertEqual(record["session_id"], session_id)
+        blob = json.dumps(record)
+        self.assertNotIn(CANARY_NAME, blob)
+        self.assertNotIn(str(CANARY_HRV), blob)
+
 
 if __name__ == "__main__":
     unittest.main()
