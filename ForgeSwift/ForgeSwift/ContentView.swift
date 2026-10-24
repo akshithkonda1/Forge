@@ -26,6 +26,7 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
+            .environment(\.forgeWelcomeCovered, showSplash)
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
             .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
@@ -73,9 +74,7 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
     @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
     @State private var textOffset: CGFloat = 16
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -84,29 +83,16 @@ struct ForgeSplashScreen: View {
             PremiumAtmosphere(
                 accent: ForgePalette.ember,
                 secondary: Color(hex: "A9D8FF"),
-                intensity: 0.55 + 0.45 * glowIntensity,
+                intensity: 1,
                 loopMotion: false
             )
 
-            VStack(spacing: FDS.Spacing.xl) {
-                ZStack {
-                    PremiumPresenceBloom(
-                        size: 220,
-                        accent: ForgePalette.ember,
-                        frost: Color(hex: "A9D8FF"),
-                        live: false
-                    )
-                    AuroraOrbView(
-                        state: .idle,
-                        amplitude: 0.62,
-                        mood: .energized,
-                        size: 148,
-                        followPresence: false
-                    )
-                    .environment(\.forgeMinimalAnimation, true)
-                }
-                .scaleEffect(logoScale)
-                .opacity(logoOpacity)
+            VStack(spacing: FDS.Spacing.lg) {
+                ForgeStrikeMark(
+                    variation: .strike,
+                    duration: ForgeStrikeGeometry.splashDuration
+                )
+                .frame(width: 240, height: 200)
 
                 VStack(spacing: FDS.Spacing.md) {
                     HStack(spacing: FDS.Spacing.md) {
@@ -128,17 +114,11 @@ struct ForgeSplashScreen: View {
         }
         .onAppear {
             let base: Animation = reduceMotion
-                ? .easeOut(duration: 0.3)
+                ? .easeOut(duration: 0.25)
                 : ForgeMotion.gentle
-            withAnimation(base) {
-                logoScale = 1.0
-                logoOpacity = 1.0
-            }
-            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : ForgeMotion.gentle).delay(0.18)) {
+            withAnimation(base.delay(0.12)) {
+                logoOpacity = 1
                 textOffset = 0
-            }
-            withAnimation(.easeInOut(duration: 0.5).delay(0.1)) {
-                glowIntensity = 1.0
             }
         }
     }

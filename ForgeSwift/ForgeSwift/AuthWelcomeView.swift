@@ -5,7 +5,8 @@ import ForgeCore
 // MARK: - Auth Welcome — premium Day 0 (Oura / Whoop–class)
 
 /// Soft first gate: calm carousel → identity → account → ARIA interview.
-/// No rage-fire. Presence is light, typography, and negative space.
+/// Each page plays one hammer-and-flame beat, then holds. The beat replays
+/// whenever that page is the one on screen.
 struct AuthWelcomeView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -17,6 +18,9 @@ struct AuthWelcomeView: View {
     @State private var showSignIn = false
     @State private var showSignUp = false
     @State private var autoAdvanceTask: Task<Void, Never>?
+    /// Bumps when the welcome screen is shown again, so the current beat replays.
+    @State private var strikeSeed = 0
+    @State private var welcomeWasBackgrounded = false
 
     private let pages = AuthHookPage.all
 
@@ -35,7 +39,7 @@ struct AuthWelcomeView: View {
 
                 TabView(selection: $page) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, hook in
-                        AuthHookPageView(page: hook, isActive: page == index)
+                        AuthHookPageView(page: hook, isActive: page == index, replaySeed: strikeSeed)
                             .tag(index)
                     }
                 }
@@ -60,6 +64,7 @@ struct AuthWelcomeView: View {
                 .preferredColorScheme(.dark)
         }
         .onAppear {
+            strikeSeed += 1
             withAnimation(reduceMotion ? nil : ForgeMotion.gentle.delay(0.05)) { appeared = true }
             scheduleAutoAdvance()
         }
@@ -68,7 +73,15 @@ struct AuthWelcomeView: View {
             AriaPresence.shared.stopSpeaking()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { AriaPresence.shared.stopSpeaking() }
+            if phase == .active {
+                if welcomeWasBackgrounded {
+                    strikeSeed += 1
+                }
+                welcomeWasBackgrounded = false
+            } else {
+                welcomeWasBackgrounded = true
+                AriaPresence.shared.stopSpeaking()
+            }
         }
     }
 
@@ -170,7 +183,7 @@ private struct AuthHookPage: Identifiable {
     let kicker: String
     let title: String
     let body: String
-    let icon: String
+    let variation: ForgeStrikeVariation
     let accent: Color
     let frost: Color
     let reward: String
@@ -181,7 +194,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Meet your coach",
             title: AriaOnboardingGuide.welcomeTitle,
             body: "ARIA is an adaptive lifestyle coach — present for readiness, sleep, and the session you'd skip. Small moves compound. You still decide.",
-            icon: "text.bubble",
+            variation: .strike,
             accent: Color.ember,
             frost: ForgeProgressChrome.plate,
             reward: "A coach who already knows you"
@@ -191,7 +204,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Train on signal",
             title: "Know when to push or protect.",
             body: "ARIA turns your metrics into a plan that fits today. Progress compounds day to day — each session intentional, never a burden.",
-            icon: "waveform.path.ecg",
+            variation: .quench,
             accent: Color.steel,
             frost: ForgeProgressChrome.plate,
             reward: "Sessions that match how you feel"
@@ -201,7 +214,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Built around your life",
             title: "Workouts, lifestyle, and cycle rhythm.",
             body: "Sleep, nutrition, free time, and how you show up for people you love — one private control center that respects the life you already have.",
-            icon: "leaf.fill",
+            variation: .spark,
             accent: Color.success,
             frost: ForgeProgressChrome.plate,
             reward: "Private by design"
@@ -211,7 +224,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Start today",
             title: "Forge starts with one choice.",
             body: "Name your goal and how you want to train. Connect Health if you want. Walk out with a first plan and a coach that already knows you.",
-            icon: "text.bubble",
+            variation: .temper,
             accent: Color.paper,
             frost: Color.ember,
             reward: "Meet ARIA →"
@@ -222,8 +235,10 @@ private struct AuthHookPage: Identifiable {
 private struct AuthHookPageView: View {
     let page: AuthHookPage
     let isActive: Bool
+    var replaySeed: Int = 0
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var replay = 0
 
     var body: some View {
         pageLayout
@@ -255,7 +270,7 @@ private struct AuthHookPageView: View {
         VStack(spacing: ForgeLayout.groupBreak) {
             Spacer(minLength: FDS.Spacing.sm)
             visual
-                .frame(height: 220)
+                .frame(height: page.id == "aria" ? 268 : 224)
                 .scaleEffect(isActive ? 1 : 0.96)
             copyBlock
             Spacer(minLength: FDS.Spacing.xs)
@@ -308,64 +323,49 @@ private struct AuthHookPageView: View {
         .padding(.horizontal, ForgeLayout.screenInset)
     }
 
-    @ViewBuilder
     private var visual: some View {
-        if page.id == "aria" {
-            ariaVisual
-        } else {
-            iconVisual
+        VStack(spacing: FDS.Spacing.xs) {
+            ForgeStrikeMark(
+                variation: page.variation,
+                isActive: isActive,
+                replayToken: replay &+ replaySeed
+            )
+            .frame(width: 240, height: 188)
+            .contentShape(Rectangle())
+            .onTapGesture { replay += 1 }
+            .accessibilityElement()
+            .accessibilityLabel(page.variation.accessibilityLabel)
+            .accessibilityHint("Replays this strike")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default) { replay += 1 }
+
+            Text(page.variation.title)
+                .font(ForgeType.micro)
+                .tracking(1.6)
+                .foregroundColor(.textTertiary)
+                .accessibilityHidden(true)
+
+            if page.id == "aria" {
+                hearAria
+            }
         }
+        .frame(maxWidth: .infinity)
     }
 
-    private var ariaVisual: some View {
+    private var hearAria: some View {
         Button {
             AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
         } label: {
-            VStack(spacing: FDS.Spacing.sm) {
-                ZStack {
-                    PremiumPresenceBloom(size: 170, accent: page.accent, frost: page.frost, live: false)
-                    AuroraOrbView(
-                        state: .idle,
-                        amplitude: 0.55,
-                        mood: .energized,
-                        size: 120,
-                        followPresence: true
-                    )
-                }
-                .frame(width: 190, height: 190)
-
-                Text("ARIA")
-                    .forgeSectionLabel(tint: Color.paper.opacity(0.72))
-                    .accessibilityHidden(true)
-            }
-            .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
-            .contentShape(Rectangle())
+            Text("Hear ARIA")
+                .font(HomeType.label)
+                .foregroundColor(.textSecondary)
+                .frame(minHeight: ForgeUX.minTap)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Hear ARIA")
         .accessibilityHint("Plays her welcome line")
-    }
-
-    private var iconVisual: some View {
-        ZStack {
-            PremiumPresenceBloom(size: 170, accent: page.accent, frost: page.frost, live: false)
-            Circle()
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                .frame(width: 112, height: 112)
-            Circle()
-                .fill(Color.white.opacity(0.04))
-                .frame(width: 96, height: 96)
-            Image(systemName: page.icon)
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(iconGradient)
-        }
-        .frame(width: 190, height: 190)
-        .accessibilityHidden(true)
-    }
-
-    private var iconGradient: LinearGradient {
-        // Flat paper glyphs; the page accent stays on the single CTA.
-        LinearGradient.flat(Color.paper)
     }
 }
 

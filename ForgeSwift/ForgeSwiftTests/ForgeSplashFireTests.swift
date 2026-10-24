@@ -135,4 +135,73 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertLessThanOrEqual(ForgeFireGeometry.tickHz, 15)
         XCTAssertGreaterThanOrEqual(ForgeFireGeometry.tickHz, 12)
     }
+
+    func testSplashStrikeFinishesInsideTheHold() {
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashDuration, ForgeSplashTiming.hold)
+        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashDuration, ForgeSplashTiming.brandFloor)
+        let windup = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: 0,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: false
+        )
+        let hit = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: 0.38 * ForgeStrikeGeometry.splashDuration,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: false
+        )
+        let settled = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: ForgeStrikeGeometry.splashDuration,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: false
+        )
+        XCTAssertGreaterThan(hit.impact, 0.9)
+        XCTAssertLessThan(settled.hammerAngle, windup.hammerAngle)
+        XCTAssertGreaterThan(settled.flameScale, windup.flameScale)
+        XCTAssertEqual(settled.sparkTravel, 1, accuracy: 0.001)
+        XCTAssertLessThan(settled.impact, 0.05)
+    }
+
+    func testStrikeVariationsReadDifferently() {
+        let duration = ForgeStrikeGeometry.duration
+        let strikeStart = ForgeStrikeGeometry.pose(variation: .strike, time: 0, duration: duration, reduceMotion: false)
+        let strikeHit = ForgeStrikeGeometry.pose(variation: .strike, time: 0.38 * duration, duration: duration, reduceMotion: false)
+        let quenchStart = ForgeStrikeGeometry.pose(variation: .quench, time: 0, duration: duration, reduceMotion: false)
+        let quenchEnd = ForgeStrikeGeometry.pose(variation: .quench, time: duration, duration: duration, reduceMotion: false)
+        let sparkHit = ForgeStrikeGeometry.pose(variation: .spark, time: 0.34 * duration, duration: duration, reduceMotion: false)
+        let sparkLate = ForgeStrikeGeometry.pose(variation: .spark, time: 0.80 * duration, duration: duration, reduceMotion: false)
+        let temperStart = ForgeStrikeGeometry.pose(variation: .temper, time: 0, duration: duration, reduceMotion: false)
+        let temperHit = ForgeStrikeGeometry.pose(variation: .temper, time: 0.42 * duration, duration: duration, reduceMotion: false)
+
+        XCTAssertGreaterThan(strikeHit.impact, strikeStart.impact)
+        XCTAssertGreaterThan(strikeHit.flameScale, 1.05)
+        XCTAssertLessThan(strikeHit.hammerAngle, strikeStart.hammerAngle)
+
+        XCTAssertGreaterThan(quenchStart.flameScale, quenchEnd.flameScale + 0.5)
+        XCTAssertGreaterThan(quenchEnd.hammerAngle, quenchStart.hammerAngle + 0.7)
+        XCTAssertLessThan(quenchEnd.flameScale, 0.35)
+
+        XCTAssertLessThan(sparkHit.flameScale, 0.95)
+        XCTAssertGreaterThan(sparkLate.sparkTravel, 0.6)
+        XCTAssertGreaterThan(sparkLate.flameScale, 0.5)
+
+        XCTAssertLessThan(temperStart.hammerAngle, strikeStart.hammerAngle)
+        XCTAssertLessThan(temperHit.impact, strikeHit.impact)
+        XCTAssertEqual(Set(ForgeStrikeVariation.allCases.map(\.title)).count, 4)
+    }
+
+    func testReduceMotionFreezesEveryStrike() {
+        for variation in ForgeStrikeVariation.allCases {
+            let settled = ForgeStrikeGeometry.pose(variation: variation, time: 0, duration: 1.05, reduceMotion: true)
+            let later = ForgeStrikeGeometry.pose(variation: variation, time: 4, duration: 1.05, reduceMotion: true)
+            XCTAssertEqual(settled.hammerAngle, later.hammerAngle, accuracy: 0.0001)
+            XCTAssertEqual(settled.impact, later.impact, accuracy: 0.0001)
+            XCTAssertEqual(settled.flameScale, later.flameScale, accuracy: 0.0001)
+            XCTAssertEqual(settled.sparkTravel, later.sparkTravel, accuracy: 0.0001)
+            let windup = ForgeStrikeGeometry.pose(variation: variation, time: 0, duration: 1.05, reduceMotion: false)
+            XCTAssertGreaterThan(abs(settled.hammerAngle - windup.hammerAngle), 0.15)
+        }
+    }
 }
