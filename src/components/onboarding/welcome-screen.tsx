@@ -124,9 +124,11 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
         <div className="flex flex-1 flex-col items-center justify-center px-1 text-center">
           <PremiumEntrance key={`visual-${hook.id}`} index={0} className="mb-7">
             <PremiumFloat className="relative flex h-48 w-52 items-center justify-center">
-              <PremiumPresenceBloom size={210} accent={hook.accent} frost={hook.frost} />
+              {hook.id !== FORGE_WELCOME.firstPageId && (
+                <PremiumPresenceBloom size={210} accent={hook.accent} frost={hook.frost} />
+              )}
               {hook.id === FORGE_WELCOME.firstPageId ? (
-                <ForgeStrikeMark size={140} className="relative z-10" />
+                <ForgeStrikeMark size={176} className="relative z-10" />
               ) : hook.id === "aria" || hook.id === "forge" ? (
                 <AriaMark size={140} speaking={hook.id === "aria"} label="ARIA" className="relative z-10" />
               ) : (

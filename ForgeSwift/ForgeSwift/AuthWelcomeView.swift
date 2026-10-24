@@ -332,11 +332,8 @@ private struct AuthHookPageView: View {
     }
 
     private var brandVisual: some View {
-        ZStack {
-            PremiumPresenceBloom(size: 170, accent: page.accent, frost: page.frost, live: false)
-            ForgeStrikeMark(size: 148)
-        }
-        .frame(width: 190, height: 190)
+        ForgeStrikeMark(size: 176)
+            .frame(width: 190, height: 190)
     }
 
     private var ariaVisual: some View {

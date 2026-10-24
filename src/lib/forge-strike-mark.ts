@@ -14,12 +14,12 @@ export const FORGE_STRIKE_MARK = {
   emberLightHex: "FF7A3D",
   emberDarkHex: "C43A00",
   amberHex: "FFB84D",
-  pivotX: 0.54,
-  pivotY: 0.58,
-  raisedAngleDeg: -44,
+  pivotX: 0.56,
+  pivotY: 0.6,
+  raisedAngleDeg: -54,
   impactAngleDeg: 8,
-  idleAngleDeg: -16,
-  idleFlare: 0.28,
+  idleAngleDeg: -24,
+  idleFlare: 0.34,
 } as const;
 
 export type ForgeStrikeCommand =
@@ -97,30 +97,28 @@ export function strikeFlare(progress: number): number {
 
 export function hammerCommands(): ForgeStrikeCommand[] {
   return [
-    { type: "M", x: -0.175, y: -0.1 },
-    { type: "L", x: -0.175, y: 0.1 },
-    { type: "L", x: -0.018, y: 0.086 },
-    { type: "L", x: -0.018, y: 0.036 },
-    { type: "L", x: 0.02, y: 0.03 },
-    { type: "L", x: 0.392, y: 0.026 },
-    { type: "C", cx1: 0.448, cy1: 0.026, cx2: 0.448, cy2: -0.026, x: 0.392, y: -0.026 },
-    { type: "L", x: 0.02, y: -0.03 },
-    { type: "L", x: -0.018, y: -0.036 },
-    { type: "L", x: -0.018, y: -0.086 },
+    { type: "M", x: -0.3, y: -0.165 },
+    { type: "L", x: -0.3, y: 0.165 },
+    { type: "L", x: -0.085, y: 0.165 },
+    { type: "L", x: -0.085, y: 0.058 },
+    { type: "L", x: 0.4, y: 0.05 },
+    { type: "C", cx1: 0.51, cy1: 0.05, cx2: 0.51, cy2: -0.05, x: 0.4, y: -0.05 },
+    { type: "L", x: -0.085, y: -0.058 },
+    { type: "L", x: -0.085, y: -0.165 },
     { type: "Z" },
   ];
 }
 
 export function flameCommands(index: number, flare: number): ForgeStrikeCommand[] {
   const f = Math.min(1, Math.max(0, flare));
-  const rise = 0.56 + 0.44 * f;
+  const rise = 0.62 + 0.38 * f;
   if (index === 0) {
-    return tongue(0.388, 0.705, 0.318 - 0.02 * f, 0.705 - 0.4 * rise, 0.092 + 0.028 * f);
+    return tongue(0.34, 0.86, 0.16 - 0.04 * f, 0.86 - 0.62 * rise, 0.155 + 0.045 * f);
   }
   if (index === 1) {
-    return tongue(0.425, 0.718, 0.402, 0.718 - 0.48 * rise, 0.072 + 0.022 * f);
+    return tongue(0.4, 0.88, 0.36, 0.88 - 0.74 * rise, 0.12 + 0.035 * f);
   }
-  return tongue(0.43, 0.698, 0.424, 0.698 - 0.28 * rise, 0.038 + 0.012 * f);
+  return tongue(0.405, 0.84, 0.39, 0.84 - 0.44 * rise, 0.058 + 0.02 * f);
 }
 
 export function strikeSpark(

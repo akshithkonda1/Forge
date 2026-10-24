@@ -10,11 +10,7 @@ import { ChatPage } from "@/components/chat/chat-page";
 import { WorkoutPage } from "@/components/workout/workout-page";
 import { AriaIntro } from "@/components/brand/aria-intro";
 import { ForgeStrikeMark } from "@/components/brand/forge-strike-mark";
-import {
-  PremiumAtmosphere,
-  PremiumFloat,
-  PremiumPresenceBloom,
-} from "@/components/brand/premium-atmosphere";
+import { PremiumAtmosphere } from "@/components/brand/premium-atmosphere";
 import { forgeSplashHoldMs, peekPersistedOnboarded } from "@/lib/forge-splash";
 import { forgeWelcomeTagline } from "@/lib/forge-welcome";
 import { cn } from "@/lib/utils";
@@ -69,10 +65,9 @@ function BootSplash({
             <ForgeStrikeMark size={72} className="relative z-10" />
           </div>
         ) : (
-          <PremiumFloat className="relative flex h-56 w-56 items-center justify-center">
-            <PremiumPresenceBloom size={220} />
-            <ForgeStrikeMark size={148} className="relative z-10" />
-          </PremiumFloat>
+          <div className="relative flex h-56 w-56 items-center justify-center">
+            <ForgeStrikeMark size={200} className="relative z-10" />
+          </div>
         )}
         <div className="premium-enter mt-5 text-[28px] font-semibold tracking-[0.22em] text-text-primary">
           FORGE

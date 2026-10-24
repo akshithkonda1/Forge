@@ -68,17 +68,31 @@ enum ForgeStrikeCanvas {
         let compact = ForgeStrikeMarkGeometry.isCompact(size: Double(side))
         let paper = Color(hex: ForgeStrikeMarkGeometry.paperHex)
         let ember = Color(hex: ForgeStrikeMarkGeometry.emberHex)
-        let emberLight = Color(hex: ForgeStrikeMarkGeometry.emberLightHex)
         let emberDark = Color(hex: ForgeStrikeMarkGeometry.emberDarkHex)
         let amber = Color(hex: ForgeStrikeMarkGeometry.amberHex)
 
+        if compact {
+            let tile = Path(
+                roundedRect: CGRect(x: 0, y: 0, width: side, height: side),
+                cornerRadius: side * 0.28,
+                style: .continuous
+            )
+            context.fill(tile, with: .color(ember))
+            context.stroke(tile, with: .color(Color.white.opacity(0.16)), lineWidth: 0.5)
+        }
+
+        let glyphSide = compact ? side * 0.78 : side
+        if compact {
+            context.translateBy(x: (side - glyphSide) / 2, y: (side - glyphSide) / 2)
+        }
+
         paintFlame(
             context: &context,
-            side: side,
+            side: glyphSide,
             flare: pose.flare,
             compact: compact,
+            paper: paper,
             ember: ember,
-            emberLight: emberLight,
             emberDark: emberDark,
             amber: amber
         )
@@ -86,10 +100,10 @@ enum ForgeStrikeCanvas {
         if !compact {
             let glow = ForgeStrikeMarkGeometry.impactGlowOpacity(flare: pose.flare)
             if glow > 0.01 {
-                let radius = side * CGFloat(ForgeStrikeMarkGeometry.impactGlowRadius(flare: pose.flare))
+                let radius = glyphSide * CGFloat(ForgeStrikeMarkGeometry.impactGlowRadius(flare: pose.flare))
                 let rect = CGRect(
-                    x: side * 0.41 - radius,
-                    y: side * 0.64 - radius,
+                    x: glyphSide * 0.41 - radius,
+                    y: glyphSide * 0.64 - radius,
                     width: radius * 2,
                     height: radius * 2
                 )
@@ -99,7 +113,7 @@ enum ForgeStrikeCanvas {
 
         paintHammer(
             context: &context,
-            side: side,
+            side: glyphSide,
             angleDeg: pose.hammerAngleDeg,
             compact: compact,
             paper: paper,
@@ -114,10 +128,10 @@ enum ForgeStrikeCanvas {
                     reduceMotion: false
                 )
                 guard spark.opacity > 0.01 else { continue }
-                let radius = max(0.6, side * CGFloat(spark.radius))
+                let radius = max(0.6, glyphSide * CGFloat(spark.radius))
                 let rect = CGRect(
-                    x: side * CGFloat(spark.x) - radius,
-                    y: side * CGFloat(spark.y) - radius,
+                    x: glyphSide * CGFloat(spark.x) - radius,
+                    y: glyphSide * CGFloat(spark.y) - radius,
                     width: radius * 2,
                     height: radius * 2
                 )
@@ -131,13 +145,13 @@ enum ForgeStrikeCanvas {
         side: CGFloat,
         flare: Double,
         compact: Bool,
+        paper: Color,
         ember: Color,
-        emberLight: Color,
         emberDark: Color,
         amber: Color
     ) {
         let fills: [Color] = compact
-            ? [ember, ember, emberLight]
+            ? [paper, paper, paper]
             : [emberDark, ember, amber]
         for index in 0..<3 {
             let path = path(
@@ -164,7 +178,7 @@ enum ForgeStrikeCanvas {
         context.drawLayer { ctx in
             ctx.translateBy(x: pivot.x, y: pivot.y)
             ctx.rotate(by: .degrees(angleDeg))
-            ctx.fill(local, with: .color(compact ? ember : paper))
+            ctx.fill(local, with: .color(paper))
             if !compact {
                 ctx.stroke(
                     local,

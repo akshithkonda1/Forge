@@ -575,13 +575,13 @@
 
 .forge-strike-hammer {
   transform-box: view-box;
-  transform-origin: 54px 58px;
-  transform: rotate(-16deg);
+  transform-origin: 56px 60px;
+  transform: rotate(-24deg);
 }
 
 .forge-strike-flame {
   transform-box: view-box;
-  transform-origin: 42px 72px;
+  transform-origin: 42px 84px;
 }
 
 .forge-strike-glow,
@@ -608,14 +608,14 @@
 @keyframes forge-strike-hammer {
   0%,
   22% {
-    transform: rotate(-44deg);
+    transform: rotate(-54deg);
   }
   40% {
     transform: rotate(8deg);
   }
   62%,
   100% {
-    transform: rotate(-16deg);
+    transform: rotate(-24deg);
   }
 }
 

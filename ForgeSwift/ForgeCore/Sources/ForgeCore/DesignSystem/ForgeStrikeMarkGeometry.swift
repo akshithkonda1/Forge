@@ -22,13 +22,13 @@ public enum ForgeStrikeMarkGeometry: Sendable {
     public static let amberHex = "FFB84D"
 
     /// Neck of the hammer — rotation origin in unit space.
-    public static let pivotX: Double = 0.54
-    public static let pivotY: Double = 0.58
+    public static let pivotX: Double = 0.56
+    public static let pivotY: Double = 0.60
 
-    public static let raisedAngleDeg: Double = -44
+    public static let raisedAngleDeg: Double = -54
     public static let impactAngleDeg: Double = 8
-    public static let idleAngleDeg: Double = -16
-    public static let idleFlare: Double = 0.28
+    public static let idleAngleDeg: Double = -24
+    public static let idleFlare: Double = 0.34
 
     public struct Point: Equatable, Sendable {
         public var x: Double
@@ -110,18 +110,17 @@ public enum ForgeStrikeMarkGeometry: Sendable {
     }
 
     /// Hammer silhouette in local space (origin at the neck, +x along the handle).
+    /// Tall cubic head + sharp inner corners so it reads as a hammer, not a spatula.
     public static func hammerCommands() -> [Command] {
         [
-            .move(-0.175, -0.100),
-            .line(-0.175, 0.100),
-            .line(-0.018, 0.086),
-            .line(-0.018, 0.036),
-            .line(0.020, 0.030),
-            .line(0.392, 0.026),
-            .cubic(0.448, 0.026, 0.448, -0.026, 0.392, -0.026),
-            .line(0.020, -0.030),
-            .line(-0.018, -0.036),
-            .line(-0.018, -0.086),
+            .move(-0.30, -0.165),
+            .line(-0.30, 0.165),
+            .line(-0.085, 0.165),
+            .line(-0.085, 0.058),
+            .line(0.40, 0.050),
+            .cubic(0.51, 0.050, 0.51, -0.050, 0.40, -0.050),
+            .line(-0.085, -0.058),
+            .line(-0.085, -0.165),
             .close
         ]
     }
@@ -129,25 +128,25 @@ public enum ForgeStrikeMarkGeometry: Sendable {
     /// Flame tongue `0` back, `1` mid, `2` core. Unit space, y-down.
     public static func flameCommands(index: Int, flare amount: Double) -> [Command] {
         let f = min(1, max(0, amount))
-        let rise = 0.56 + 0.44 * f
+        let rise = 0.62 + 0.38 * f
         switch index {
         case 0:
             return tongue(
-                baseX: 0.388, baseY: 0.705,
-                tipX: 0.318 - 0.02 * f, tipY: 0.705 - 0.40 * rise,
-                width: 0.092 + 0.028 * f
+                baseX: 0.34, baseY: 0.86,
+                tipX: 0.16 - 0.04 * f, tipY: 0.86 - 0.62 * rise,
+                width: 0.155 + 0.045 * f
             )
         case 1:
             return tongue(
-                baseX: 0.425, baseY: 0.718,
-                tipX: 0.402, tipY: 0.718 - 0.48 * rise,
-                width: 0.072 + 0.022 * f
+                baseX: 0.40, baseY: 0.88,
+                tipX: 0.36, tipY: 0.88 - 0.74 * rise,
+                width: 0.120 + 0.035 * f
             )
         default:
             return tongue(
-                baseX: 0.430, baseY: 0.698,
-                tipX: 0.424, tipY: 0.698 - 0.28 * rise,
-                width: 0.038 + 0.012 * f
+                baseX: 0.405, baseY: 0.84,
+                tipX: 0.39, tipY: 0.84 - 0.44 * rise,
+                width: 0.058 + 0.02 * f
             )
         }
     }

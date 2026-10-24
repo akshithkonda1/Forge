@@ -72,6 +72,47 @@ final class ForgeStrikeMarkGeometryTests: XCTestCase {
         let svg = ForgeStrikeMarkGeometry.svgPath(hammer, side: 100)
         XCTAssertTrue(svg.contains("M "))
         XCTAssertTrue(svg.contains("Z"))
+        XCTAssertTrue(hasSharpNeck(hammer), "head must step into the handle — a T, not a spatula")
+        XCTAssertGreaterThan(headHeight(hammer), 0.28)
+        XCTAssertLessThan(ForgeStrikeMarkGeometry.idleAngleDeg, -18)
+        XCTAssertGreaterThan(ForgeStrikeMarkGeometry.idleAngleDeg, -30)
+    }
+
+    private func hasSharpNeck(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Bool {
+        var previous: (x: Double, y: Double)?
+        for command in commands {
+            let point: (x: Double, y: Double)?
+            switch command {
+            case .move(let x, let y), .line(let x, let y):
+                point = (x, y)
+            default:
+                point = nil
+            }
+            if let point, let previous, abs(point.x - previous.x) < 0.0001, abs(point.y - previous.y) > 0.08 {
+                return true
+            }
+            if let point { previous = point }
+        }
+        return false
+    }
+
+    private func headHeight(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Double {
+        var minY = Double.greatestFiniteMagnitude
+        var maxY = -Double.greatestFiniteMagnitude
+        for command in commands {
+            let y: Double?
+            switch command {
+            case .move(_, let value), .line(_, let value):
+                y = value
+            default:
+                y = nil
+            }
+            if let y {
+                minY = min(minY, y)
+                maxY = max(maxY, y)
+            }
+        }
+        return maxY - minY
     }
 
     func testBrandColorsPassWCAGAAOnBackground() {

@@ -39,10 +39,9 @@ export function ForgeStrikeMark({
   const idle = strikePose(1, true);
   const paper = `#${FORGE_STRIKE_MARK.paperHex}`;
   const ember = `#${FORGE_STRIKE_MARK.emberHex}`;
-  const emberLight = `#${FORGE_STRIKE_MARK.emberLightHex}`;
   const emberDark = `#${FORGE_STRIKE_MARK.emberDarkHex}`;
   const amber = `#${FORGE_STRIKE_MARK.amberHex}`;
-  const flameFills = compact ? [ember, ember, emberLight] : [emberDark, ember, amber];
+  const flameFills = compact ? [paper, paper, paper] : [emberDark, ember, amber];
 
   return (
     <svg
@@ -59,43 +58,57 @@ export function ForgeStrikeMark({
       aria-label={labeled ? FORGE_WELCOME.markLabel : undefined}
       aria-hidden={labeled ? undefined : true}
     >
-      <g className="forge-strike-flame">
-        {flameFills.map((fill, index) => (
-          <path key={index} d={svgPath(flameCommands(index, idle.flare), SIDE)} fill={fill} />
-        ))}
-      </g>
-      {!compact && (
-        <circle className="forge-strike-glow" cx={41} cy={64} r={7} fill={ember} />
+      {compact && (
+        <rect
+          x={0.5}
+          y={0.5}
+          width={99}
+          height={99}
+          rx={28}
+          fill={ember}
+          stroke="rgba(255,255,255,0.16)"
+          strokeWidth={0.8}
+        />
       )}
-      <g className="forge-strike-hammer">
-        <g transform={`translate(${PIVOT_X} ${PIVOT_Y})`}>
-          <path
-            d={svgPath(hammerCommands(), SIDE)}
-            fill={compact ? ember : paper}
-            stroke={compact ? "none" : "rgba(255,255,255,0.16)"}
-            strokeWidth={compact ? 0 : 0.7}
-          />
+      <g transform={compact ? "translate(11 11) scale(0.78)" : undefined}>
+        <g className="forge-strike-flame">
+          {flameFills.map((fill, index) => (
+            <path key={index} d={svgPath(flameCommands(index, idle.flare), SIDE)} fill={fill} />
+          ))}
         </g>
-      </g>
-      {!compact &&
-        Array.from({ length: FORGE_STRIKE_MARK.sparkCount }, (_, index) => {
-          const angle = ((-125 + index * 28) * Math.PI) / 180;
-          const dist = 10 + (index % 3) * 4.5;
-          return (
-            <circle
-              key={index}
-              className="forge-strike-spark"
-              cx={41}
-              cy={64}
-              r={0.9 + (index % 3) * 0.25}
-              fill={amber}
-              style={{
-                ["--spark-x" as string]: `${Math.cos(angle) * dist}px`,
-                ["--spark-y" as string]: `${Math.sin(angle) * dist}px`,
-              }}
+        {!compact && (
+          <circle className="forge-strike-glow" cx={41} cy={70} r={8} fill={ember} />
+        )}
+        <g className="forge-strike-hammer">
+          <g transform={`translate(${PIVOT_X} ${PIVOT_Y})`}>
+            <path
+              d={svgPath(hammerCommands(), SIDE)}
+              fill={paper}
+              stroke={compact ? "none" : "rgba(255,255,255,0.16)"}
+              strokeWidth={compact ? 0 : 0.7}
             />
-          );
-        })}
+          </g>
+        </g>
+        {!compact &&
+          Array.from({ length: FORGE_STRIKE_MARK.sparkCount }, (_, index) => {
+            const angle = ((-125 + index * 28) * Math.PI) / 180;
+            const dist = 12 + (index % 3) * 5;
+            return (
+              <circle
+                key={index}
+                className="forge-strike-spark"
+                cx={40}
+                cy={70}
+                r={0.9 + (index % 3) * 0.25}
+                fill={amber}
+                style={{
+                  ["--spark-x" as string]: `${Math.cos(angle) * dist}px`,
+                  ["--spark-y" as string]: `${Math.sin(angle) * dist}px`,
+                }}
+              />
+            );
+          })}
+      </g>
     </svg>
   );
 }

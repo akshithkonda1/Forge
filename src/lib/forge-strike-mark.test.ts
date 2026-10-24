@@ -58,6 +58,22 @@ describe("forge strike mark", () => {
     expect(strikeProgress(9)).toBe(1);
   });
 
+  it("uses a T-silhouette hammer, not a spatula", () => {
+    const points = hammerCommands().flatMap((command) => {
+      if (command.type === "M" || command.type === "L") return [{ x: command.x, y: command.y }];
+      return [];
+    });
+    const sharpNeck = points.some((point, index) => {
+      const previous = points[index - 1];
+      return previous && Math.abs(point.x - previous.x) < 0.0001 && Math.abs(point.y - previous.y) > 0.08;
+    });
+    const ys = points.map((point) => point.y);
+    expect(sharpNeck).toBe(true);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0.28);
+    expect(FORGE_STRIKE_MARK.idleAngleDeg).toBeLessThan(-18);
+    expect(FORGE_STRIKE_MARK.idleAngleDeg).toBeGreaterThan(-30);
+  });
+
   it("keeps paper, ember, and tertiary text at WCAG AA on the background", () => {
     const background = tokenHex("background").slice(1);
     expect(contrastRatio(FORGE_STRIKE_MARK.paperHex, background)).toBeGreaterThanOrEqual(4.5);

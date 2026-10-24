@@ -89,17 +89,9 @@ struct ForgeSplashScreen: View {
             )
 
             VStack(spacing: FDS.Spacing.xl) {
-                ZStack {
-                    PremiumPresenceBloom(
-                        size: 220,
-                        accent: ForgePalette.ember,
-                        frost: Color(hex: "A9D8FF"),
-                        live: false
-                    )
-                    ForgeStrikeMark(size: 168, labeled: false)
-                }
-                .scaleEffect(logoScale)
-                .opacity(logoOpacity)
+                ForgeStrikeMark(size: 196, labeled: false)
+                    .scaleEffect(logoScale)
+                    .opacity(logoOpacity)
 
                 VStack(spacing: FDS.Spacing.md) {
                     Text("FORGE")
