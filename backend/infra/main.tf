@@ -104,6 +104,20 @@ data "aws_iam_policy_document" "backend_lambda" {
   }
 
   statement {
+    sid = "UploadsKMS"
+
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:GenerateDataKey",
+    ]
+
+    resources = [
+      aws_kms_key.uploads.arn,
+    ]
+  }
+
+  statement {
     sid = "ElevenLabsParameterRead"
 
     actions = [
@@ -415,13 +429,21 @@ resource "aws_s3_bucket_versioning" "uploads" {
   }
 }
 
+resource "aws_kms_key" "uploads" {
+  description             = "SSE-KMS for cycle-report ciphertext. Template only — this PR does not apply."
+  deletion_window_in_days = 30
+  tags                    = local.common_tags
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "uploads" {
   bucket = aws_s3_bucket.uploads.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.uploads.arn
     }
+    bucket_key_enabled = true
   }
 }
 
@@ -588,6 +610,7 @@ resource "aws_lambda_function" "backend" {
       AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.7"
       AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Grok"
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
+      UPLOADS_KMS_KEY_ARN    = aws_kms_key.uploads.arn
       USER_POOL_ID           = aws_cognito_user_pool.forge.id
     }
   }

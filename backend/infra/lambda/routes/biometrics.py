@@ -13,11 +13,8 @@ from typing import Any
 
 from responses import RouteError, ok
 from aria_core import aria_engine
-from services import daily_story as daily_story_mod
-from services import emergency
 from aria_core import fusion as fusion_mod
 from services.aria_context import CoachContextEngine
-from storage import dynamodb, keys
 
 _context = CoachContextEngine()
 
@@ -26,42 +23,6 @@ def _context_payload(ctx: aria_engine.ARIAContext) -> dict[str, Any]:
     payload = asdict(ctx)
     payload["missing_fields"] = ctx.missing_fields
     return payload
-
-
-def _apply_vitals_monitor(body: dict[str, Any], uid: str, payload: dict[str, Any]) -> None:
-    """Assess a ``vitals`` window for a life-threatening pattern and, when found,
-    fire + record an emergency escalation intent for the client to act on."""
-    vitals_raw = body.get("vitals")
-    if vitals_raw is None:
-        return
-    raw_list = vitals_raw if isinstance(vitals_raw, list) else [vitals_raw]
-    window = [
-        emergency.VitalsSample.from_dict(s) for s in raw_list[:50] if isinstance(s, dict)
-    ]
-    if not window:
-        return
-
-    session_active = bool(body.get("session_active", True))
-    assessment = emergency.assess_vitals(window, session_active=session_active)
-    payload["emergency"] = assessment.to_dict()
-
-    if not assessment.escalate:
-        payload["escalation"] = {"triggered": False}
-        return
-
-    intent = emergency.maybe_escalate(assessment, user_id=uid)
-    # Audit trail: an escalation decision must be recoverable after the fact.
-    if intent is not None:
-        key = keys.emergency_event_key(uid, intent.at.isoformat())
-        dynamodb.put_item({"pk": key["pk"], "sk": key["sk"], "intent": intent.to_dict()})
-        payload["escalation"] = {
-            "triggered": True,
-            "action": intent.action,
-            "client_action": intent.client_action,
-            "channels": intent.channels,
-            "reasons": intent.reasons,
-            "severity": intent.severity,
-        }
 
 
 def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> dict:

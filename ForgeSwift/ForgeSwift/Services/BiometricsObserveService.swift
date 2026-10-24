@@ -66,6 +66,10 @@ final class BiometricsObserveService {
         message: String? = nil
     ) async -> ObserveResponsePayload? {
         _ = message
+        _ = ForgeDeviceViabilityCheck.evaluateCurrent(
+            healthKitAvailable: HealthKitManager.shared.isHealthDataAvailable(),
+            healthKitAuthorized: HealthKitManager.shared.isAuthorized
+        )
         let incoming = samples.isEmpty
             ? await localIngestSamples(from: store)
             : samples.compactMap(Self.ingestSample(from:))
@@ -116,6 +120,7 @@ final class BiometricsObserveService {
         learner = next
         HealthIngestLearner.save(learner)
         contextStore.applyHealthScout(batch.scout)
+        contextStore.persistContinuity(learner: learner, scout: batch.scout)
         return batch
     }
 

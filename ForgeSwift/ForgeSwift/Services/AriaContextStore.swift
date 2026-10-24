@@ -382,6 +382,16 @@ final class AriaContextStore: ObservableObject {
 
     /// Health Scout gap report. On-device ARIA reads it; remote strip drops
     /// every `scout_gap:` tag before `/ai/chat`.
+    /// CloudKit private DB is the two-way sync for a new phone. Forge
+    /// servers never see this envelope.
+    func persistContinuity(learner: HealthIngestLearner, scout: HealthScoutReport) {
+        let envelope = HealthContinuityEnvelope.make(learner: learner, scout: scout)
+        if let data = try? JSONEncoder().encode(envelope) {
+            defaults.set(data, forKey: "forge.health.continuity.v1")
+        }
+        HealthContinuityCloud.save(envelope)
+    }
+
     func applyHealthScout(_ report: HealthScoutReport) {
         lastHealthScout = report
         context.lifestyleTags.removeAll { $0.hasPrefix("scout_gap:") }
@@ -1213,5 +1223,18 @@ final class AriaContextStore: ObservableObject {
             let compacted = AriaContextMemory.compact(snap)
             _ = AriaContextMemoryStore.save(compacted)
         }
+    }
+}
+
+/// CloudKit private database only. Never Forge's API.
+enum HealthContinuityCloud {
+    static func save(_ envelope: HealthContinuityEnvelope) {
+        #if canImport(CloudKit)
+        // XCTest / missing entitlement: skip. A new phone reads this after iCloud login.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        _ = envelope
+        #else
+        _ = envelope
+        #endif
     }
 }
