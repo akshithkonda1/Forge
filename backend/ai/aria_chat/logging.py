@@ -212,6 +212,12 @@ def collect_needles(payload: dict[str, Any], message: str) -> list[str]:
     blob = json.dumps(payload, default=str) + " " + str(message or "")
     for match in _PARTNER_NEEDLE.finditer(blob):
         needles.append(match.group(0))
+    try:
+        from backend.ai.simrunner.aria_simrunner import dummy_privacy
+
+        needles.extend(dummy_privacy.needles_from_context(None, payload if isinstance(payload, dict) else {}))
+    except Exception:
+        pass
     seen: set[str] = set()
     out: list[str] = []
     for item in needles:
