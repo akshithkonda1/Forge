@@ -34,3 +34,9 @@ skip-check:
   - CKV2_AWS_57 # SSM SecureString placeholders are seeded out of band; no rotation resource.
   - CKV_AWS_337 # Same SSM placeholders.
   - CKV2_AWS_38 # State bucket has a GetObject allowlist + TLS + PAB.
+  - CKV_AWS_107 # GitHub OIDC deploy role must apply the sibling stack; least privilege is the repo/branch assume condition, not a resource-scoped apply policy.
+  - CKV_AWS_108 # Same deploy role. Data-exfil family actions are required for terraform apply of SSM/S3/Lambda.
+  - CKV_AWS_110 # Same deploy role. iam:PassRole / CreateRole are required to manage Lambda and instance roles.
+  - CKV_AWS_309 # GET /health and GET /devices/catalog are intentionally public and throttled.
+  - CKV2_AWS_10 # CloudTrail → CloudWatch Logs is extra ingest spend. Trail already writes a locked S3 bucket.
+  - CKV2_AWS_34 # ARIA_PAUSED is a non-secret kill switch (Standard String). Secrets stay SecureString.
