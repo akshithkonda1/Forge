@@ -2,10 +2,12 @@ data "aws_caller_identity" "current" {
   count = var.skip_aws_provider_checks ? 0 : 1
 }
 
-data "aws_region" "current" {}
-
 locals {
   account_id = var.skip_aws_provider_checks ? "ci" : data.aws_caller_identity.current[0].account_id
+  github_oidc_subs = length(var.github_oidc_allowed_subs) > 0 ? var.github_oidc_allowed_subs : [
+    "repo:${var.github_repository}:ref:refs/heads/main",
+    "repo:${var.github_repository}:environment:terraform-prod",
+  ]
   state_bucket_name = coalesce(
     var.state_bucket_name,
     "forge-tf-state-${local.account_id}"
@@ -49,7 +51,7 @@ locals {
       Application = "forge"
       ManagedBy   = "Terraform"
       Purpose     = "terraform-state"
-      Repository  = "Forge"
+      Repository  = var.github_repository
     },
     var.tags
   )
@@ -99,10 +101,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tf_state" {
 }
 
 # Versioned so a bad apply can roll state back. Noncurrent versions expire
-# after 30 days so the bucket does not grow forever. Stay on SSE-S3 (AES256)
-# at $0 — no customer KMS key. Cognito IdP client secrets from the sibling
-# stack land in this state file after the first real apply; treat the bucket
-# as secret material.
+# after 30 days so the bucket does not grow forever. Stay on SSE-KMS with
+# alias/aws/s3 ($0 idle — no customer CMK). Cognito IdP client secrets from
+# the sibling stack land in this state file after the first real apply;
+# treat the bucket as secret material.
 resource "aws_s3_bucket_lifecycle_configuration" "tf_state" {
   bucket = aws_s3_bucket.tf_state.id
 
@@ -146,8 +148,8 @@ data "aws_iam_policy_document" "tf_state" {
   # Restrict s3:GetObject to the deploy role (and its assumed-role sessions)
   # plus the account root. Do not lock out root — IdP secrets in state would
   # then be unrecoverable. No DenyUnencryptedObjectUploads: bucket default
-  # encryption is SSE-S3, and requiring the explicit header breaks the
-  # Terraform S3 backend which relies on that default.
+  # encryption is SSE-KMS (alias/aws/s3), and requiring the explicit header
+  # breaks the Terraform S3 backend which relies on that default.
   statement {
     sid    = "DenyGetObjectExceptDeployAndRoot"
     effect = "Deny"

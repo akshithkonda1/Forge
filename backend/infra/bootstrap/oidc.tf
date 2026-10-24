@@ -34,7 +34,7 @@ data "aws_iam_policy_document" "github_deploy_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = var.github_oidc_allowed_subs
+      values   = local.github_oidc_subs
     }
   }
 }

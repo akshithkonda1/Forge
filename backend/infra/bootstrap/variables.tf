@@ -47,18 +47,19 @@ variable "github_repository" {
 variable "github_oidc_allowed_subs" {
   description = <<-EOT
     token.actions.githubusercontent.com:sub values allowed to assume the
-    deploy role. Defaults lock to main and the terraform-prod environment
-    used by the approval-gated apply job.
+    deploy role. Empty (default) derives repo:var.github_repository locked
+    to main and the terraform-prod environment used by the approval-gated
+    apply job. Set this only to add extra branches or environments.
   EOT
   type        = list(string)
-  default = [
-    "repo:akshithkonda1/Forge:ref:refs/heads/main",
-    "repo:akshithkonda1/Forge:environment:terraform-prod",
-  ]
+  default     = []
 
   validation {
-    condition     = length(var.github_oidc_allowed_subs) > 0
-    error_message = "github_oidc_allowed_subs must list at least one repo/ref or environment claim."
+    condition = alltrue([
+      for sub in var.github_oidc_allowed_subs :
+      can(regex("^repo:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+:", sub))
+    ])
+    error_message = "github_oidc_allowed_subs entries must be repo:org/repo:… claims."
   }
 }
 

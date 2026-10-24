@@ -13,7 +13,7 @@ provider "aws" {
       Application = "forge"
       ManagedBy   = "Terraform"
       Purpose     = "terraform-state"
-      Repository  = "Forge"
+      Repository  = var.github_repository
     }
   }
 }
