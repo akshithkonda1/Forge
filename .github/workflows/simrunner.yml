@@ -16,6 +16,7 @@ on:
       - "backend/infra/lambda/**"
       - ".github/workflows/simrunner.yml"
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -44,9 +45,12 @@ jobs:
               - "backend/infra/lambda/**"
               - ".github/workflows/simrunner.yml"
 
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   test:
     name: simrunner-unit
-    needs: changes
+    needs: [changes, health-leak]
     runs-on: ubuntu-latest
     steps:
       - name: No-op (no relevant changes)
@@ -73,7 +77,7 @@ jobs:
 
   regression-gate:
     name: simrunner-regression-gate
-    needs: changes
+    needs: [changes, health-leak]
     if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     steps:

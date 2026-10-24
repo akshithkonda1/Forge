@@ -11,7 +11,10 @@
 
 name: Repo Hygiene
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -21,8 +24,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   conflict-copies:
     name: No file-sync conflict copies
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -34,6 +41,7 @@ jobs:
 
   xcode-project:
     name: Xcode project structure
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -55,6 +63,7 @@ jobs:
 
   partner-redaction:
     name: Partner redaction boundary
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -69,6 +78,7 @@ jobs:
 
   life-context-privacy:
     name: Life Context privacy boundary
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -84,6 +94,7 @@ jobs:
 
   duplicate-decls:
     name: No duplicate Swift declarations
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -98,6 +109,7 @@ jobs:
 
   extension-access:
     name: Access across extension splits
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -114,6 +126,7 @@ jobs:
 
   usage-strings:
     name: Permission usage strings
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -130,6 +143,7 @@ jobs:
 
   client-config:
     name: Client configuration consistency
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -153,6 +167,7 @@ jobs:
 
   package-sources:
     name: SwiftPM sources lists
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -171,6 +186,7 @@ jobs:
 
   widget-bundles:
     name: Widget bundle registration
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -187,6 +203,7 @@ jobs:
 
   aria-web-research:
     name: ARIA web research stays local-testing-only
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -204,6 +221,7 @@ jobs:
 
   aria-safety-lexicon:
     name: ARIA safety lexicon matches guidance.py
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -218,6 +236,7 @@ jobs:
 
   aria-mark:
     name: ARIA mark assets
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:
@@ -235,6 +254,7 @@ jobs:
 
   legacy-ui:
     name: Deleted legacy UI stays gone
+    needs: health-leak
     runs-on: ubuntu-latest
 
     steps:

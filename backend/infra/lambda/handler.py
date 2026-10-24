@@ -201,6 +201,9 @@ def _route(event, _context):
         user_id = extract_user_id(event)
         set_token_budget_user(user_id)
         body = _parse_json_body(event) if method in ("POST", "PUT", "PATCH") else {}
+        from services import health_leak_guard
+
+        health_leak_guard.inspect_request(method, path, body)
 
         # AI routes: always bind to authenticated principal (ignore spoofed body user_id)
         if method == "POST" and path == "/ai/archetype":

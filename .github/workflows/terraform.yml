@@ -10,6 +10,7 @@ on:
       - '.github/workflows/terraform.yml'
       - 'backend/infra/**'
   pull_request:
+  merge_group:
   workflow_dispatch:
     inputs:
       run_apply:
@@ -59,9 +60,12 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: echo "workflow_dispatch — plan jobs run for real"
 
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   terraform-checks:
     name: 'Terraform Checks'
-    needs: changes
+    needs: [changes, health-leak]
     runs-on: ubuntu-latest
     env:
       AWS_EC2_METADATA_DISABLED: "true"
@@ -136,7 +140,7 @@ jobs:
 
   terraform-prod-plan:
     name: 'Terraform Plan (prod)'
-    needs: changes
+    needs: [changes, health-leak]
     runs-on: ubuntu-latest
     # Push/PR plan only. No AWS, no secrets, no OIDC. Dummy provider checks
     # plus -refresh=false so missing credentials cannot turn this job red.
@@ -184,7 +188,7 @@ jobs:
 
   terraform-apply:
     name: 'Terraform Apply (dev, approval-gated)'
-    needs: [terraform-checks, terraform-prod-plan]
+    needs: [health-leak, terraform-checks, terraform-prod-plan]
     if: github.event_name == 'workflow_dispatch' && inputs.run_apply == true
     environment: terraform-prod
     runs-on: ubuntu-latest
