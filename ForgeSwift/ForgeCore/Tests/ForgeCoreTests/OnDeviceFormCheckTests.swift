@@ -31,9 +31,16 @@ final class OnDeviceFormCheckTests: XCTestCase {
         XCTAssertTrue(read.summary.contains("Hips are stacked"))
     }
 
-    func testNeverNeedsANetworkOrFrameUpload() {
-        let source = try? String(contentsOfFile: #filePath, encoding: .utf8)
-        XCTAssertFalse(source?.contains("/workouts/form-check") == true)
-        XCTAssertFalse(source?.contains("image_base64") == true)
+    func testNeverNeedsANetworkOrFrameUpload() throws {
+        // Tests/ForgeCoreTests/ThisFile.swift → ForgeCore/Sources/...
+        let production = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources/ForgeCore/Intelligence/OnDeviceFormCheck.swift")
+        let source = try String(contentsOf: production, encoding: .utf8)
+        XCTAssertFalse(source.contains("/workouts/form-check"), source)
+        XCTAssertFalse(source.contains("image_base64"), source)
+        XCTAssertFalse(source.contains("URLSession"), source)
     }
 }
