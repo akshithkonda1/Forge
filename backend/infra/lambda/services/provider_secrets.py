@@ -1,11 +1,16 @@
-"""Cached loader for AI provider credentials (ElevenLabs, Fish Audio).
+"""Cached loader for AI provider credentials.
 
-Production reads Parameter Store SecureString names from
-``ELEVENLABS_*_PARAMETER_NAME`` / ``FISH_AUDIO_API_KEY_PARAMETER_NAME``.
-Tests and a local Lambda can overlay process env or the legacy
-``AI_PROVIDER_SECRET_ARN`` JSON secret. Empty overlay values do not wipe
-a key that came from SSM / Secrets Manager. The phone never receives
-these values — ``generate_client_config`` refuses them in Info-Add.plist.
+Production Fish key is Parameter Store / Secrets Manager only:
+
+* ``FISH_AUDIO_API_KEY_PARAMETER_NAME`` → e.g. ``/forge-dev/ai/FISH_AUDIO_API_KEY``
+* or JSON key ``FISH_AUDIO_API_KEY`` on ``AI_PROVIDER_SECRET_ARN``
+
+ElevenLabs keys stay in this loader as a reserved next-evolution slot.
+They are not the live mouth. This PR does not create or rotate AWS
+parameters. Tests and a local Lambda may overlay process env. Empty
+overlay values do not wipe a key that came from SSM / Secrets Manager.
+The phone never receives these values — ``generate_client_config``
+refuses them in Info-Add.plist.
 """
 
 from __future__ import annotations

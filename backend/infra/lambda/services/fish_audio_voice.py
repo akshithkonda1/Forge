@@ -1,24 +1,32 @@
-"""Fish Audio TTS — ARIA's only voice module.
+"""Fish Audio TTS — preferred live mouth, not the only one.
 
-One provider (Fish Audio), one speak path. Dummy / on-device speech stays
-the default: ``ARIA_FISH_VOICE_ENABLED`` is off unless explicitly truthy.
-When the flag is off this module never reads ``FISH_AUDIO_API_KEY`` and
+Ordered fallbacks live in ``voice_provider``: Fish → Polly → on-device.
+ElevenLabs is a reserved slot, off by default. Dummy / on-device speech
+stays the default: ``ARIA_FISH_VOICE_ENABLED`` is off unless explicitly
+truthy. When the flag is off this module never reads the API key and
 never calls ``api.fish.audio``.
 
 TTS model ids (docs.fish.audio pricing + models overview):
 
-* ``s2.1-pro-free`` — $0 default (Starter / development).
-* ``s2.1-pro`` — $15 / M UTF-8 bytes. Off until ``FISH_AUDIO_USE_PAID`` is
-  truthy (or ``FISH_AUDIO_MODEL=s2.1-pro``).
+* ``s2.1-pro-free`` — $0 default. The header **and** JSON ``model`` field
+  are always this id unless ``FISH_AUDIO_USE_PAID`` is truthy. A missing
+  or wrong model silently bills paid ``s2.1-pro`` at $15 / M UTF-8 bytes.
+* ``s2.1-pro`` — paid. Requires the explicit ``FISH_AUDIO_USE_PAID`` opt-in.
+  ``FISH_AUDIO_MODEL=s2.1-pro`` alone is not enough.
 * ``s1`` retires 2026-12-31. Never selected.
+
+The free promo ends ``2026-11-30`` (``FISH_FREE_PROMO_ENDS``). After that
+date Fish is not called unless ``FISH_AUDIO_USE_PAID`` or
+``ARIA_FISH_AFTER_PROMO`` is truthy — speak falls back to Polly / on-device.
+
+The key is read from SSM / Secrets Manager via ``provider_secrets``
+(process env may overlay in tests). Never log or return it or the TTS text.
 
 Speak-only: no ``fuse_turn``, no ``remember_short_term``, no vault /
 ``recentPatterns`` writes, no dig payload, no coach_context side keys, no
 ``/ai/observe``. The caller already ran ``guard_speak`` — this path does
 not rewrite prose. Personality (Coach / Friend / Drill Sergeant) is never
 read or written here.
-
-The Fish key stays server-side (process env). Never log or return it.
 """
 
 from __future__ import annotations
@@ -31,6 +39,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date
 from typing import Any, Callable
 
 from responses import RouteError
@@ -48,6 +57,9 @@ API_KEY_ENV = "FISH_AUDIO_API_KEY"
 ENABLED_ENV = "ARIA_FISH_VOICE_ENABLED"
 MODEL_ENV = "FISH_AUDIO_MODEL"
 PAID_ENV = "FISH_AUDIO_USE_PAID"
+PROMO_ENDS_ENV = "FISH_FREE_PROMO_ENDS"
+AFTER_PROMO_ENV = "ARIA_FISH_AFTER_PROMO"
+DEFAULT_FREE_PROMO_ENDS = date(2026, 11, 30)
 # S2.1-Pro family only. ``s1`` is rejected even if an env overlay asks for it.
 ALLOWED_MODELS = frozenset({DEFAULT_MODEL, PAID_MODEL})
 
@@ -153,39 +165,80 @@ def fish_voice_enabled() -> bool:
 
 
 def paid_model_enabled() -> bool:
-    """Single server-side switch. Off by default → ``s2.1-pro-free``."""
+    """Explicit paid opt-in. Off by default → ``s2.1-pro-free``."""
     return os.getenv(PAID_ENV, "").strip().lower() in _TRUE_FLAGS
 
 
+def after_promo_enabled() -> bool:
+    """Re-open Fish after the free promo ends. Off by default."""
+    return os.getenv(AFTER_PROMO_ENV, "").strip().lower() in _TRUE_FLAGS
+
+
+def free_promo_end_date() -> date:
+    raw = (os.getenv(PROMO_ENDS_ENV) or "").strip()
+    if raw:
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            return DEFAULT_FREE_PROMO_ENDS
+    return DEFAULT_FREE_PROMO_ENDS
+
+
+def free_promo_active(today: date | None = None) -> bool:
+    """True through the configured end date (default 2026-11-30), inclusive."""
+    return (today or date.today()) <= free_promo_end_date()
+
+
+def fish_live_allowed(today: date | None = None) -> bool:
+    """Kill switch plus promo window. Paid / after-promo re-enable Fish later."""
+    if not fish_voice_enabled():
+        return False
+    if free_promo_active(today):
+        return True
+    return paid_model_enabled() or after_promo_enabled()
+
+
 def sanitize_model(raw: str | None) -> str:
+    """Never return empty or paid unless the paid opt-in is on."""
     trimmed = (raw or "").strip()
-    if trimmed == "s1" or trimmed.startswith("s1-"):
+    if not paid_model_enabled():
         return DEFAULT_MODEL
-    if trimmed in ALLOWED_MODELS:
-        return trimmed
-    return DEFAULT_MODEL
+    if trimmed == DEFAULT_MODEL:
+        return DEFAULT_MODEL
+    return PAID_MODEL
 
 
 def resolve_model(raw: str | None = None) -> str:
-    """Env model wins when it is S2.1-Pro; else the paid switch; else free."""
+    """Always a non-empty S2.1 id. Paid requires ``FISH_AUDIO_USE_PAID``."""
     overlay = (raw if raw is not None else os.getenv(MODEL_ENV) or "").strip()
-    if overlay in ALLOWED_MODELS:
-        return overlay
-    if paid_model_enabled():
-        return PAID_MODEL
-    return DEFAULT_MODEL
+    return sanitize_model(overlay)
+
+
+def require_model_header(headers: dict[str, str], *, model: str | None = None) -> dict[str, str]:
+    """A missing model header silently bills paid s2.1-pro. Never omit it."""
+    chosen = resolve_model(model)
+    if not chosen:
+        chosen = DEFAULT_MODEL
+    out = dict(headers)
+    out["model"] = chosen
+    return out
 
 
 def _headers(api_key: str, *, model: str | None = None) -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "model": resolve_model(model),
-    }
+    return require_model_header(
+        {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        model=model,
+    )
 
 
 def build_headers(api_key: str, model: str | None = None) -> dict[str, str]:
-    return _headers(api_key, model=model)
+    headers = _headers(api_key, model=model)
+    if not headers.get("model"):
+        headers["model"] = DEFAULT_MODEL
+    return headers
 
 
 def _stdlib_http(
@@ -195,17 +248,32 @@ def _stdlib_http(
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             return int(response.status), response.read()
+    except TimeoutError:
+        return 504, b""
     except urllib.error.HTTPError as exc:
         return int(exc.code), exc.read()
+    except urllib.error.URLError as exc:
+        reason = str(getattr(exc, "reason", exc)).lower()
+        if "timed out" in reason or "timeout" in reason:
+            return 504, b""
+        return 599, b""
 
 
 def require_api_key() -> str:
-    key = (os.getenv(API_KEY_ENV) or "").strip()
+    key = ""
+    try:
+        from services.provider_secrets import load_ai_provider_secret
+
+        key = (load_ai_provider_secret().get(API_KEY_ENV) or "").strip()
+    except Exception:  # noqa: BLE001 - unreadable store must not take down chat
+        key = ""
+    if not key:
+        key = (os.getenv(API_KEY_ENV) or "").strip()
     if not key:
         raise RouteError(
             503,
-            "Fish Audio TTS is not configured. Seed FISH_AUDIO_API_KEY. "
-            "Dummy / on-device speech does not need this.",
+            "Fish Audio TTS is not configured. Seed the SSM / Secrets Manager "
+            "key. Dummy / on-device speech does not need this.",
             code="fish_unconfigured",
         )
     return key
@@ -264,10 +332,18 @@ def _refuse_key_leak(blob: bytes | str, key: str) -> None:
         )
 
 
-def _tts_body(text: str, *, reference_id: str | None, speed: float) -> bytes:
+def _tts_body(
+    text: str,
+    *,
+    reference_id: str | None,
+    speed: float,
+    model: str | None = None,
+) -> bytes:
+    chosen = resolve_model(model)
     payload: dict[str, Any] = {
         "text": text,
         "format": "mp3",
+        "model": chosen,
         "normalize": True,
         "latency": "normal",
         "prosody": {
@@ -293,11 +369,13 @@ def synthesize(
     """POST text to Fish Audio. Callers must already have checked the flag."""
     key = require_api_key()
     line = (text or "").strip()
-    payload = _tts_body(line, reference_id=reference_id, speed=speed)
+    chosen = resolve_model(model)
+    payload = _tts_body(line, reference_id=reference_id, speed=speed, model=chosen)
     caller = http or _stdlib_http
     sleeper = sleep or time.sleep
-    chosen = resolve_model(model)
     headers = build_headers(key, chosen)
+    if not headers.get("model"):
+        headers["model"] = DEFAULT_MODEL
     status = 0
     audio = b""
     for attempt in range(len(BACKOFF_SECONDS) + 1):
@@ -307,6 +385,8 @@ def synthesize(
         if attempt >= len(BACKOFF_SECONDS):
             raise RouteError(429, VOICE_BUSY_MESSAGE, code="fish_voice_busy")
         sleeper(BACKOFF_SECONDS[attempt])
+    if status == 504:
+        raise RouteError(504, "Could not synthesize speech.", code="fish_tts_timeout")
     if status >= 400 or not audio:
         raise RouteError(
             503,
@@ -400,11 +480,12 @@ def _list_url(page_number: int) -> str:
 
 def _fetch_library(http: HttpFn, key: str) -> list[dict[str, Any]]:
     voices: list[dict[str, Any]] = []
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Accept": "application/json",
-        "model": resolve_model(),
-    }
+    headers = require_model_header(
+        {
+            "Authorization": f"Bearer {key}",
+            "Accept": "application/json",
+        }
+    )
     for page in range(1, LIST_MAX_PAGES + 1):
         status, raw = http("GET", _list_url(page), headers, None)
         if status >= 400:
@@ -587,30 +668,120 @@ def catalog(
     return payload
 
 
+def _names_from_body(body: dict[str, Any] | None) -> tuple[str, ...]:
+    payload = body or {}
+    names: list[str] = []
+    for key in ("preferred_name", "user_name", "name"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            names.append(value.strip())
+    extra = payload.get("names")
+    if isinstance(extra, list):
+        names.extend(str(item).strip() for item in extra if str(item).strip())
+    return tuple(names)
+
+
+def _fallback_after_fish(
+    text: str,
+    *,
+    reason: str,
+    polly_client: Callable[..., bytes] | None = None,
+) -> dict[str, Any]:
+    from services import polly_voice
+    from services.voice_provider import POLLY, on_device_payload, resolve_mouth
+
+    mouth = resolve_mouth(
+        fish_enabled=True,
+        fish_configured=True,
+        fish_failed=reason in {"fallback", "error"},
+        fish_timeout=reason == "timeout",
+        fish_busy=reason == "busy",
+        fish_promo_expired=reason == "promo",
+        polly_enabled=polly_voice.fallback_enabled(),
+        polly_configured=True,
+    )
+    if mouth == POLLY:
+        try:
+            audio = polly_voice.synthesize(text, client=polly_client)
+            return {
+                "provider": POLLY,
+                "format": "mp3",
+                "model": "polly",
+                "audio_base64": base64.b64encode(audio).decode("ascii"),
+                "voice_id": polly_voice.resolve_voice(),
+                "reason": reason,
+            }
+        except RouteError:
+            return on_device_payload("fallback")
+    return on_device_payload(reason if reason in {"promo", "busy"} else "fallback")
+
+
 def speak(
     body: dict[str, Any] | None,
     *,
     user_id: str = "",
     http: HttpFn | None = None,
     sleep: SleepFn | None = None,
-) -> dict[str, str | float | None]:
-    """Flag-gated speak. Disabled path never reads the key or opens HTTP."""
+    polly_client: Callable[..., bytes] | None = None,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """Flag-gated speak. Disabled / Dummy paths never read the key or open HTTP."""
+    from services import tts_privacy
+    from services.voice_provider import FISH, is_dummy_request, on_device_payload
+
+    if is_dummy_request(body):
+        return on_device_payload("dummy")
     _refuse_if_disabled()
+
     preview = bool((body or {}).get("preview"))
     text = _line_from_body(body, preview=preview)
-    # Speak uses the account / request voice id. Catalog fetch stays on GET /ai/voice.
+    cleaned = tts_privacy.sanitize_tts_text(text, names=_names_from_body(body))
+    if not cleaned.can_send_to_cloud:
+        return on_device_payload("privacy")
+
+    if not fish_live_allowed(today):
+        return _fallback_after_fish(
+            cleaned.text, reason="promo", polly_client=polly_client
+        )
+
+    from token_budget import reserve_voice_chars
+
+    try:
+        reserve_voice_chars(len(cleaned.text), user_id=user_id)
+    except RouteError as exc:
+        if exc.code == "fish_daily_char_cap":
+            return on_device_payload("quota")
+        raise
+
     selection = resolve_selection(user_id, body, voices=[], featured=match_featured([]))
     model = resolve_model()
-    audio = synthesize(
-        text,
-        http=http,
-        model=model,
-        reference_id=selection.get("voice_id"),
-        speed=float(selection.get("speed") or 1.0),
-        sleep=sleep,
-    )
+    try:
+        tts_privacy.assert_cloud_payload_is_clean(
+            FISH_TTS_URL, model, cleaned.text, names=_names_from_body(body)
+        )
+        audio = synthesize(
+            cleaned.text,
+            http=http,
+            model=model,
+            reference_id=selection.get("voice_id"),
+            speed=float(selection.get("speed") or 1.0),
+            sleep=sleep,
+        )
+    except RouteError as exc:
+        if exc.code == "fish_voice_busy":
+            return _fallback_after_fish(cleaned.text, reason="busy", polly_client=polly_client)
+        if exc.code == "fish_tts_timeout":
+            return _fallback_after_fish(
+                cleaned.text, reason="timeout", polly_client=polly_client
+            )
+        if exc.code in {"fish_tts_failed", "fish_unconfigured"}:
+            if exc.code == "fish_unconfigured":
+                raise
+            return _fallback_after_fish(cleaned.text, reason="error", polly_client=polly_client)
+        raise
     encoded = base64.b64encode(audio).decode("ascii")
     payload = {
+        "provider": FISH,
         "format": "mp3",
         "model": model,
         "audio_base64": encoded,

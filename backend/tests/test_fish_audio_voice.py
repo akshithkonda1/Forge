@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import base64
 import json
+import logging
 import os
 import unittest
 from pathlib import Path
@@ -68,6 +69,9 @@ def _fake_http(test, *, message, key="sk_fish_test", audio=FAKE_MP3, model="s2.1
         payload = json.loads(raw.decode("utf-8"))
         test.assertEqual(payload["text"], message)
         test.assertEqual(payload["format"], "mp3")
+        test.assertEqual(payload.get("model"), model)
+        test.assertTrue(headers.get("model"))
+        test.assertEqual(headers.get("model"), model)
         test.assertIn("prosody", payload)
         return 200, audio
 
@@ -262,15 +266,13 @@ class SpeakMemoryPinTests(unittest.TestCase):
             "fuse_turn",
             "remember_short_term",
             "guard_speak",
-            "provider_secrets",
             "CoachContextEngine",
         }
         src = FISH_SRC.read_text(encoding="utf-8")
         names = _called_or_imported(src)
         self.assertTrue(forbidden.isdisjoint(names), names & forbidden)
-        # Env-only key. SSM / Secrets Manager stay on Pike's PR.
         self.assertNotIn("boto3", names)
-        self.assertNotIn("load_ai_provider_secret", names)
+        self.assertIn("load_ai_provider_secret", src)
         route = ARIA_ROUTE_SRC.read_text(encoding="utf-8")
         speak_fn = route.split("def handle_post_ai_voice_speak", 1)[1].split("\ndef ", 1)[0]
         route_names = _called_or_imported(
@@ -403,7 +405,11 @@ class VoiceCatalogAndModelTests(unittest.TestCase):
         self.assertEqual(fish_audio_voice.resolve_model(), "s2.1-pro")
         os.environ["FISH_AUDIO_USE_PAID"] = "false"
         os.environ["FISH_AUDIO_MODEL"] = "s2.1-pro"
-        self.assertEqual(fish_audio_voice.resolve_model(), "s2.1-pro")
+        self.assertEqual(
+            fish_audio_voice.resolve_model(),
+            "s2.1-pro-free",
+            "FISH_AUDIO_MODEL=s2.1-pro without FISH_AUDIO_USE_PAID must not bill paid",
+        )
 
     def test_featured_maps_live_ids_and_skips_character_clones(self):
         featured = fish_audio_voice.match_featured(
@@ -503,7 +509,7 @@ class VoiceCatalogAndModelTests(unittest.TestCase):
         self.assertEqual(body(spoken)["voice_id"], "voice-ember-1")
         self.assertEqual(body(spoken)["profile_id"], "ember")
 
-    def test_429_retries_then_returns_voice_busy(self):
+    def test_429_retries_then_falls_back_on_device(self):
         sleeps: list[float] = []
         calls = {"n": 0}
 
@@ -512,15 +518,13 @@ class VoiceCatalogAndModelTests(unittest.TestCase):
             return 429, b"too many"
 
         with _FishFlag("true", key="sk_fish_test"):
-            with self.assertRaises(RouteError) as raised:
-                fish_audio_voice.speak(
-                    {"message": "hi"},
-                    http=busy,
-                    sleep=sleeps.append,
-                )
-        self.assertEqual(raised.exception.status_code, 429)
-        self.assertEqual(raised.exception.code, "fish_voice_busy")
-        self.assertEqual(raised.exception.message, fish_audio_voice.VOICE_BUSY_MESSAGE)
+            spoken = fish_audio_voice.speak(
+                {"message": "hi"},
+                http=busy,
+                sleep=sleeps.append,
+            )
+        self.assertEqual(spoken["provider"], "on_device")
+        self.assertEqual(spoken["reason"], "busy")
         self.assertEqual(calls["n"], 4)
         self.assertEqual(sleeps, [0.25, 0.5, 1.0])
 
@@ -544,6 +548,179 @@ class VoiceCatalogAndModelTests(unittest.TestCase):
                 http=fake_http,
             )
         self.assertEqual(seen, ["voice-warm-1", "voice-ember-1"])
+
+
+class FishModelAndPromoTests(unittest.TestCase):
+    def setUp(self):
+        os.environ.pop("FISH_AUDIO_USE_PAID", None)
+        os.environ.pop("FISH_AUDIO_MODEL", None)
+        os.environ.pop("FISH_FREE_PROMO_ENDS", None)
+        os.environ.pop("ARIA_FISH_AFTER_PROMO", None)
+
+    def tearDown(self):
+        os.environ.pop("FISH_AUDIO_USE_PAID", None)
+        os.environ.pop("FISH_AUDIO_MODEL", None)
+        os.environ.pop("FISH_FREE_PROMO_ENDS", None)
+        os.environ.pop("ARIA_FISH_AFTER_PROMO", None)
+
+    def test_headers_and_body_always_set_the_free_model(self):
+        headers = fish_audio_voice.build_headers("sk_test", None)
+        self.assertEqual(headers["model"], "s2.1-pro-free")
+        self.assertTrue(headers["model"])
+        empty = fish_audio_voice.require_model_header({"Authorization": "Bearer x"})
+        self.assertEqual(empty["model"], "s2.1-pro-free")
+        raw = fish_audio_voice._tts_body("hi", reference_id=None, speed=1.0, model=None)
+        payload = json.loads(raw.decode("utf-8"))
+        self.assertEqual(payload["model"], "s2.1-pro-free")
+
+    def test_missing_or_paid_overlay_without_opt_in_stays_free(self):
+        self.assertEqual(fish_audio_voice.resolve_model(""), "s2.1-pro-free")
+        self.assertEqual(fish_audio_voice.resolve_model(None), "s2.1-pro-free")
+        self.assertEqual(fish_audio_voice.resolve_model("s2.1-pro"), "s2.1-pro-free")
+        self.assertEqual(fish_audio_voice.sanitize_model("s1"), "s2.1-pro-free")
+
+    def test_paid_model_requires_explicit_opt_in(self):
+        os.environ["FISH_AUDIO_USE_PAID"] = "true"
+        self.assertEqual(fish_audio_voice.resolve_model("s2.1-pro"), "s2.1-pro")
+        headers = fish_audio_voice.build_headers("sk_test", "s2.1-pro")
+        self.assertEqual(headers["model"], "s2.1-pro")
+
+    def test_promo_expires_and_falls_back_unless_reenabled(self):
+        from datetime import date
+
+        os.environ["FISH_FREE_PROMO_ENDS"] = "2026-11-30"
+        self.assertTrue(fish_audio_voice.free_promo_active(date(2026, 11, 30)))
+        self.assertFalse(fish_audio_voice.free_promo_active(date(2026, 12, 1)))
+        with _FishFlag("true", key="sk_fish_test"):
+            self.assertFalse(fish_audio_voice.fish_live_allowed(date(2026, 12, 1)))
+            fake_http, calls = _fake_http(self, message="I'm ARIA.")
+            spoken = fish_audio_voice.speak(
+                {"message": "I'm ARIA."},
+                http=fake_http,
+                today=date(2026, 12, 1),
+            )
+        self.assertEqual(spoken["provider"], "on_device")
+        self.assertEqual(spoken["reason"], "promo")
+        self.assertEqual(calls, [])
+        os.environ["ARIA_FISH_AFTER_PROMO"] = "true"
+        with _FishFlag("true", key="sk_fish_test"):
+            self.assertTrue(fish_audio_voice.fish_live_allowed(date(2026, 12, 1)))
+
+
+class DummyPrivacyAndFallbackTests(unittest.TestCase):
+    def setUp(self):
+        os.environ["ENVIRONMENT"] = "test"
+        os.environ["FORGE_ALLOW_ANON_TEST_USER"] = "true"
+        os.environ["ARIA_FISH_DAILY_CHAR_CAP"] = "40"
+        os.environ.pop("ARIA_POLLY_VOICE_FALLBACK", None)
+
+    def tearDown(self):
+        os.environ.pop("ARIA_FISH_DAILY_CHAR_CAP", None)
+        os.environ.pop("ARIA_POLLY_VOICE_FALLBACK", None)
+
+    def test_dummy_never_opens_fish_http(self):
+        with _FishFlag("true", key="sk_fish_test"):
+            fake_http, calls = _fake_http(self, message="I'm ARIA.")
+            spoken = fish_audio_voice.speak(
+                {"message": "I'm ARIA.", "dummy": True},
+                http=fake_http,
+            )
+        self.assertEqual(spoken["provider"], "on_device")
+        self.assertEqual(spoken["reason"], "dummy")
+        self.assertEqual(calls, [])
+
+    def test_canary_pii_never_reaches_fish_or_logs(self):
+        from services import tts_privacy
+
+        records: list[str] = []
+
+        class _Handler(logging.Handler):
+            def emit(self, record):
+                records.append(self.format(record))
+
+        handler = _Handler()
+        root = logging.getLogger()
+        root.addHandler(handler)
+        canary_line = (
+            f"{tts_privacy.CANARY_NAME} {tts_privacy.CANARY_EMAIL} "
+            f"{tts_privacy.CANARY_HRV} {tts_privacy.CANARY_READINESS} "
+            f"{tts_privacy.CANARY_SLEEP_HOURS} {tts_privacy.CANARY_HEART_RATE}"
+        )
+        captured: list[tuple] = []
+
+        def spy(method, url, headers, raw):
+            captured.append((method, url, headers, raw))
+            return 200, FAKE_MP3
+
+        try:
+            with _FishFlag("true", key="sk_fish_test"):
+                spoken = fish_audio_voice.speak(
+                    {
+                        "message": canary_line,
+                        "preferred_name": tts_privacy.CANARY_NAME,
+                    },
+                    user_id="user-1",
+                    http=spy,
+                )
+        finally:
+            root.removeHandler(handler)
+
+        self.assertEqual(spoken["provider"], "on_device")
+        self.assertEqual(spoken["reason"], "privacy")
+        self.assertEqual(captured, [])
+        surface = json.dumps(spoken) + " ".join(records)
+        for canary in (
+            tts_privacy.CANARY_NAME,
+            tts_privacy.CANARY_EMAIL,
+            "HRV 32",
+            "readiness 88",
+            "6.5 hours of sleep",
+            "142 bpm",
+        ):
+            self.assertNotIn(canary, surface)
+
+    def test_timeout_falls_back_to_polly_then_stays_clean(self):
+        from services import tts_privacy
+
+        def timeout(_method, _url, _headers, _raw):
+            return 504, b""
+
+        os.environ["ARIA_POLLY_VOICE_FALLBACK"] = "true"
+
+        def polly(text, voice_id, engine):
+            self.assertNotIn(tts_privacy.CANARY_NAME, text)
+            self.assertEqual(voice_id, "Joanna")
+            self.assertEqual(engine, "neural")
+            return FAKE_MP3
+
+        with _FishFlag("true", key="sk_fish_test"):
+            spoken = fish_audio_voice.speak(
+                {"message": "I'm ARIA."},
+                http=timeout,
+                polly_client=polly,
+            )
+        self.assertEqual(spoken["provider"], "polly")
+        self.assertEqual(spoken["audio_base64"], base64.b64encode(FAKE_MP3).decode("ascii"))
+
+    def test_char_budget_falls_back_without_fish_http(self):
+        from storage import dynamodb as dynamodb_store
+
+        dynamodb_store.clear_local_store()
+        with _FishFlag("true", key="sk_fish_test"):
+            fake_http, calls = _fake_http(self, message="I'm ARIA.")
+            fish_audio_voice.speak(
+                {"message": "I'm ARIA."},
+                user_id="budget-user",
+                http=fake_http,
+            )
+            spoken = fish_audio_voice.speak(
+                {"message": "I'm ARIA. Let's look at how you actually slept."},
+                user_id="budget-user",
+                http=fake_http,
+            )
+        self.assertEqual(spoken["provider"], "on_device")
+        self.assertEqual(spoken["reason"], "quota")
+        self.assertEqual(len(calls), 1)
 
 
 if __name__ == "__main__":

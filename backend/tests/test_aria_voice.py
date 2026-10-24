@@ -26,8 +26,20 @@ ELEVEN = REPO / "backend" / "infra" / "lambda" / "services" / "elevenlabs_voice.
 
 
 class VoiceStackConsolidationTests(unittest.TestCase):
-    def test_elevenlabs_module_is_gone(self):
-        self.assertFalse(ELEVEN.exists())
+    def test_elevenlabs_slot_is_disabled_not_the_live_mouth(self):
+        self.assertTrue(ELEVEN.exists())
+        src = ELEVEN.read_text(encoding="utf-8")
+        self.assertIn("ARIA_ELEVENLABS_VOICE_ENABLED", src)
+        self.assertIn("reserved", src.lower())
+        self.assertNotIn("https://", src)
+        os.environ.pop("ARIA_ELEVENLABS_VOICE_ENABLED", None)
+        from services import elevenlabs_voice
+        from responses import RouteError
+
+        self.assertFalse(elevenlabs_voice.voice_enabled())
+        with self.assertRaises(RouteError) as raised:
+            elevenlabs_voice.synthesize("I'm ARIA.")
+        self.assertEqual(raised.exception.code, "elevenlabs_disabled")
 
     def test_removed_routes_are_not_found(self):
         os.environ["ENVIRONMENT"] = "test"
@@ -153,6 +165,10 @@ class ProviderSecretTests(unittest.TestCase):
         )
         self.assertEqual(creds["FISH_AUDIO_API_KEY"], "fish_test_live_key")
         self.assertEqual(creds["FISH_AUDIO_MODEL"], "s2.1-pro-free")
+        self.assertEqual(
+            provider_secrets._PARAMETER_ENV["FISH_AUDIO_API_KEY"],
+            "FISH_AUDIO_API_KEY_PARAMETER_NAME",
+        )
 
     def test_fish_audio_secret_fills_when_env_empty(self):
         os.environ.pop("FISH_AUDIO_API_KEY", None)

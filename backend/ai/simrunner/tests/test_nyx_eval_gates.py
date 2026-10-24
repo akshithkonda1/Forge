@@ -198,7 +198,10 @@ class ProviderNoSpendGates(unittest.TestCase):
             / "services"
             / "elevenlabs_voice.py"
         )
-        self.assertFalse(eleven.exists(), "ElevenLabs voice module must stay removed")
+        self.assertTrue(eleven.exists(), "ElevenLabs stays as a disabled provider slot")
+        slot = eleven.read_text(encoding="utf-8")
+        self.assertIn("elevenlabs_disabled", slot)
+        self.assertNotIn("https://", slot)
 
         from services import fish_audio_voice
 

@@ -791,12 +791,13 @@ def handle_put_ai_voice(body: dict[str, Any], *, user_id: str) -> dict:
 
 
 def handle_post_ai_voice_speak(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/voice/speak — already-guarded ARIA prose → Fish Audio JSON.
+    """POST /ai/voice/speak — already-guarded ARIA prose → preferred Fish mouth.
 
     Speak-only. Does not fuse, remember, observe, or re-run ``guard_speak``.
     Dummy / on-device speech stays the default when the flag is off.
-    Body is ``message`` or ``text``. Success is
-    ``{format, model, audio_base64, voice_id, profile_id}``.
+    Fish is preferred; Polly then on-device are fallbacks. Body is
+    ``message`` or ``text``. Success is
+    ``{provider, format, model, audio_base64, voice_id, profile_id}``.
     """
     uid = _bind_user(body, user_id)
     from services import fish_audio_voice
