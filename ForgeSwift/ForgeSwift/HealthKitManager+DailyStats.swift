@@ -306,7 +306,7 @@ extension HealthKitManager {
     /// Deep historical trend series for the one-time onboarding backfill —
     /// see `BiometricsObserveService.runInitialBackfillIfNeeded`. Separate
     /// from `weeklyTrends`/`lastWeeklyTrendsAt`: this runs once to seed
-    /// server-side personal baselines, not on every "recent week" read.
+    /// on-device BodyModel baselines, not on every "recent week" read.
     func fetchHistoricalTrends(days: Int) async -> [WeeklyHealthTrend] {
         guard isAuthorized else { return [] }
         return await fetchTrends(days: days)

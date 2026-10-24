@@ -69,10 +69,8 @@ final class ARIAWatchService {
     // MARK: Deeper tier
 
     struct DebriefRequest: Encodable {
-        var context: WatchARIAContext
         var practice: String
         var minutes: Double
-        var heartRateSettleBPM: Double?
     }
 
     private struct DebriefResponse: Decodable {
@@ -115,17 +113,18 @@ final class ARIAWatchService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+        _ = context
+        _ = heartRateSettleBPM
         let payload = DebriefRequest(
-            context: context,
             practice: practice.rawValue,
-            minutes: minutes,
-            heartRateSettleBPM: heartRateSettleBPM
+            minutes: minutes
         )
 
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             request.httpBody = try encoder.encode(payload)
+            request = ForgeOutboundSanitizer.sanitize(request)
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 return nil

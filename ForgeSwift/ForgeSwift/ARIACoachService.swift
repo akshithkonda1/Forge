@@ -133,11 +133,7 @@ final class ARIACoachService: ObservableObject {
             "elapsed": context.elapsed,
             "cues": Array(context.cues.prefix(3)),
         ]
-        // Unmeasured vitals are left out rather than sent as a made-up number;
-        // the form-check route already tolerates a missing key.
-        if let heartRate = context.heartRate { payload["heartRate"] = heartRate }
-        if let hrZone = context.hrZone { payload["hrZone"] = hrZone }
-        if let spO2 = context.spO2 { payload["spO2"] = spO2 }
+        // Heart rate and SpO2 are HealthKit-derived. They stay on this device.
         return payload
     }
 

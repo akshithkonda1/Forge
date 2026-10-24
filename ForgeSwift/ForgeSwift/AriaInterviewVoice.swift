@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import ForgeCore
 
 /// Spoken interview copy, suggested replies, and voice matching for ARIA
 /// onboarding. Pure so tests can lock the relationship beats without spinning
@@ -52,8 +53,7 @@ enum AriaInterviewVoice {
 
     /// Lex Health nest — wrapper above the Apple Health row.
     static let healthWrapper = "So I can keep up with you"
-    static let healthBody =
-        "If you connect Apple Health, I can learn your sleep and movement with you — so I can take care of you better, not to judge."
+    static let healthBody = ForgePrivacyCopy.healthStaysOnDevice
     static let healthDenyLine = "All good… I’m still here."
     static let healthEnableLater = "You can enable Apple Health later."
     static let contactsBody =

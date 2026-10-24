@@ -28,7 +28,7 @@ public enum CycleDiscretionMode: String, Codable, CaseIterable, Sendable, Identi
         case .kind:
             return "Surfaces say “take it easy” — never period, fertile, or a day count."
         case .clinical:
-            return "Phase and day on widgets you install. Still never sent to Forge servers."
+            return ForgePrivacyCopy.healthStaysOnDevice
         }
     }
 

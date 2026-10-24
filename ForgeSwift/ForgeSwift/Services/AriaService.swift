@@ -546,6 +546,7 @@ extension AriaService {
         // Wearable / Apple Health samples stay on this iPhone. ARIA reads them
         // locally and gives an opinion. Forge is not a health warehouse.
         _ = message
+        _ = await BiometricsObserveService.shared.observe(store: store)
         let samples = observationSamples(from: store)
         for sample in samples {
             AgingVendorStore.ingest(

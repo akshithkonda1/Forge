@@ -41,15 +41,10 @@ enum CycleReportUploadClient {
     }
 
     static func upload(pdf: Data, ticket: Ticket) async throws {
-        var request = URLRequest(url: ticket.putUrl)
-        request.httpMethod = "PUT"
-        request.setValue("application/pdf", forHTTPHeaderField: "Content-Type")
-        request.httpBody = pdf
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            throw ForgeAPI.Failure.http(status: status, body: "S3 PUT failed.")
-        }
+        // Cycle PDFs are health data. They stay on this iPhone.
+        _ = pdf
+        _ = ticket
+        throw ForgeAPI.Failure.http(status: 451, body: ForgePrivacyCopy.healthStaysOnDevice)
     }
 
     private static var apiBase: URL? {

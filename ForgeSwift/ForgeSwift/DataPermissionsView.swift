@@ -1,8 +1,8 @@
 import SwiftUI
 import ForgeCore
 
-/// Per-domain control over what ARIA may use, plus a one-tap body-model sync
-/// that calls POST /ai/observe and shows the fused result.
+/// Per-domain control over what ARIA may use, plus a one-tap on-device
+/// body-model refresh. Health data always stays on device, never goes to a server.
 struct DataPermissionsView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var permissions = DataPermissionsStore.shared
