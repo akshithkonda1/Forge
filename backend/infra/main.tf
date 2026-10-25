@@ -451,6 +451,12 @@ resource "aws_s3_bucket_versioning" "uploads" {
   }
 }
 
+resource "aws_kms_key" "uploads" {
+  description             = "SSE-KMS for cycle-report ciphertext. Template only — this PR does not apply."
+  deletion_window_in_days = 30
+  tags                    = local.common_tags
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "uploads" {
   bucket = aws_s3_bucket.uploads.id
 
@@ -624,6 +630,7 @@ resource "aws_lambda_function" "backend" {
       AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.7"
       AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Grok"
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
+      UPLOADS_KMS_KEY_ARN    = aws_kms_key.uploads.arn
       USER_POOL_ID           = aws_cognito_user_pool.forge.id
       OPEN_WEARABLES_WEBHOOK_PARAMETER_NAME = (
         local.open_wearables_enabled ? aws_ssm_parameter.open_wearables["WEBHOOK_SECRET"].name : ""

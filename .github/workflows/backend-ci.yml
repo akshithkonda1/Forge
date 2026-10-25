@@ -13,6 +13,7 @@ on:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -39,9 +40,12 @@ jobs:
               - "backend/**"
               - ".github/workflows/backend-ci.yml"
 
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   test:
     name: backend-test
-    needs: changes
+    needs: [changes, health-leak]
     runs-on: ubuntu-latest
     steps:
       - name: No-op (no relevant changes)

@@ -35,8 +35,12 @@ env:
   BRANCH: automation/model-ids
 
 jobs:
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   update:
     name: model-ids
+    needs: health-leak
     runs-on: ubuntu-latest
     permissions:
       contents: write

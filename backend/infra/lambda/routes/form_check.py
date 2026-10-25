@@ -1,22 +1,13 @@
-"""Form-check and session-briefing coaching, server-side.
+"""Form-check and session-briefing coaching.
 
-This route exists because the iOS client was calling `api.anthropic.com`
-directly, with a key read from `Bundle.main.infoDictionary["ANTHROPIC_API_KEY"]`.
-That is an extractable secret in any build that sets it — trivial to pull from a
-downloaded IPA — and every one of those requests skipped auth, `security.py`
-sanitization, the model router, the security law, and all cost controls.
+Vision form-check stays on the iPhone (Vision / CoreML, plus Foundation
+Models where an API is available). Apple Private Cloud Compute is only
+reached through Apple's own frameworks — Forge never sends a frame or
+pose to its servers. A posted ``image_base64`` is refused with 451.
 
-So the interesting part of this file is not what it generates, it is that
-generation happens *here*: behind the JWT authorizer, with the caller's identity
-taken from the token rather than the body, with text sanitized, and through the
-same `live_system_prompt()` every other live surface uses.
-
-Vision is not routed yet. `BedrockGateway.converse()` calls the native Converse
-operation, and whether image content blocks work through it against the
-configured models is unverified. Rather than guess, the vision mode answers
-`available: false`, which the client already knows how to handle: it falls back
-to the on-device heuristic it used whenever the API key was absent. The client
-integration point is therefore unchanged, and no key ships in the binary.
+The briefing mode, if ever called, is text-only, JWT-authenticated, and
+sanitized. The iOS client currently authors the briefing on-device and
+does not post a snapshot.
 """
 
 from __future__ import annotations
@@ -91,9 +82,6 @@ def _clean_context(raw: Any) -> dict[str, Any]:
         "setLabel": text("setLabel"),
         "weight": number("weight"),
         "reps": text("reps"),
-        "heartRate": number("heartRate"),
-        "hrZone": number("hrZone"),
-        "spO2": number("spO2"),
         "elapsed": text("elapsed"),
         "cues": [c for c in cues if c][:MAX_CUES],
     }
@@ -118,21 +106,17 @@ def handle_post_form_check(body: dict[str, Any], *, user_id: str) -> dict:
     if mode != "vision":
         raise RouteError(400, "'mode' must be 'vision' or 'briefing'.")
 
+    if body.get("image_base64") is not None:
+        raise RouteError(
+            451,
+            "Form-check vision stays on device, never goes to a server.",
+            code="form_check_on_device",
+        )
     context = _clean_context(body.get("context"))
-    image = body.get("image_base64")
-    if image is not None:
-        if not isinstance(image, str):
-            raise RouteError(400, "'image_base64' must be a string.")
-        if len(image) > MAX_IMAGE_BASE64_CHARS:
-            raise RouteError(413, "Frame too large.")
-
-    # Deliberately not guessing at image support through the native Converse
-    # operation. The client falls back to its on-device read, which is what it
-    # did whenever the key was absent — i.e. in every build shipped so far.
     return ok(
         {
             "available": False,
-            "reason": "vision_routing_unavailable",
+            "reason": "form_check_stays_on_device",
             "context": {"exerciseName": context["exerciseName"]},
         }
     )

@@ -20,10 +20,9 @@ final class ForgeCloudSync {
     }
 
     func postHealthBatch(_ metrics: [CloudHealthMetric]) async throws -> CloudHealthBatchResult {
-        guard !metrics.isEmpty else {
-            return CloudHealthBatchResult(accepted: 0, rejected: 0)
-        }
-        return try await post("health/batch", body: ["metrics": metrics])
+        // HealthKit-derived metrics stay on this device. The aging vendor
+        // store still ingests locally via `healthMetrics(from:)`.
+        return CloudHealthBatchResult(accepted: 0, rejected: metrics.count)
     }
 
     func fetchChatThread() async throws -> CloudChatThread {

@@ -1951,7 +1951,7 @@ struct MenstrualHealthView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             settingToggle(
                 "ARIA reads cycle on this iPhone",
-                subtitle: "ARIA may mention your cycle in chat on this iPhone. Samples never leave the device. Claude/Grok do not get your chart.",
+                subtitle: ForgePrivacyCopy.healthStaysOnDevice,
                 tint: .ember,
                 isOn: Binding(
                     get: { cycleStore.settings.shareWithAria },

@@ -23,8 +23,7 @@ enum CycleAriaAnalyst {
     static let lifestyleDisclaimer =
         "Lifestyle coaching — not medical diagnosis. Forge timing estimates are not themselves birth control."
 
-    static let privacyLine =
-        "ARIA reads your cycle on this iPhone. Never uploaded to Forge."
+    static let privacyLine = ForgePrivacyCopy.healthStaysOnDevice
 
     /// Local (offline) three-mode brief — always available.
     static func localBrief(

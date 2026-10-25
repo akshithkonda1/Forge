@@ -3,26 +3,18 @@ import ForgeCore
 
 /// How ARIA is allowed to touch health data.
 ///
-/// Wearables (Oura, Garmin, Apple Watch, and anything else that writes to
-/// Apple Health) are ingested by *Apple Health*. Forge does not scrape vendor
-/// clouds. ARIA reads that ledger on this iPhone, forms an opinion, and
-/// answers. It does not keep a second live copy of the HealthKit warehouse
-/// on Forge servers.
+/// Wearables write to Apple Health. Forge reads that ledger on this device.
+/// Health data always stays on device, never goes to a server.
 ///
 /// Off-device is only:
 /// - Claude / Grok for language (the user message, never the HealthKit ledger)
-/// - the user account database
-///
-/// If a future path must send a coaching hint off-device, it travels over
-/// TLS and must not be stored after the model reads it. Cycle and other
-/// reproductive fields are never that hint.
+/// - the user account database (email for Cognito)
+/// - TTS of what ARIA already decided to say
 enum AriaOnDeviceHealthPolicy {
 
-    static let wearableLedgerLine =
-        "Wearables write to Apple Health. ARIA reads that ledger on this iPhone — it does not scrape Oura, Garmin, or any vendor account."
+    static let wearableLedgerLine = ForgePrivacyCopy.healthStaysOnDevice
 
-    static let remoteInferenceLine =
-        "Claude and Grok never receive your HealthKit samples. They see what you type. Health stays on this device."
+    static let remoteInferenceLine = ForgePrivacyCopy.healthStaysOnDevice
 
     /// Prefix of the Life Context brief in `lifestyle.recentPatterns`.
     static let lifeContextBriefPrefix = "life_context_brief: "
@@ -37,6 +29,7 @@ enum AriaOnDeviceHealthPolicy {
         return v.hasPrefix("reminders:")
             || v.hasPrefix("life_context")
             || v.hasPrefix("life_ops")
+            || v.hasPrefix("scout_gap:")
     }
 
     static func isHealthLedgerTag(_ tag: String) -> Bool {
@@ -44,14 +37,18 @@ enum AriaOnDeviceHealthPolicy {
         if t.hasPrefix("cycle:") || t.hasPrefix("cycle_phase:") || t.hasPrefix("cycle_day:")
             || t.hasPrefix("cycle_privacy:") || t.hasPrefix("partner_cycle:")
             || t.hasPrefix("partner_phase:") || t.hasPrefix("partner_day:")
-            || t.hasPrefix("partner_name:") || t.hasPrefix("support_cycle:") {
+            || t.hasPrefix("partner_name:") || t.hasPrefix("support_cycle:")
+            || t.hasPrefix("scout_gap:")
+            || t.hasPrefix("qol:") || t.hasPrefix("steps:") || t.hasPrefix("protein:")
+            || t.hasPrefix("hydration:") || t.hasPrefix("recovery:") || t.hasPrefix("sleep")
+            || t.hasPrefix("hrv") || t.hasPrefix("ingest:") {
             return true
         }
         return false
     }
 
     /// Context Claude/Grok are allowed to see: coaching prefs and conversation,
-    /// not sleep/HRV/cycle/clinical samples from Apple Health.
+    /// not sleep/HRV/cycle/clinical samples from Apple Health, and not names.
     static func strippedForRemoteInference(_ payload: ARIAContextPayload) -> ARIAContextPayload {
         var out = payload
         out.sleep = ARIAContextPayload.SleepDomain()
@@ -62,6 +59,7 @@ enum AriaOnDeviceHealthPolicy {
         out.body = ARIAContextPayload.BodyDomain()
         out.nutrition = ARIAContextPayload.NutritionDomain()
         out.progress = ARIAContextPayload.ProgressDomain()
+        out.aging = nil
         out.clinicalData = nil
         if var layer = out.medicationLayer {
             layer.onFile = []
@@ -79,12 +77,14 @@ enum AriaOnDeviceHealthPolicy {
         out.lifestyle.recentPatterns = out.lifestyle.recentPatterns.filter { pattern in
             let p = pattern.lowercased()
             return !p.hasPrefix("cycle:") && !p.contains("cycle_phase") && !isOnDeviceOnlyLifeContext(pattern)
+                && !p.hasPrefix("scout_gap:")
         }
         out.profile.constraints = out.profile.constraints.filter { line in
             let l = line.lowercased()
             return !l.contains("menstru") && !l.contains("luteal") && !l.contains("follicular")
                 && !l.contains("ovulat") && !l.hasPrefix("cycle")
                 && !l.hasPrefix("med:health:") && !l.hasPrefix("med:saved:")
+                && !l.contains("scout_gap")
         }
         return out
     }

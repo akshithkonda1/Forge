@@ -40,9 +40,6 @@ CONTEXT = {
     "setLabel": "Set 3 of 5",
     "weight": 225,
     "reps": "5",
-    "heartRate": 148,
-    "hrZone": 3,
-    "spO2": 97,
     "elapsed": "18:20",
     "cues": ["Brace before you descend", "Knees track over toes"],
 }
@@ -92,17 +89,18 @@ class FormCheckVisionTests(unittest.TestCase):
         self.assertEqual(resp["statusCode"], 200)
         payload = body_of(resp)
         self.assertFalse(payload["available"])
-        self.assertEqual(payload["reason"], "vision_routing_unavailable")
+        self.assertEqual(payload["reason"], "form_check_stays_on_device")
 
-    def test_unmeasured_vitals_may_be_omitted(self):
-        # The client leaves heartRate/spO2 out until a real sample exists rather
-        # than sending a resting or default stand-in. That must not be a 400.
-        unmeasured = {k: v for k, v in CONTEXT.items() if k not in ("heartRate", "spO2")}
+    def test_posted_vitals_do_not_change_the_on_device_contract(self):
+        # An old client that still sends heartRate/spO2 must not get a 400,
+        # and the server must not treat those fields as usable context.
+        stale = {**CONTEXT, "heartRate": 148, "spO2": 97}
         resp = handler(
-            event("POST", "/workouts/form-check", {"context": unmeasured}, user_id="u1"), None
+            event("POST", "/workouts/form-check", {"context": stale}, user_id="u1"), None
         )
         self.assertEqual(resp["statusCode"], 200)
-        self.assertEqual(body_of(resp)["reason"], "vision_routing_unavailable")
+        self.assertEqual(body_of(resp)["reason"], "form_check_stays_on_device")
+        self.assertNotIn("heartRate", body_of(resp).get("context") or {})
 
     def test_a_missing_exercise_name_is_a_400(self):
         resp = handler(
@@ -118,7 +116,8 @@ class FormCheckVisionTests(unittest.TestCase):
                   {"context": CONTEXT, "image_base64": huge}, user_id="u1"),
             None,
         )
-        self.assertEqual(resp["statusCode"], 413)
+        # Handler body-size gate is 413; the route itself answers 451.
+        self.assertIn(resp["statusCode"], (413, 451))
 
     def test_context_is_sanitized_rather_than_passed_through(self):
         from routes.form_check import _clean_context

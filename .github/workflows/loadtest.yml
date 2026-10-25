@@ -25,8 +25,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   loadtest:
     name: Local Dummy k6
+    needs: health-leak
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

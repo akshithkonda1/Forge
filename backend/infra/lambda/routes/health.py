@@ -81,9 +81,10 @@ def handle_post_health_batch(user_id: str, body: dict) -> dict:
             errors.append({"message": f"metrics[{i}].value is required."})
             continue
 
-        normalized = normalization.normalize_metric(metric)
-        item = {**keys.metric_key(user_id, metric_type, started_at), **normalized}
-        dynamodb.put_item(item)
-        accepted += 1
+        # HealthKit-derived metrics are not stored. Count as rejected.
+        rejected += 1
+        errors.append({
+            "message": "Health data always stays on device, never goes to a server.",
+        })
 
     return ok({"accepted": accepted, "rejected": rejected, "errors": errors})

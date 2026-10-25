@@ -17,6 +17,8 @@ public struct AriaPersonalRead: Equatable, Sendable {
     public var agingLine: String?
     public var swarmLine: String?
     public var swarmProtect: Bool
+    /// Honest Health Scout gap line. Never a fabricated vital.
+    public var scoutGapLine: String?
 
     public init(
         sleepDepth: SleepDepthResult? = nil,
@@ -29,7 +31,8 @@ public struct AriaPersonalRead: Equatable, Sendable {
         qolLine: String? = nil,
         agingLine: String? = nil,
         swarmLine: String? = nil,
-        swarmProtect: Bool = false
+        swarmProtect: Bool = false,
+        scoutGapLine: String? = nil
     ) {
         self.sleepDepth = sleepDepth
         self.sleepWeak = sleepWeak
@@ -42,6 +45,7 @@ public struct AriaPersonalRead: Equatable, Sendable {
         self.agingLine = agingLine
         self.swarmLine = swarmLine
         self.swarmProtect = swarmProtect
+        self.scoutGapLine = scoutGapLine
     }
 
     public var sleepBand: String {
@@ -56,6 +60,7 @@ public struct AriaPersonalRead: Equatable, Sendable {
 
     /// Grounding line ARIA can speak without dumping sensors.
     public var spokenGround: String? {
+        if let scoutGapLine, !scoutGapLine.isEmpty { return scoutGapLine }
         if let companionLine, !companionLine.isEmpty { return companionLine }
         if let flag = sleepDepth?.headline { return flag }
         if hrvBelowPersonal { return "HRV is under your own baseline — not a population cutoff." }
@@ -75,6 +80,7 @@ public struct AriaPersonalRead: Equatable, Sendable {
         vo2Max: Double?,
         restingHR: Double?,
         swarm: AriaSwarmPicture? = nil,
+        scout: HealthScoutReport? = nil,
         defaults: UserDefaults = .standard
     ) -> AriaPersonalRead {
         var sleepDepth: SleepDepthResult?
@@ -152,7 +158,8 @@ public struct AriaPersonalRead: Equatable, Sendable {
             qolLine: qolLine,
             agingLine: agingLine,
             swarmLine: swarmLine,
-            swarmProtect: swarmProtect
+            swarmProtect: swarmProtect,
+            scoutGapLine: scout?.ariaLine
         )
     }
 }

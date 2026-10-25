@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Privacy contract for menstrual / family-support cycle data.
 /// Single source of truth for UI, ARIA disclaimers, and coaching context.
@@ -6,11 +7,12 @@ enum CyclePrivacy {
     static let title = "Your cycle data is private"
 
     /// Short line for chips / home module.
-    static let shortPromise =
-        "Sealed on this iPhone. Apple Health is the ledger. They only see how to help if you invite them in iMessage."
+    static let shortPromise = ForgePrivacyCopy.healthStaysOnDevice
 
     /// Full user-facing policy (lifestyle product language).
     static let policy = """
+    \(ForgePrivacyCopy.healthStaysOnDevice)
+
     Cycle tracking is private by design.
 
     • Logs live on this iPhone (Cycle Vault + Apple Cycle Tracking). Wearables \
