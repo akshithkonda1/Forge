@@ -251,18 +251,14 @@ public enum SleepDebtMeter: Sendable {
         return (Int(perNight.rounded()), nights)
     }
 
-    /// `Int(hours * 60)` traps on NaN / ±inf from a night with no stage data.
-    /// `Double(Int.max)` is 2^63 (not exactly representable); `Int` of that
-    /// value traps, so the bound is `>=`, not `>`. Same for `Int.min`.
+    /// `Int(hours * 60)` traps on NaN / ±inf / out-of-range. Reject those
+    /// the same way as NaN (0). Guard `>= Double(Int.max)` and the negative
+    /// bound before converting — `Double(Int.max)` is 2^63 and `Int` of it traps.
     public static func minutesFromHours(_ hours: Double) -> Int {
         guard hours.isFinite else { return 0 }
         let minutes = (hours * 60).rounded()
-        // A huge finite hour count can overflow the *60 to ±inf. That is
-        // out of range, not missing data: pin to the Int bound.
-        if !minutes.isFinite {
-            return hours > 0 ? Int.max : 0
-        }
-        if minutes >= Double(Int.max) { return Int.max }
+        if !minutes.isFinite { return 0 }
+        if minutes >= Double(Int.max) { return 0 }
         if minutes <= Double(Int.min) { return 0 }
         if minutes < 0 { return 0 }
         return Int(minutes)

@@ -50,15 +50,16 @@ final class NonFiniteHealthInputTests: XCTestCase {
     }
 
     func testMinutesFromHoursRejectsOutOfRange() {
-        XCTAssertEqual(SleepDebtMeter.minutesFromHours(1e20), Int.max)
+        XCTAssertEqual(SleepDebtMeter.minutesFromHours(1e20), 0)
         XCTAssertEqual(SleepDebtMeter.minutesFromHours(-1e20), 0)
-        XCTAssertEqual(SleepDebtMeter.minutesFromHours(Double(Int.max)), Int.max)
+        XCTAssertEqual(SleepDebtMeter.minutesFromHours(Double(Int.max)), 0)
         XCTAssertEqual(SleepDebtMeter.minutesFromHours(Double(Int.min)), 0)
-        XCTAssertEqual(SleepDebtMeter.minutesFromHours(.greatestFiniteMagnitude), Int.max)
+        XCTAssertEqual(SleepDebtMeter.minutesFromHours(.greatestFiniteMagnitude), 0)
         XCTAssertEqual(SleepDebtMeter.minutesFromHours(-.greatestFiniteMagnitude), 0)
     }
 
     // SleepModels.swift:86 — Int(totalMinutes) traps on NaN / ±inf / huge.
+    // Out-of-range uses the same fallback as NaN (0h 0m), not Int.max minutes.
     func testDurationLabelRejectsNonFiniteAndOutOfRange() {
         var night = SleepNight(segments: [])
         night.totalMinutes = .nan
@@ -68,7 +69,7 @@ final class NonFiniteHealthInputTests: XCTestCase {
         night.totalMinutes = -.infinity
         XCTAssertEqual(night.durationLabel, "0h 0m")
         night.totalMinutes = .greatestFiniteMagnitude
-        XCTAssertEqual(night.durationLabel, "\(Int.max / 60)h \(Int.max % 60)m")
+        XCTAssertEqual(night.durationLabel, "0h 0m")
         night.totalMinutes = 400
         XCTAssertEqual(night.durationLabel, "6h 40m")
     }
