@@ -55,6 +55,7 @@
 		1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */; };
 		1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */; };
 		1VOICE0112F9FF867004091AA /* AriaCharacterVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */; };
+		1KOKORO012F9FF867004091AA /* AriaKokoroEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1KOKORO0102F9FF867004091AA /* AriaKokoroEngine.swift */; };
 		1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */; };
 		1XCAT0022F9FF867004091AA /* ExerciseCatalogExpansion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */; };
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
@@ -515,6 +516,7 @@
 		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
 		1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoice.swift; sourceTree = "<group>"; };
 		1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCharacterVoice.swift; sourceTree = "<group>"; };
+		1KOKORO0102F9FF867004091AA /* AriaKokoroEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroEngine.swift; sourceTree = "<group>"; };
 		1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSession.swift; sourceTree = "<group>"; };
 		1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogExpansion.swift; sourceTree = "<group>"; };
 		1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundEngine.swift; sourceTree = "<group>"; };
@@ -1081,6 +1083,7 @@
 				1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */,
 				1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */,
 				1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */,
+				1KOKORO0102F9FF867004091AA /* AriaKokoroEngine.swift */,
 				1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */,
 				5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */,
 				946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */,
@@ -1847,6 +1850,7 @@
 				1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */,
 				1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */,
 				1VOICE0112F9FF867004091AA /* AriaCharacterVoice.swift in Sources */,
+				1KOKORO012F9FF867004091AA /* AriaKokoroEngine.swift in Sources */,
 				1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */,
 				4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */,
 				6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */,

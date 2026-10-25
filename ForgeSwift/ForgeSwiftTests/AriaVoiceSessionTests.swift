@@ -2,8 +2,7 @@ import XCTest
 import ForgeCore
 @testable import ForgeSwift
 
-/// Dummy voice session uses the same gates as chat. Live bootstrap is never
-/// the ElevenLabs API key. Apple TTS is not ARIA's production mouth.
+/// Dummy voice session uses the same gates as chat. The mouth is Kokoro only.
 final class AriaVoiceSessionTests: XCTestCase {
 
     func testDummyWinsOverLocalTestingTheSameWayChatDoes() {
@@ -23,7 +22,7 @@ final class AriaVoiceSessionTests: XCTestCase {
 
     func testSafetySessionNeverUsesTheLiveAgent() {
         // The 911 / triage copy is spoken on this iPhone and the answer comes
-        // back through chat; ConvAI would put its own words on an emergency.
+        // back through chat.
         XCTAssertEqual(AriaVoiceTransport.live.keepingOnDevice(true), .localTesting)
         XCTAssertEqual(AriaVoiceTransport.dummy.keepingOnDevice(true), .dummy)
         XCTAssertEqual(AriaVoiceTransport.localTesting.keepingOnDevice(true), .localTesting)
@@ -41,61 +40,35 @@ final class AriaVoiceSessionTests: XCTestCase {
         XCTAssertTrue(AriaVoiceTransport.live.requiresNetwork)
         XCTAssertTrue(AriaVoiceTransport.dummy.usesOnDeviceBrain)
         XCTAssertFalse(AriaCharacterVoice.dummyUpgradesToLiveOnFailure)
-        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, AriaFishAudioVoice.defaultModel)
-        XCTAssertEqual(AriaCharacterVoice.livePaidTTSModel, AriaFishAudioVoice.paidModel)
-        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, "s2.1-pro-free")
-        XCTAssertFalse(AriaCharacterVoice.liveTTSModel.contains("s1"))
-        XCTAssertFalse(AriaCharacterVoice.dummyUpgradesToFishAudioOnFailure)
+        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, AriaKokoroVoice.model)
+        XCTAssertEqual(AriaCharacterVoice.ariaPreset, "af_heart")
+        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, "kokoro-82m")
     }
 
-    func testFishAudioMouthRequiresAConfiguredKey() {
-        XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: true, hasKey: true))
-        XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: false))
-        XCTAssertTrue(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: true))
+    func testKokoroIsTheOnlyMouthAndNeverCloud() {
         XCTAssertFalse(
-            AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
-                isMuted: false,
-                hasLocalKey: false,
-                backendReachable: false
-            ),
-            "Dummy-offline must not POST Hex"
+            AriaVoiceMouth.allowsCloudVoice(isDummy: true, isLocalTesting: false, offline: false)
         )
         XCTAssertFalse(
-            AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
-                isMuted: false,
-                hasLocalKey: true,
-                backendReachable: true
-            )
+            AriaVoiceMouth.allowsCloudVoice(isDummy: false, isLocalTesting: true, offline: false)
+        )
+        XCTAssertFalse(
+            AriaVoiceMouth.allowsCloudVoice(isDummy: false, isLocalTesting: false, offline: true)
+        )
+        XCTAssertFalse(
+            AriaVoiceMouth.allowsCloudVoice(isDummy: false, isLocalTesting: false, offline: false),
+            "Live also stays on-device — TTS text never leaves the phone"
         )
         XCTAssertTrue(
-            AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
-                isMuted: false,
-                hasLocalKey: false,
-                backendReachable: true
-            )
+            AriaVoiceMouth.shouldEnqueueKokoro(isMuted: false, sessionActive: true)
         )
-        let store = InMemorySecureStore()
-        let missing = AriaVoiceMouth.currentFishAudioConfig(
-            environment: [:],
-            infoDictionary: [:],
-            secureStore: store
+        XCTAssertFalse(
+            AriaVoiceMouth.shouldEnqueueKokoro(isMuted: true, sessionActive: true)
         )
-        XCTAssertFalse(missing.isConfigured)
-        try? store.set("test-key-not-for-commit", forKey: AriaFishAudioVoice.keychainAPIKeyAccount)
-        let fromKeychain = AriaVoiceMouth.currentFishAudioConfig(
-            environment: [:],
-            infoDictionary: [:],
-            secureStore: store
-        )
-        XCTAssertTrue(fromKeychain.isConfigured)
-        XCTAssertEqual(fromKeychain.apiKey, "test-key-not-for-commit")
-        let live = AriaVoiceMouth.currentFishAudioConfig(
-            environment: [AriaFishAudioVoice.apiKeyEnvironment: "env-key-not-for-commit"],
-            infoDictionary: [:],
-            secureStore: store
-        )
-        XCTAssertEqual(live.apiKey, "env-key-not-for-commit")
-        XCTAssertEqual(live.model, AriaFishAudioVoice.defaultModel)
+        XCTAssertFalse(AriaCharacterVoice.appleEmergencyFallbackEnabled)
+        XCTAssertEqual(AriaVoiceMouth.currentKokoroConfig().voiceID, "af_heart")
+        let ember = AriaVoiceCatalog.Selection(profileID: "ember", voiceID: "af_bella", speed: 1.05)
+        XCTAssertEqual(AriaVoiceMouth.currentKokoroConfig(selection: ember).voiceID, "af_bella")
     }
 
     func testMuteGatesDummyAndLiveFillIn() {
@@ -116,35 +89,26 @@ final class AriaVoiceSessionTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            AriaVoiceMouth.shouldEnqueueAppleUtterance(
-                isMuted: false,
-                sessionActive: false,
-                transport: .dummy,
-                isDebugBuild: true
-            ),
-            "Onboarding / welcome / Train are not a character session"
+            AriaVoiceMouth.shouldEnqueueKokoro(isMuted: false, sessionActive: false),
+            "Onboarding / welcome / Train still call Presence directly; session enqueue stays off"
         )
     }
 
-    func testDummyFillInRunsInReleaseAndNeverOnLive() {
+    func testDummyAndLiveBothUseKokoroNeverApple() {
         XCTAssertTrue(
             AriaVoiceMouth.allowsDummyFillIn(transport: .dummy, isDebugBuild: true)
         )
         XCTAssertTrue(
             AriaVoiceMouth.allowsDummyFillIn(transport: .localTesting, isDebugBuild: true)
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             AriaVoiceMouth.allowsDummyFillIn(transport: .live, isDebugBuild: true)
         )
         XCTAssertTrue(
             AriaVoiceMouth.allowsDummyFillIn(transport: .dummy, isDebugBuild: false),
-            "TestFlight Dummy-offline has no ConvAI — the fill-in mouth must run"
+            "TestFlight Dummy-offline must still try Kokoro"
         )
-        XCTAssertTrue(
-            AriaVoiceMouth.allowsDummyFillIn(transport: .localTesting, isDebugBuild: false),
-            "On-device brain still fills in outside DEBUG"
-        )
-        XCTAssertTrue(
+        XCTAssertFalse(
             AriaVoiceMouth.shouldEnqueueAppleUtterance(
                 isMuted: false,
                 sessionActive: true,
@@ -159,7 +123,7 @@ final class AriaVoiceSessionTests: XCTestCase {
                 transport: .live,
                 isDebugBuild: true
             ),
-            "Live failure / live success both refuse Apple TTS as the mouth"
+            "Load failure must not switch to Apple TTS"
         )
     }
 
@@ -216,39 +180,21 @@ final class AriaVoiceSessionTests: XCTestCase {
         )
     }
 
-    func testSwitchingVoiceProfileChangesNextSpeakVoiceID() {
-        let warm = AriaVoiceCatalog.Profile(
-            id: "warm",
-            label: "Warm",
-            description: "Close",
-            voiceID: "voice-warm-1"
-        )
-        let ember = AriaVoiceCatalog.Profile(
-            id: "ember",
-            label: "Ember",
-            description: "Blunt",
-            speed: 1.05,
-            voiceID: "voice-ember-1"
-        )
+    func testSwitchingVoiceProfileChangesNextKokoroPreset() {
+        let warm = AriaVoiceCatalog.recipe(id: "warm")!
+        let ember = AriaVoiceCatalog.recipe(id: "ember")!
         var selection = AriaVoiceCatalog.Selection()
         selection = AriaVoiceCatalog.apply(selection: selection, to: warm)
-        let first = AriaFishAudioVoice.makeBackendRequest(
-            text: "I'm ARIA.",
-            baseURL: URL(string: "https://api.forge.test")!,
-            selection: selection
-        )
-        let firstBody = try? JSONSerialization.jsonObject(with: first?.httpBody ?? Data()) as? [String: Any]
-        XCTAssertEqual(firstBody?["voice_id"] as? String, "voice-warm-1")
+        XCTAssertEqual(AriaVoiceMouth.currentKokoroConfig(selection: selection).voiceID, "af_heart")
 
         selection = AriaVoiceCatalog.apply(selection: selection, to: ember)
-        let next = AriaFishAudioVoice.makeBackendRequest(
-            text: "I'm ARIA.",
-            baseURL: URL(string: "https://api.forge.test")!,
-            selection: selection
+        XCTAssertEqual(AriaVoiceMouth.currentKokoroConfig(selection: selection).voiceID, "af_bella")
+        XCTAssertNil(
+            AriaKokoroVoice.makeSpeakRequest(
+                text: "I'm ARIA.",
+                baseURL: URL(string: "https://api.forge.test")!
+            )
         )
-        let nextBody = try? JSONSerialization.jsonObject(with: next?.httpBody ?? Data()) as? [String: Any]
-        XCTAssertEqual(nextBody?["voice_id"] as? String, "voice-ember-1")
-        XCTAssertNotEqual(firstBody?["voice_id"] as? String, nextBody?["voice_id"] as? String)
     }
 
     func testSpokenLinePrefersProseSummary() {

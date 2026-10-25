@@ -40,7 +40,6 @@ PAID_AI_ROUTES = frozenset(
         "/ai/chat",
         "/ai/archetype",
         "/ai/router",
-        "/ai/voice/speak",
         "/ai/weekly-review",
         "/ai/observe",
         "/ingest/url",

@@ -140,7 +140,7 @@ class PauseZeroSpendTests(unittest.TestCase):
         self.assertNotEqual(body(form).get("error"), "should never run")
         self.assertNotEqual(body(sleep).get("error"), "should never run")
         self.assertEqual(voice["statusCode"], 200)
-        self.assertEqual(body(voice).get("source"), "fallback")
+        self.assertEqual(body(voice).get("source"), "kokoro")
         self.bedrock.converse.assert_not_called()
 
     def test_health_and_voice_bootstrap_stay_up(self):
