@@ -31,7 +31,7 @@ struct ContentView: View {
             .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
             if showSplash {
-                ForgeSplashScreen()
+                ForgeSplashScreen(signedIn: splashSignedIn)
                     .transition(.opacity)
                     .zIndex(999)
                     // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
@@ -55,12 +55,22 @@ struct ContentView: View {
             neuralVoiceGate = gate
             gate.refreshCatalog()
             guard showSplash else { return }
-            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
+            try? await Task.sleep(
+                nanoseconds: ForgeSplashTiming.pauseNanoseconds(
+                    reduceMotion: reduceMotion,
+                    signedIn: splashSignedIn
+                )
+            )
             Self.didFinishSplash = true
             withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
         }
+    }
+
+    /// Existing auth tree only: AppStore flag, restored from `ForgeAuthClient`.
+    private var splashSignedIn: Bool {
+        store.isAuthenticated || ForgeAuthClient.shared.session != nil
     }
 
     private var neuralPromptBinding: Binding<Bool> {
@@ -74,6 +84,8 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
+    /// Already-authenticated users get a trimmed beat: static flame, no swing.
+    var signedIn: Bool = false
     @State private var logoOpacity: Double = 0
     @State private var textOffset: CGFloat = 16
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -90,7 +102,8 @@ struct ForgeSplashScreen: View {
             VStack(spacing: FDS.Spacing.lg) {
                 ForgeStrikeMark(
                     variation: .strike,
-                    duration: ForgeStrikeGeometry.splashDuration
+                    duration: ForgeStrikeGeometry.splashDuration,
+                    playback: signedIn ? .trimmed : .full
                 )
                 .frame(width: 240, height: 200)
 
@@ -113,11 +126,12 @@ struct ForgeSplashScreen: View {
             }
         }
         .task {
-            // One light tap as the hammer lands. Off under Reduce Motion (static pose).
-            guard !reduceMotion else { return }
+            // One rigid tap as the hammer lands. Off under Reduce Motion
+            // (static pose) and on the signed-in trim (no swing).
+            guard !reduceMotion, !signedIn else { return }
             try? await Task.sleep(nanoseconds: UInt64(ForgeStrikeGeometry.splashImpactTime * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            ForgeHaptics.play(.press)
+            ForgeHaptics.playStrike()
         }
         .onAppear {
             let base: Animation = reduceMotion
