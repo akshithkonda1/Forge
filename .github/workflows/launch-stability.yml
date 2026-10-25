@@ -1,0 +1,125 @@
+# Launch stability gate: does ForgeSwift actually come up on a simulator?
+#
+# Catches what build/unit gates in swift.yml cannot: a blank screen, a main
+# thread wedged >2s, startup memory blow-up, a crash at launch, and the
+# AriaForgePrep relaunch wedge (crash-surviving handoff flag forcing every
+# relaunch back into a 45s–3min hold). Thresholds live ONLY in
+# ForgeSwift/Scripts/launch-gate/thresholds.env. Any check failing, or any
+# measurement that cannot be taken, fails the job — no continue-on-error,
+# no `|| true` on a gate step, no skips.
+
+name: Launch Stability
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launch-stability-${{ github.ref }}
+  # Keep every main run so a regression is pinned to its merge.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  launch-gate:
+    name: launch-stability
+    runs-on: xcode-27
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ForgeSwift
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Thresholds
+        run: |
+          { echo "### Launch gate thresholds"; echo '```'; grep -v '^#' Scripts/launch-gate/thresholds.env | sed '/^$/d'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cat Scripts/launch-gate/thresholds.env
+
+      - name: Duplicate-data launch fixtures (HobbyFit / SleepDebtMeter)
+        run: |
+          cd ForgeCore
+          swift test --filter LaunchStabilityFixtureTests
+
+      - name: Pick + boot iPhone simulator
+        run: |
+          set -euo pipefail
+          UDID=$(python3 - <<'PY'
+          import json, subprocess, sys
+          d = json.loads(subprocess.check_output(["xcrun","simctl","list","devices","available","-j"], text=True))
+          devs = [(r["name"], r["udid"]) for rt, rows in d["devices"].items() if "iOS" in rt
+                  for r in rows if r.get("isAvailable") and "iPhone" in r["name"]]
+          if not devs:
+              print("::error::No available iPhone simulator", file=sys.stderr); sys.exit(1)
+          rank = lambda n: (50 if "17e" in n else 0) + (30 if "Pro Max" in n else 10 if "Pro" in n else 0)
+          devs.sort(key=lambda x: (rank(x[0]), x[0]))
+          print(devs[0][1])
+          PY
+          )
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Build ForgeSwift.app (Debug, simulator)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -derivedDataPath /tmp/dd-launch \
+            -configuration Debug \
+            -skipPackagePluginValidation \
+            build \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ONLY_ACTIVE_ARCH=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            ENABLE_DEBUG_DYLIB=NO 2>&1 | tee /tmp/launch-build.log
+          test -d /tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
+
+      # Xcode "Sign to Run Locally" (CODE_SIGN_IDENTITY=-) signs every nested
+      # bundle inside-out and embeds ForgeSwift.entitlements, exactly like a
+      # local simulator run. Without the entitlements CKContainer(identifier:)
+      # traps at launch. Verify; never re-sign here.
+      - name: Verify ad-hoc signature + entitlements
+        run: |
+          set -euo pipefail
+          APP=/tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # Simulator builds carry entitlements in the signature or in the
+          # __TEXT,__entitlements section; either must name the container.
+          if codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "iCloud.com.forge.ForgeSwift"; then
+            echo "entitlements: in signature"
+          elif LC_ALL=C grep -aq "iCloud.com.forge.ForgeSwift" "$APP/ForgeSwift"; then
+            echo "entitlements: in __entitlements section"
+          else
+            echo "::error::entitlements not embedded; CloudKit init would trap"; exit 1
+          fi
+
+      - name: Launch gate (cold / kill-relaunch / AriaForgePrep wedge)
+        run: |
+          set -euo pipefail
+          python3 Scripts/launch-gate/launch_gate.py "$UDID" /tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
+
+      - name: Crash reports
+        if: failure()
+        run: |
+          ls -t ~/Library/Logs/DiagnosticReports/ForgeSwift* 2>/dev/null | head -3 | while read -r f; do echo "::group::$f"; head -120 "$f"; echo "::endgroup::"; done
+          echo "(listing done)"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: launch-gate-evidence
+          path: /tmp/launch-gate
+          if-no-files-found: warn
