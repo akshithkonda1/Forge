@@ -171,7 +171,7 @@
 		1PREP0022F9FF867004091AA /* AriaForgePrep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PREP0012F9FF867004091AA /* AriaForgePrep.swift */; };
 		1PREP0042F9FF867004091AA /* AriaForgePrepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PREP0032F9FF867004091AA /* AriaForgePrepView.swift */; };
 		1TEST03200000000000000A /* AriaForgePrepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03100000000000000A /* AriaForgePrepTests.swift */; };
-		1TEST07200000000000000A /* LaunchSmokeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07100000000000000A /* LaunchSmokeUITests.swift */; };
+		1TEST07200000000000000A /* LaunchSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07100000000000000A /* LaunchSmokeTests.swift */; };
 		1TEST07400000000000000A /* LaunchBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07300000000000000A /* LaunchBootstrapTests.swift */; };
 		1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07500000000000000A /* OnboardingGateTests.swift */; };
 		1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */; };
@@ -561,7 +561,7 @@
 		1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgentRouterTests.swift; sourceTree = "<group>"; };
 		1TEST01700000000000000A /* OnboardingGraphLockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGraphLockTests.swift; sourceTree = "<group>"; };
 		1TEST03100000000000000A /* AriaForgePrepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaForgePrepTests.swift; sourceTree = "<group>"; };
-		1TEST07100000000000000A /* LaunchSmokeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSmokeUITests.swift; sourceTree = "<group>"; };
+		1TEST07100000000000000A /* LaunchSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSmokeTests.swift; sourceTree = "<group>"; };
 		1TEST07300000000000000A /* LaunchBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchBootstrapTests.swift; sourceTree = "<group>"; };
 		1TEST07500000000000000A /* OnboardingGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGateTests.swift; sourceTree = "<group>"; };
 		1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDataNonFiniteTests.swift; sourceTree = "<group>"; };
@@ -1387,7 +1387,7 @@
 				1TEST01500000000000000A /* AriaCoachAgentRouterTests.swift */,
 				1TEST01700000000000000A /* OnboardingGraphLockTests.swift */,
 				1TEST03100000000000000A /* AriaForgePrepTests.swift */,
-				1TEST07100000000000000A /* LaunchSmokeUITests.swift */,
+				1TEST07100000000000000A /* LaunchSmokeTests.swift */,
 				1TEST07300000000000000A /* LaunchBootstrapTests.swift */,
 				1TEST07500000000000000A /* OnboardingGateTests.swift */,
 				1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */,
@@ -2045,7 +2045,7 @@
 				1TEST01600000000000000A /* AriaCoachAgentRouterTests.swift in Sources */,
 				1TEST01800000000000000A /* OnboardingGraphLockTests.swift in Sources */,
 				1TEST03200000000000000A /* AriaForgePrepTests.swift in Sources */,
-				1TEST07200000000000000A /* LaunchSmokeUITests.swift in Sources */,
+				1TEST07200000000000000A /* LaunchSmokeTests.swift in Sources */,
 				1TEST07400000000000000A /* LaunchBootstrapTests.swift in Sources */,
 				1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */,
 				1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */,

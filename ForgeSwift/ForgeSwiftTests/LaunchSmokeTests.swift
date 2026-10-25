@@ -1,11 +1,11 @@
-// Tess equivalent — LaunchSmokeUITests was not on any branch or PR.
+// Tess equivalent — LaunchSmokeTests (unit, no XCUIApplication).
 // These run as ForgeSwiftTests (CI has no UI-test target). They fail on
 // main when a root surface can render no copy — the blank dark prep page.
 import XCTest
 import ForgeCore
 @testable import ForgeSwift
 
-final class LaunchSmokeUITests: XCTestCase {
+final class LaunchSmokeTests: XCTestCase {
 
     func testEveryPrepStageHasVisibleCopy() {
         for stage in AriaForgePrep.Stage.allCases {
