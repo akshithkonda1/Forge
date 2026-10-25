@@ -1,6 +1,7 @@
 import AVFoundation
 import Combine
 import Foundation
+import ForgeCore
 
 /// Character voice session. Unmute / the voice orb start this.
 ///
