@@ -108,6 +108,36 @@ final class HobbyFitTests: XCTestCase {
         XCTAssertTrue(HobbyFit.speechIsClean(picture.hobbyFitSpeak))
     }
 
+    func testLivingHobbyCatalogHasUniqueRawValues() {
+        let ids = LivingHobby.allCases.map(\.rawValue)
+        XCTAssertEqual(Set(ids).count, ids.count, "LivingHobby raw values must be unique; a duplicate 'outdoors' crashes Dictionary(uniqueKeysWithValues:)")
+        XCTAssertEqual(ids.filter { $0 == "outdoors" }.count, 1)
+
+        let rows = HobbyFit.hobbies(from: LivingHobby.allCases + [.outdoors])
+        let rowIDs = rows.map(\.id)
+        XCTAssertEqual(Set(rowIDs).count, rowIDs.count)
+        XCTAssertEqual(rowIDs.filter { $0 == "outdoors" }.count, 1)
+    }
+
+    func testEngageKeepsFirstOutdoorsWhenPersonaAndProfileOverlap() {
+        let persona = HobbyFit.hobbies(from: [.outdoors, .gym])
+        let profile = [
+            HobbyFit.Hobby(id: "outdoors", label: "Being outside", kind: .outdoor, interest: .medium, lastEngagedAt: "2026-10-10"),
+            HobbyFit.Hobby(id: "cooking", label: "Cooking", kind: .creative, interest: .medium),
+        ]
+        let engaged = HobbyFit.engage(
+            fromWorkouts: [
+                .init(name: "Lunch walk", type: "cardio", dateISO: "2026-10-16"),
+                .init(name: "Morning hike", type: "cardio", dateISO: "2026-10-16"),
+            ],
+            existing: persona + profile
+        )
+        XCTAssertEqual(engaged.filter { $0.id == "outdoors" }.count, 1)
+        XCTAssertEqual(engaged.first { $0.id == "outdoors" }?.lastEngagedAt, "2026-10-16")
+        XCTAssertTrue(engaged.contains { $0.id == "gym" })
+        XCTAssertTrue(engaged.contains { $0.id == "cooking" })
+    }
+
     func testGymIsNotSoloAndFreeTextNormalizes() {
         let gym = HobbyFit.hobbies(from: [.gym]).first
         XCTAssertEqual(gym?.kind, .social)

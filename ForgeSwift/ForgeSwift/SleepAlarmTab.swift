@@ -174,9 +174,9 @@ enum SleepAlarmScheduler {
         }
 
         let windows: [UUID: Int] = await MainActor.run {
-            Dictionary(uniqueKeysWithValues: alarms.map { alarm in
+            Dictionary(alarms.map { alarm in
                 (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: ForgeAlarmStore.shared.sleeperDepth))
-            })
+            }, uniquingKeysWith: { first, _ in first })
         }
 
         var addFailures = 0
