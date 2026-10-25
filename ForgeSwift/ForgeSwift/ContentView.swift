@@ -10,6 +10,7 @@ struct ContentView: View {
     /// Once per process — recreating this view must not put the splash back
     /// on top of Home and eat taps.
     @State private var showSplash = !Self.didFinishSplash
+    @State private var splashBlocksHits = !Self.didFinishSplash
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
@@ -26,18 +27,17 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
-            .environment(\.forgeWelcomeCovered, showSplash)
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
             .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
             if showSplash {
-                ForgeSplashScreen(signedIn: splashSignedIn)
+                ForgeSplashScreen(signedIn: splashSignedIn, onSkip: dismissSplash)
                     .transition(.opacity)
                     .zIndex(999)
                     // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
                     .accessibilityHidden(true)
-                    // Never block Home if the hide animation stalls.
-                    .allowsHitTesting(false)
+                    // Tap skips. Hits pass through once the fade starts.
+                    .allowsHitTesting(splashBlocksHits)
             }
         }
         .sheet(isPresented: neuralPromptBinding) {
@@ -61,10 +61,17 @@ struct ContentView: View {
                     signedIn: splashSignedIn
                 )
             )
-            Self.didFinishSplash = true
-            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
-                showSplash = false
-            }
+            guard showSplash else { return }
+            dismissSplash()
+        }
+    }
+
+    private func dismissSplash() {
+        guard showSplash else { return }
+        splashBlocksHits = false
+        Self.didFinishSplash = true
+        withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
+            showSplash = false
         }
     }
 
@@ -86,6 +93,7 @@ struct ContentView: View {
 struct ForgeSplashScreen: View {
     /// Already-authenticated users get a trimmed beat: static flame, no swing.
     var signedIn: Bool = false
+    var onSkip: (() -> Void)? = nil
     @State private var logoOpacity: Double = 0
     @State private var textOffset: CGFloat = 16
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -101,11 +109,10 @@ struct ForgeSplashScreen: View {
 
             VStack(spacing: FDS.Spacing.lg) {
                 ForgeStrikeMark(
-                    variation: .strike,
                     duration: ForgeStrikeGeometry.splashDuration,
                     playback: signedIn ? .trimmed : .full
                 )
-                .frame(width: 240, height: 200)
+                .frame(width: 280, height: 228)
 
                 VStack(spacing: FDS.Spacing.md) {
                     HStack(spacing: FDS.Spacing.md) {
@@ -125,6 +132,9 @@ struct ForgeSplashScreen: View {
                 .offset(y: textOffset)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onSkip?() }
+        .accessibilityAction(.escape) { onSkip?() }
         .task {
             // One rigid tap as the hammer lands. Off under Reduce Motion
             // (static pose) and on the signed-in trim (no swing).
@@ -134,10 +144,12 @@ struct ForgeSplashScreen: View {
             ForgeHaptics.playStrike()
         }
         .onAppear {
-            let base: Animation = reduceMotion
-                ? .easeOut(duration: 0.25)
-                : ForgeMotion.gentle
-            withAnimation(base.delay(0.12)) {
+            if reduceMotion || signedIn {
+                logoOpacity = 1
+                textOffset = 0
+                return
+            }
+            withAnimation(ForgeMotion.gentle.delay(ForgeStrikeGeometry.splashImpactTime)) {
                 logoOpacity = 1
                 textOffset = 0
             }
