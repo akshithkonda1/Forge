@@ -29,6 +29,13 @@ final class ForgeSplashFireTests: XCTestCase {
             ForgeSplashTiming.signedInHold + ForgeSplashTiming.fadeOut,
             ForgeSplashTiming.freezeCeiling
         )
+        // Flag: full path is 0.95s, only 50ms under the 1.0s ceiling.
+        XCTAssertEqual(
+            ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut,
+            0.95,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(ForgeSplashTiming.freezeCeiling - 0.95, 0.05, accuracy: 0.001)
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false, signedIn: true),
             250_000_000
@@ -269,6 +276,33 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertGreaterThan(bounce.hammerAngle, hit.hammerAngle, "spring overshoot after impact")
         XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.46)
         XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.50)
+        XCTAssertEqual(ForgeStrikeMotion.style, .accelerateRebound, "default ships Option A")
+        XCTAssertTrue(ForgeStrikeMotion.allowsRebound)
+        XCTAssertTrue(ForgeStrikeMotion.allowsImpactShake)
+    }
+
+    func testForgeAndRestLandsWithoutRebound() {
+        let duration = ForgeStrikeGeometry.splashDuration
+        func pose(_ time: Double) -> ForgeStrikePose {
+            ForgeStrikeGeometry.pose(
+                variation: .strike,
+                time: time,
+                duration: duration,
+                reduceMotion: false,
+                style: .forgeAndRest
+            )
+        }
+        let windup = pose(0)
+        let mid = pose(ForgeStrikeGeometry.splashImpactTime * 0.5)
+        let hit = pose(ForgeStrikeGeometry.splashImpactTime)
+        let after = pose(ForgeStrikeGeometry.splashImpactTime + 0.06)
+        let settled = pose(duration)
+        let linearMid = windup.hammerAngle + (hit.hammerAngle - windup.hammerAngle) * 0.5
+        XCTAssertGreaterThan(mid.hammerAngle, linearMid, "B still eases in, never linear")
+        XCTAssertEqual(after.hammerAngle, hit.hammerAngle, accuracy: 0.001, "no rebound")
+        XCTAssertEqual(settled.hammerAngle, hit.hammerAngle, accuracy: 0.001, "rests on the flame")
+        XCTAssertGreaterThan(settled.flameScale, windup.flameScale, "flame gathers, does not die")
+        XCTAssertLessThan(settled.flameScale, 1.20, "rise, not a burst")
     }
 
     func testSparksAreOneShotBallisticChips() {

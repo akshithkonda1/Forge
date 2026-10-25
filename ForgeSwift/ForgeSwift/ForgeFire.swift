@@ -7,8 +7,11 @@ import UIKit
 /// client's own rule is the rule here too: "Returning users already know
 /// the brand — keep a beat, not a wait." Lockstep with `src/lib/forge-splash.ts`.
 enum ForgeSplashTiming: Sendable {
-    /// 0.65s: the hammer lands at ~0.46s, sparks fly, then the curtain lifts.
+    /// 0.65s: the hammer lands at ~0.48s, sparks fly, then the curtain lifts.
     /// A beat, not a wait. (Was 2.45s, which read as a frozen launch.)
+    /// Flag: hold + fade = 0.95s, only 50ms under `freezeCeiling` 1.0.
+    /// Flag: web `src/lib/forge-splash.ts` is still 2450ms / freezeCeiling 3100ms
+    /// — not lockstep with this iOS beat.
     static let hold: TimeInterval = 0.65
     static let reduceMotionHold: TimeInterval = 0.3
     /// Signed-in users already know the brand. Static flame, no swing, ≤0.3s.
@@ -17,6 +20,7 @@ enum ForgeSplashTiming: Sendable {
 
     /// Hard ceiling so a future bump cannot become a frozen launch again.
     /// The whole forced wait (hold + fade) must stay under a second.
+    /// Full path sits at 0.95s — a 50ms margin, not a comfortable gap.
     static let freezeCeiling: TimeInterval = 1.0
     /// Floor so the beat is long enough to land the wordmark.
     static let brandFloor: TimeInterval = 0.3
@@ -289,32 +293,45 @@ enum ForgeStrikeGeometry: Sendable {
         variation: ForgeStrikeVariation,
         time: Double,
         duration: TimeInterval = ForgeStrikeGeometry.duration,
-        reduceMotion: Bool
+        reduceMotion: Bool,
+        style: ForgeStrikeMotion.Style = ForgeStrikeMotion.style
     ) -> ForgeStrikePose {
         let span = max(duration, 0.01)
         let u = reduceMotion ? 1 : min(1, max(0, time / span))
         switch variation {
-        case .strike: return strike(u)
+        case .strike: return strike(u, style: style)
         case .quench: return quench(u)
         case .spark: return spark(u)
         case .temper: return temper(u)
         }
     }
 
-    /// Raised hammer falls into the fire. The flame flares, then settles into a hearth.
-    /// Quartic ease-in into the anvil, then a damped spring overshoot — never linear.
-    private static func strike(_ u: Double) -> ForgeStrikePose {
+    /// Raised hammer falls into the fire. Quartic ease-in — never linear.
+    /// Style A rebounds; style B lands and rests.
+    private static func strike(_ u: Double, style: ForgeStrikeMotion.Style) -> ForgeStrikePose {
         let down = easeInQuart(window(u, 0, strikeImpactFraction))
         let hit = spike(u, center: strikeImpactFraction, width: 0.10)
-        let rebound = springOvershoot(window(u, strikeImpactFraction, 1), amplitude: 0.22, decay: 9, omega: 16)
-        let settle = smoothstep(window(u, strikeImpactFraction, 0.80))
-        return ForgeStrikePose(
-            hammerAngle: 1.14 * (1 - down) + 0.04 * down + rebound,
-            impact: hit,
-            flameScale: 0.42 + 0.78 * hit + 0.28 * settle,
-            sparkTravel: smoothstep(window(u, strikeImpactFraction, 0.90)),
-            heat: 0.32 + 0.68 * hit + 0.28 * settle
-        )
+        switch style {
+        case .accelerateRebound:
+            let rebound = springOvershoot(window(u, strikeImpactFraction, 1), amplitude: 0.22, decay: 9, omega: 16)
+            let settle = smoothstep(window(u, strikeImpactFraction, 0.80))
+            return ForgeStrikePose(
+                hammerAngle: 1.14 * (1 - down) + 0.04 * down + rebound,
+                impact: hit,
+                flameScale: 0.42 + 0.78 * hit + 0.28 * settle,
+                sparkTravel: smoothstep(window(u, strikeImpactFraction, 0.90)),
+                heat: 0.32 + 0.68 * hit + 0.28 * settle
+            )
+        case .forgeAndRest:
+            let gather = smoothstep(window(u, strikeImpactFraction, 0.62))
+            return ForgeStrikePose(
+                hammerAngle: 1.14 * (1 - down) + 0.14 * down,
+                impact: hit * 0.72,
+                flameScale: 0.88 + 0.13 * gather,
+                sparkTravel: smoothstep(window(u, strikeImpactFraction, 0.72)),
+                heat: 0.40 + 0.28 * gather
+            )
+        }
     }
 
     /// Hammer starts in the fire and lifts clear. The flame collapses to a coal.
@@ -422,13 +439,28 @@ enum ForgeStrikePlayback: String, Sendable {
     case trimmed
 }
 
-/// How the splash beat is driven. Sparks use Core Animation; the swing stays
-/// a spring-tuned pose (quartic in, overshoot) because the steel/wood drawing
-/// must stay live. Linear is rejected.
+/// How the splash beat is driven. Flip `style` to preview Nox's beat.
 enum ForgeStrikeMotion: Sendable {
+    enum Style: String, Sendable, CaseIterable {
+        /// Akshith t74u: accelerate into the strike, slight overshoot / rebound.
+        case accelerateRebound
+        /// Nox forging-yourself: firm strike, then rest. No rebound, recoil, or shake.
+        case forgeAndRest
+    }
+
+    /// Default A. Set to `.forgeAndRest` to ship Option B.
+    static let style: Style = .accelerateRebound
+
     static let sparkBackend = "CAEmitterLayer"
-    static let swingEasing = "easeInQuart+spring"
+    static var swingEasing: String {
+        switch style {
+        case .accelerateRebound: return "easeInQuart+spring"
+        case .forgeAndRest: return "easeInQuart+rest"
+        }
+    }
     static let swingIsLinear = false
+    static var allowsRebound: Bool { style == .accelerateRebound }
+    static var allowsImpactShake: Bool { style == .accelerateRebound }
 }
 
 /// Hammer, anvil, and flame. Plays once per appearance, then holds the last pose.
@@ -585,7 +617,8 @@ private enum ForgeStrikeCanvas {
         let headWidth = s * 0.22
         let headDepth = s * 0.11
 
-        context.translateBy(x: 0, y: CGFloat(pose.impact) * s * 0.012)
+        let shake = ForgeStrikeMotion.allowsImpactShake ? 0.012 : 0
+        context.translateBy(x: 0, y: CGFloat(pose.impact) * s * shake)
 
         let bloomRect = CGRect(
             x: face.x - s * 0.42,
@@ -1136,7 +1169,9 @@ final class ForgeSparkHostView: UIView {
         emitter.birthRate = 1
         emitter.emitterCells = cells()
         layer.addSublayer(emitter)
-        punch()
+        if ForgeStrikeMotion.allowsImpactShake {
+            punch()
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak emitter] in
             emitter?.birthRate = 0
@@ -1167,28 +1202,55 @@ final class ForgeSparkHostView: UIView {
 
     private func cells() -> [CAEmitterCell] {
         let count = ForgeSparkBurst.birthCount(for: variation)
-        let hot = makeCell(
-            birth: Float(count) * 12,
-            velocity: 168,
-            scale: 0.42,
-            color: UIColor(red: 1, green: 0.89, blue: 0.54, alpha: 1),
-            cool: (red: -0.15, green: -0.55, blue: -0.85)
-        )
-        let mid = makeCell(
-            birth: Float(count) * 9,
-            velocity: 124,
-            scale: 0.28,
-            color: UIColor(red: 1, green: 0.48, blue: 0.12, alpha: 0.95),
-            cool: (red: -0.25, green: -0.70, blue: -0.40)
-        )
-        let ash = makeCell(
-            birth: Float(count) * 6,
-            velocity: 88,
-            scale: 0.16,
-            color: UIColor(red: 0.77, green: 0.23, blue: 0.02, alpha: 0.85),
-            cool: (red: -0.40, green: -0.35, blue: -0.10)
-        )
-        return [hot, mid, ash]
+        switch ForgeStrikeMotion.style {
+        case .accelerateRebound:
+            return [
+                makeCell(
+                    birth: Float(count) * 12,
+                    velocity: 168,
+                    scale: 0.42,
+                    color: UIColor(red: 1, green: 0.89, blue: 0.54, alpha: 1),
+                    cool: (red: -0.15, green: -0.55, blue: -0.85),
+                    range: .pi * 0.72
+                ),
+                makeCell(
+                    birth: Float(count) * 9,
+                    velocity: 124,
+                    scale: 0.28,
+                    color: UIColor(red: 1, green: 0.48, blue: 0.12, alpha: 0.95),
+                    cool: (red: -0.25, green: -0.70, blue: -0.40),
+                    range: .pi * 0.72
+                ),
+                makeCell(
+                    birth: Float(count) * 6,
+                    velocity: 88,
+                    scale: 0.16,
+                    color: UIColor(red: 0.77, green: 0.23, blue: 0.02, alpha: 0.85),
+                    cool: (red: -0.40, green: -0.35, blue: -0.10),
+                    range: .pi * 0.72
+                )
+            ]
+        case .forgeAndRest:
+            // Arc up, fall back to the hearth, cool ember → gold. Not debris.
+            return [
+                makeCell(
+                    birth: Float(count) * 4,
+                    velocity: 96,
+                    scale: 0.34,
+                    color: UIColor(red: 1, green: 0.30, blue: 0.02, alpha: 0.95),
+                    cool: (red: 0, green: 1.15, blue: 0.85),
+                    range: .pi * 0.32
+                ),
+                makeCell(
+                    birth: Float(count) * 3,
+                    velocity: 72,
+                    scale: 0.22,
+                    color: UIColor(red: 0.90, green: 0.22, blue: 0.02, alpha: 0.88),
+                    cool: (red: 0.10, green: 1.05, blue: 0.70),
+                    range: .pi * 0.28
+                )
+            ]
+        }
     }
 
     private func makeCell(
@@ -1196,16 +1258,17 @@ final class ForgeSparkHostView: UIView {
         velocity: CGFloat,
         scale: CGFloat,
         color: UIColor,
-        cool: (red: Float, green: Float, blue: Float)
+        cool: (red: Float, green: Float, blue: Float),
+        range: CGFloat
     ) -> CAEmitterCell {
         let cell = CAEmitterCell()
         cell.birthRate = birth
         cell.lifetime = 0.38
         cell.lifetimeRange = 0.16
         cell.velocity = velocity
-        cell.velocityRange = velocity * 0.55
+        cell.velocityRange = velocity * 0.40
         cell.emissionLongitude = -.pi / 2
-        cell.emissionRange = .pi * 0.72
+        cell.emissionRange = range
         cell.yAcceleration = CGFloat(ForgeSparkBurst.gravity)
         cell.xAcceleration = 0
         cell.scale = scale
