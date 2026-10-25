@@ -106,6 +106,40 @@ def diff_share(path_a, path_b, tol=24):
     return d / len(a)
 
 
+def shot(udid, path):
+    """Screenshot + downscale (sips, fast) so decoding is cheap. Returns the
+    small PNG path and the monotonic time the capture FINISHED."""
+    simctl("io", udid, "screenshot", "--type=png", path, timeout=30)
+    done = time.monotonic()
+    small = path[:-4] + "-small.png"
+    sh("sips", "-s", "format", "png", "-Z", str(int(T["SHOT_MAX_PX"])), path, "--out", small, timeout=30)
+    return small, done
+
+
+def summarize(path, label):
+    """Text summary of a screenshot for the job log: dominant RGB + share and
+    an 8x8 grid of average colours (rows top->bottom)."""
+    counts, px = png_pixels(path, step=1, want_pixels=True)
+    dom, n = max(counts.items(), key=lambda kv: kv[1])
+    w, h = _dims(path)
+    print(f"  [frame] {label}: {w}x{h} dominant rgb{tuple(dom)} share {n / len(px):.4f}")
+    for gy in range(8):
+        row = []
+        for gx in range(8):
+            acc, k = [0, 0, 0], 0
+            for y in range(gy * h // 8, (gy + 1) * h // 8):
+                for x in range(gx * w // 8, (gx + 1) * w // 8):
+                    p = px[y * w + x]
+                    acc[0] += p[0]; acc[1] += p[1]; acc[2] += p[2]; k += 1
+            row.append("%02x%02x%02x" % tuple(c // max(k, 1) for c in acc))
+        print("    " + " ".join(row))
+
+
+def _dims(path):
+    d = open(path, "rb").read(24)
+    return struct.unpack(">II", d[16:24])
+
+
 def dominant_share(path):
     counts = png_pixels(path)
     return max(counts.values()) / sum(counts.values())
@@ -225,30 +259,39 @@ def run_scenario(name, udid, app):
         simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.completed", "-bool", "NO")
         simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
 
-    # Baseline: what the screen shows before the app runs (springboard).
-    # The app's frame must differ from it, so a pre-existing image can't pass.
-    base = f"{OUT}/{name}-baseline.png"
-    simctl("io", udid, "screenshot", base)
+    # Baseline: the screen with the app NOT running (terminate + settle), so a
+    # leftover image from a previous/killed launch can't count as the frame.
+    simctl("terminate", udid, BUNDLE, check=False)
+    time.sleep(T["BASELINE_SETTLE_S"])
+    base, _ = shot(udid, f"{OUT}/{name}-baseline.png")
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
     pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
-    # first frame: non-blank AND >= FRAME_DIFF_MIN_SHARE of pixels changed vs baseline
-    frame_at, share, diff = None, None, None
+    # first frame: FIRST_FRAME_CONSECUTIVE consecutive captures that are
+    # non-blank AND >= FRAME_DIFF_MIN_SHARE changed vs baseline. Time = when
+    # the first of them FINISHED capturing.
+    frame_at, share, diff, streak, first_ok, last = None, None, None, 0, None, None
     while el() < T["FIRST_FRAME_MAX_S"]:
-        shot = f"{OUT}/{name}-frame.png"
-        taken = el()  # capture start; screenshot latency is not app time
-        if simctl("io", udid, "screenshot", shot, check=False).returncode == 0:
-            share = dominant_share(shot)
-            diff = diff_share(base, shot)
-            if share < T["BLANK_DOMINANT_SHARE"] and diff >= T["FRAME_DIFF_MIN_SHARE"]:
-                frame_at = taken; break
-        time.sleep(0.25)
+        small, done = shot(udid, f"{OUT}/{name}-frame.png")
+        last = small
+        share = dominant_share(small)
+        diff = diff_share(base, small)
+        if share < T["BLANK_DOMINANT_SHARE"] and diff >= T["FRAME_DIFF_MIN_SHARE"]:
+            streak += 1
+            first_ok = first_ok if streak > 1 else done - t0
+            if streak >= T["FIRST_FRAME_CONSECUTIVE"]:
+                frame_at = first_ok; break
+        else:
+            streak, first_ok = 0, None
+    if last:
+        summarize(last, f"{name} last frame @{el():.1f}s")
+    summarize(base, f"{name} baseline")
     check("alive@first_frame", pid_alive(pid), f"pid {pid}", "alive")
     check("first_frame", frame_at is not None and frame_at <= T["FIRST_FRAME_MAX_S"],
-          f"{frame_at:.2f}s (diff vs baseline {diff:.2f}, dominant {share:.3f})" if frame_at is not None
+          f"{frame_at:.2f}s x{int(T['FIRST_FRAME_CONSECUTIVE'])} frames (diff vs baseline {diff:.2f}, dominant {share:.3f})" if frame_at is not None
           else f"no app frame after {el():.1f}s (diff {diff}, dominant {share})",
           f"<= {T['FIRST_FRAME_MAX_S']}s, non-blank, >= {T['FRAME_DIFF_MIN_SHARE']} changed vs baseline")
     if not pid_alive(pid):
