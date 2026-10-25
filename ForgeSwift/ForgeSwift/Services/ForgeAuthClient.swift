@@ -5,7 +5,21 @@ import ForgeCore
 /// device work does not depend on AWS secrets.
 @MainActor
 final class ForgeAuthClient: ObservableObject {
-    static let shared = ForgeAuthClient()
+    /// Set only after `shared`'s initializer returns. `AriaOperatingMode.resolve`
+    /// must use this (or an explicit client). Reading `.shared` while the
+    /// static initializer is still running waits on `dispatch_once` and traps
+    /// (`EXC_BREAKPOINT` in `_dispatch_once_wait`).
+    private(set) static var publishedShared: ForgeAuthClient?
+
+    static let shared: ForgeAuthClient = {
+        let client = ForgeAuthClient()
+        publishedShared = client
+        return client
+    }()
+
+    /// Nil while `shared` is still constructing. Session-aware operating-mode
+    /// resolution uses this instead of the static addressor.
+    static var sharedIfReady: ForgeAuthClient? { publishedShared }
 
     @Published private(set) var session: ForgeAuthSession?
 
@@ -40,11 +54,11 @@ final class ForgeAuthClient: ObservableObject {
         if config.apiBaseURL.host != nil, UserDefaults.standard.string(forKey: "forge.api.baseURL") == nil {
             UserDefaults.standard.set(config.apiBaseURL.absoluteString, forKey: "forge.api.baseURL")
         }
-        // `shared` is still being initialized. A synchronous operating-mode
-        // refresh reads `ForgeAuthClient.shared` and traps in the static
-        // addressor (XCTest then reports the test runner crashed before it
-        // connected). Refresh on the next turn, after `shared` is published.
-        installTestReadySessionIfNeeded(deferOperatingModeRefresh: true)
+        // Never refresh operating mode from this initializer. `resolve()` used
+        // to read `ForgeAuthClient.shared` and re-enter the static addressor.
+        // `AppStore.restoreOnboardingState()` refreshes after `shared` is
+        // published; other callers pass `self` into `refresh(using:)`.
+        installTestReadySessionIfNeeded(refreshOperatingMode: false)
     }
 
     /// Xcode Device Hub (simulator or a plugged-in phone) and loopback API
@@ -53,11 +67,11 @@ final class ForgeAuthClient: ObservableObject {
     /// the phone (`127.0.0.1`).
     @discardableResult
     func installTestReadySessionIfNeeded() -> ForgeAuthSession? {
-        installTestReadySessionIfNeeded(deferOperatingModeRefresh: false)
+        installTestReadySessionIfNeeded(refreshOperatingMode: true)
     }
 
     @discardableResult
-    private func installTestReadySessionIfNeeded(deferOperatingModeRefresh: Bool) -> ForgeAuthSession? {
+    private func installTestReadySessionIfNeeded(refreshOperatingMode: Bool) -> ForgeAuthSession? {
         let allowed = ForgeAuthPolicy.devOverrideAllowed(
             userEnabled: devOverrideEnabled,
             config: config
@@ -74,12 +88,8 @@ final class ForgeAuthClient: ObservableObject {
         if session?.mode == .devOverride { return session }
         let minted = DevAuthOverride.session()
         try? persist(minted)
-        if deferOperatingModeRefresh {
-            Task { @MainActor in
-                AriaOperatingMode.refresh()
-            }
-        } else {
-            AriaOperatingMode.refresh()
+        if refreshOperatingMode {
+            AriaOperatingMode.refresh(using: self)
         }
         return minted
     }
@@ -88,7 +98,7 @@ final class ForgeAuthClient: ObservableObject {
         guard canUseDevOverride else { throw ForgeAuthError.overrideDisabled }
         let minted = DevAuthOverride.session()
         try persist(minted)
-        AriaOperatingMode.refresh()
+        AriaOperatingMode.refresh(using: self)
         return minted
     }
 
