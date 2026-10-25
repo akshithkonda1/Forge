@@ -144,7 +144,7 @@ public struct QualityOfLifePersona: Codable, Sendable, Equatable {
         var table: [QualityOfLifePillar: Double]
         switch archetype {
         case .unset, .balanced:
-            table = Dictionary(uniqueKeysWithValues: QualityOfLifePillar.allCases.map { ($0, $0.weight) })
+            table = Dictionary(QualityOfLifePillar.allCases.map { ($0, $0.weight) }, uniquingKeysWith: { first, _ in first })
         case .homebody:
             table = [
                 .sleep: 0.28, .nutrition: 0.22, .mind: 0.16, .social: 0.12,
