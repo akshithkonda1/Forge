@@ -149,9 +149,13 @@ public enum SleepPublishedScore: Sendable {
         consistency: Double,
         awakeMinutes: Double
     ) -> Breakdown {
-        let duration = Int(min(100, max(0, (asleepHours / max(0.1, needHours)) * 100)).rounded())
-        let consist = Int(min(100, max(0, consistency)).rounded())
-        let awakePenalty = min(100, (awakeMinutes / 90) * 100)
+        let asleep = asleepHours.isFinite ? max(0, asleepHours) : 0
+        let need = needHours.isFinite && needHours > 0 ? needHours : 0.1
+        let consistRaw = consistency.isFinite ? consistency : 0
+        let awake = awakeMinutes.isFinite ? max(0, awakeMinutes) : 0
+        let duration = Int(min(100, max(0, (asleep / need) * 100)).rounded())
+        let consist = Int(min(100, max(0, consistRaw)).rounded())
+        let awakePenalty = min(100, (awake / 90) * 100)
         let interruptions = Int(min(100, max(0, 100 - awakePenalty)).rounded())
         let total = Int((
             Double(duration) * durationWeight
@@ -197,8 +201,13 @@ public enum SleepDebtMeter: Sendable {
         public var detail: String
     }
 
+    /// Keep the first hours for a repeated night key. `uniqueKeysWithValues` traps.
+    public static func uniquedNightsByDate(_ hoursByDate: [(String, Double)]) -> [String: Double] {
+        Dictionary(hoursByDate, uniquingKeysWith: { first, _ in first })
+    }
+
     public static func hoursLabel(_ hours: Double) -> String {
-        let minutes = Int((hours * 60).rounded())
+        let minutes = minutesFromHours(hours)
         let h = minutes / 60
         let m = minutes % 60
         return m == 0 ? "\(h)h" : "\(h)h \(m)m"
@@ -206,26 +215,45 @@ public enum SleepDebtMeter: Sendable {
 
     /// Rise-style 14-night stretch: last night 15%, earlier nights share 85%.
     public static func stretchHours(asleepHoursOldestFirst: [Double], needHours: Double) -> Double {
-        let window = Array(asleepHoursOldestFirst.suffix(windowNights))
+        let need = needHours.isFinite ? needHours : 0
+        let window = Array(asleepHoursOldestFirst.suffix(windowNights)).filter(\.isFinite)
         guard !window.isEmpty else { return 0 }
         if window.count == 1 {
-            return max(0, needHours - window[0])
+            return max(0, need - window[0])
         }
         let last = window[window.count - 1]
         let earlier = window.dropLast()
-        let lastShort = max(0, needHours - last) * lastNightWeight
+        let lastShort = max(0, need - last) * lastNightWeight
         let earlierWeight = (1 - lastNightWeight) / Double(earlier.count)
-        let earlierShort = earlier.reduce(0.0) { $0 + max(0, needHours - $1) * earlierWeight }
+        let earlierShort = earlier.reduce(0.0) { $0 + max(0, need - $1) * earlierWeight }
         return lastShort + earlierShort
     }
 
     public static func payback(stretchHours: Double) -> (minutes: Int, nights: Int) {
+        guard stretchHours.isFinite else {
+            // +inf is a huge stretch — cap at the 14-night, 25-minute ceiling.
+            // NaN / -inf have no payback to schedule.
+            if stretchHours.isInfinite && stretchHours > 0 {
+                return (Int(paybackCapMinutes.rounded()), 14)
+            }
+            return (0, 0)
+        }
         guard stretchHours > 0.15 else { return (0, 0) }
         let totalMinutes = stretchHours * 60
         var nights = max(1, Int((totalMinutes / paybackCapMinutes).rounded(.up)))
         nights = min(14, nights)
         let perNight = min(paybackCapMinutes, totalMinutes / Double(nights))
         return (Int(perNight.rounded()), nights)
+    }
+
+    /// `Int(hours * 60)` traps on NaN / ±inf from a night with no stage data.
+    public static func minutesFromHours(_ hours: Double) -> Int {
+        guard hours.isFinite else { return 0 }
+        let minutes = (hours * 60).rounded()
+        guard minutes.isFinite else { return 0 }
+        if minutes > Double(Int.max) { return Int.max }
+        if minutes < 0 { return 0 }
+        return Int(minutes)
     }
 
     public static func make(
@@ -254,9 +282,10 @@ public enum SleepDebtMeter: Sendable {
         for offset in (0..<displayNights).reversed() {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             let key = iso.string(from: day)
-            let hours = nightsByDate[key]
-            let missed = hours == nil || (hours ?? 0) < needHours - hitSlackHours
-            let fill = min(1, (hours ?? 0) / max(needHours, 0.1))
+            let hours = nightsByDate[key].flatMap { $0.isFinite ? $0 : nil }
+            let need = needHours.isFinite && needHours > 0 ? needHours : 0.1
+            let missed = hours == nil || (hours ?? 0) < need - hitSlackHours
+            let fill = min(1, (hours ?? 0) / need)
             days.append(SleepDebtDay(
                 dateKey: key,
                 weekday: formatter.string(from: day),

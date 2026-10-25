@@ -320,15 +320,20 @@ struct RecoveryMetricsCard: View {
         var score = 0
         
         // HRV component (40% weight)
-        let hrvScore = min(Int(stats.hrv * 1.5), 100)
+        let hrv = stats.hrv.isFinite ? stats.hrv : 0
+        let hrvScore = min(Int((hrv * 1.5).rounded()), 100)
         score += Int(Double(hrvScore) * 0.4)
         
         // Resting HR component (30% weight)
-        let hrScore = stats.restingHeartRate > 0 ? max(100 - Int((stats.restingHeartRate - 60) * 2), 0) : 70
+        let resting = stats.restingHeartRate
+        let hrScore = resting > 0 && resting.isFinite
+            ? max(100 - Int(((resting - 60) * 2).rounded()), 0)
+            : 70
         score += Int(Double(hrScore) * 0.3)
         
         // Sleep component (30% weight)
-        let sleepScore = Int((stats.sleepHours / 8.0) * 100)
+        let sleepHours = stats.sleepHours.isFinite ? stats.sleepHours : 0
+        let sleepScore = Int(min(100, max(0, (sleepHours / 8.0) * 100)).rounded())
         score += Int(Double(sleepScore) * 0.3)
         
         return min(score, 100)
