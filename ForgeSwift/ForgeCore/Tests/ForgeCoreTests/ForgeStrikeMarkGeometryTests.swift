@@ -11,8 +11,9 @@ final class ForgeStrikeMarkGeometryTests: XCTestCase {
         XCTAssertEqual(ForgeStrikeMarkGeometry.paintHz, 12, accuracy: 0.001)
         XCTAssertLessThanOrEqual(ForgeStrikeMarkGeometry.paintHz, ForgeDesignTokens.Motion.maxTickHz)
         XCTAssertEqual(ForgeStrikeMarkGeometry.sparkCount, 6)
-        XCTAssertEqual(ForgeStrikeMarkGeometry.strikeDuration, 0.55, accuracy: 0.001)
-        XCTAssertLessThan(ForgeStrikeMarkGeometry.strikeDuration, 1.0)
+        XCTAssertEqual(ForgeStrikeMarkGeometry.flameLayerCount, 4)
+        XCTAssertEqual(ForgeStrikeMarkGeometry.strikeDuration, 0.56, accuracy: 0.001)
+        XCTAssertLessThan(ForgeStrikeMarkGeometry.strikeDuration, 0.6)
     }
 
     func testReduceMotionIsIdlePose() {
@@ -29,20 +30,27 @@ final class ForgeStrikeMarkGeometryTests: XCTestCase {
 
     func testStrikeMovesThenSettles() {
         let raised = ForgeStrikeMarkGeometry.pose(progress: 0.1, reduceMotion: false)
-        let impact = ForgeStrikeMarkGeometry.pose(progress: 0.4, reduceMotion: false)
+        let impact = ForgeStrikeMarkGeometry.pose(progress: ForgeStrikeMarkGeometry.impactEnd, reduceMotion: false)
         let idle = ForgeStrikeMarkGeometry.pose(progress: 1, reduceMotion: false)
         XCTAssertEqual(raised.hammerAngleDeg, ForgeStrikeMarkGeometry.raisedAngleDeg, accuracy: 0.0001)
         XCTAssertEqual(impact.hammerAngleDeg, ForgeStrikeMarkGeometry.impactAngleDeg, accuracy: 0.0001)
-        XCTAssertEqual(idle.hammerAngleDeg, ForgeStrikeMarkGeometry.idleAngleDeg, accuracy: 0.0001)
+        XCTAssertEqual(idle.hammerAngleDeg, ForgeStrikeMarkGeometry.idleAngleDeg, accuracy: 0.15)
+        XCTAssertGreaterThan(ForgeStrikeMarkGeometry.raisedAngleDeg, ForgeStrikeMarkGeometry.idleAngleDeg)
+        XCTAssertLessThan(ForgeStrikeMarkGeometry.impactAngleDeg, ForgeStrikeMarkGeometry.idleAngleDeg)
         XCTAssertGreaterThan(impact.flare, raised.flare)
         XCTAssertGreaterThan(impact.flare, idle.flare)
         XCTAssertTrue(idle.settled)
         XCTAssertFalse(raised.settled)
+        XCTAssertGreaterThan(ForgeStrikeMarkGeometry.spring01(0.45), 0.9)
     }
 
     func testSparksFlyAfterImpactAndVanishWhenSettled() {
         let before = ForgeStrikeMarkGeometry.spark(index: 1, progress: 0.2, reduceMotion: false)
-        let mid = ForgeStrikeMarkGeometry.spark(index: 1, progress: 0.52, reduceMotion: false)
+        let mid = ForgeStrikeMarkGeometry.spark(
+            index: 1,
+            progress: ForgeStrikeMarkGeometry.impactEnd + 0.12,
+            reduceMotion: false
+        )
         let done = ForgeStrikeMarkGeometry.spark(index: 1, progress: 1, reduceMotion: false)
         XCTAssertEqual(before.opacity, 0, accuracy: 0.0001)
         XCTAssertGreaterThan(mid.opacity, 0.2)
@@ -50,18 +58,16 @@ final class ForgeStrikeMarkGeometryTests: XCTestCase {
         XCTAssertGreaterThan(abs(mid.x - before.x) + abs(mid.y - before.y), 0.02)
     }
 
-    func testPathsAreClosedAndHammerHasAHead() {
+    func testPathsAreClosedAndHammerHasAHeadAndEye() {
         let hammer = ForgeStrikeMarkGeometry.hammerCommands()
-        XCTAssertGreaterThanOrEqual(hammer.count, 8)
+        XCTAssertGreaterThanOrEqual(hammer.count, 12)
         guard case .move(let x, _) = hammer.first else {
             return XCTFail("hammer starts with a move")
         }
         XCTAssertLessThan(x, 0, "striking face sits left of the neck")
-        if case .close = hammer.last {
-        } else {
-            XCTFail("hammer path must close")
-        }
-        for index in 0..<3 {
+        XCTAssertEqual(closeCount(hammer), 2, "outer silhouette plus the eye")
+        XCTAssertGreaterThanOrEqual(cubicCount(hammer), 8)
+        for index in 0..<ForgeStrikeMarkGeometry.flameLayerCount {
             let tongue = ForgeStrikeMarkGeometry.flameCommands(index: index, flare: 1)
             XCTAssertGreaterThanOrEqual(tongue.count, 4)
             if case .close = tongue.last {
@@ -72,53 +78,21 @@ final class ForgeStrikeMarkGeometryTests: XCTestCase {
         let svg = ForgeStrikeMarkGeometry.svgPath(hammer, side: 100)
         XCTAssertTrue(svg.contains("M "))
         XCTAssertTrue(svg.contains("Z"))
-        XCTAssertTrue(hasSharpNeck(hammer), "head must step into the handle — a T, not a spatula")
-        XCTAssertGreaterThan(headHeight(hammer), 0.28)
+        XCTAssertGreaterThan(headWidth(hammer), headHeight(hammer))
+        XCTAssertLessThan(headHeight(hammer), 0.28)
         XCTAssertLessThan(ForgeStrikeMarkGeometry.idleAngleDeg, -18)
-        XCTAssertGreaterThan(ForgeStrikeMarkGeometry.idleAngleDeg, -30)
-    }
-
-    private func hasSharpNeck(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Bool {
-        var previous: (x: Double, y: Double)?
-        for command in commands {
-            let point: (x: Double, y: Double)?
-            switch command {
-            case .move(let x, let y), .line(let x, let y):
-                point = (x, y)
-            default:
-                point = nil
-            }
-            if let point, let previous, abs(point.x - previous.x) < 0.0001, abs(point.y - previous.y) > 0.08 {
-                return true
-            }
-            if let point { previous = point }
-        }
-        return false
-    }
-
-    private func headHeight(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Double {
-        var minY = Double.greatestFiniteMagnitude
-        var maxY = -Double.greatestFiniteMagnitude
-        for command in commands {
-            let y: Double?
-            switch command {
-            case .move(_, let value), .line(_, let value):
-                y = value
-            default:
-                y = nil
-            }
-            if let y {
-                minY = min(minY, y)
-                maxY = max(maxY, y)
-            }
-        }
-        return maxY - minY
+        XCTAssertGreaterThan(ForgeStrikeMarkGeometry.idleAngleDeg, -36)
+        XCTAssertLessThan(flameTipY(), 0.08)
     }
 
     func testBrandColorsPassWCAGAAOnBackground() {
         let background = ForgeDesignTokens.ColorHex.background
         XCTAssertGreaterThanOrEqual(
             ForgeStrikeMarkGeometry.contrastRatio(hexA: ForgeStrikeMarkGeometry.paperHex, hexB: background),
+            4.5
+        )
+        XCTAssertGreaterThanOrEqual(
+            ForgeStrikeMarkGeometry.contrastRatio(hexA: ForgeStrikeMarkGeometry.paperShadeHex, hexB: background),
             4.5
         )
         XCTAssertGreaterThanOrEqual(
@@ -147,5 +121,57 @@ final class ForgeStrikeMarkGeometryTests: XCTestCase {
             1,
             accuracy: 0.0001
         )
+        let scale = ForgeStrikeMarkGeometry.flareScale(flare: ForgeStrikeMarkGeometry.idleFlare)
+        XCTAssertLessThan(scale.y, 1)
+        XCTAssertEqual(scale.originX, ForgeStrikeMarkGeometry.flameOriginX, accuracy: 0.0001)
+    }
+
+    private func closeCount(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Int {
+        commands.filter {
+            if case .close = $0 { return true }
+            return false
+        }.count
+    }
+
+    private func cubicCount(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Int {
+        commands.filter {
+            if case .cubic = $0 { return true }
+            return false
+        }.count
+    }
+
+    private func headWidth(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Double {
+        bounds(commands).width
+    }
+
+    private func headHeight(_ commands: [ForgeStrikeMarkGeometry.Command]) -> Double {
+        bounds(commands).height
+    }
+
+    private func flameTipY() -> Double {
+        bounds(ForgeStrikeMarkGeometry.flameCommands(index: 0, flare: 1)).minY
+    }
+
+    private func bounds(_ commands: [ForgeStrikeMarkGeometry.Command]) -> (width: Double, height: Double, minY: Double) {
+        var minX = Double.greatestFiniteMagnitude
+        var maxX = -Double.greatestFiniteMagnitude
+        var minY = Double.greatestFiniteMagnitude
+        var maxY = -Double.greatestFiniteMagnitude
+        for command in commands {
+            let point: (Double, Double)?
+            switch command {
+            case .move(let x, let y), .line(let x, let y), .cubic(_, _, _, _, let x, let y):
+                point = (x, y)
+            case .close:
+                point = nil
+            }
+            if let point {
+                minX = min(minX, point.0)
+                maxX = max(maxX, point.0)
+                minY = min(minY, point.1)
+                maxY = max(maxY, point.1)
+            }
+        }
+        return (maxX - minX, maxY - minY, minY)
     }
 }

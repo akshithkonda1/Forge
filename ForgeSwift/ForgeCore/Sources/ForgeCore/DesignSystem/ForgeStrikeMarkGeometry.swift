@@ -5,30 +5,42 @@ import Foundation
 /// Welcome / splash only. Not the ARIA nest. No PNG. Numbers lockstep with
 /// `src/lib/forge-strike-mark.ts`. Motion is a one-shot strike, then a still
 /// idle. Reduce Motion is the idle pose.
+///
+/// Geometry sits on a 200-unit grid (step 0.005) inside a 1×1 optical box.
 public enum ForgeStrikeMarkGeometry: Sendable {
     public static let kind = "hammer-strike"
     public static let assetName = "ForgeStrikeMark"
     public static let paintHz: Double = 12
     public static let tickInterval: Double = 1.0 / 12.0
-    public static let strikeDuration: Double = 0.55
+    public static let strikeDuration: Double = 0.56
     public static let compactThreshold: Double = 36
     public static let heroMinimumSize: Double = 90
     public static let sparkCount = 6
+    public static let flameLayerCount = 4
+    public static let gridStep: Double = 0.005
 
     public static let paperHex = "F7F4F0"
+    public static let paperShadeHex = "E8E4DE"
     public static let emberHex = "FF4D00"
     public static let emberLightHex = "FF7A3D"
     public static let emberDarkHex = "C43A00"
     public static let amberHex = "FFB84D"
+    public static let kernelHex = "FFE6A8"
 
-    /// Neck of the hammer — rotation origin in unit space.
-    public static let pivotX: Double = 0.56
-    public static let pivotY: Double = 0.60
+    /// Eye of the hammer — rotation origin in unit space.
+    public static let pivotX: Double = 0.68
+    public static let pivotY: Double = 0.50
+    public static let strikeX: Double = 0.50
+    public static let strikeY: Double = 0.62
+    public static let flameOriginX: Double = 0.36
+    public static let flameOriginY: Double = 0.860
 
-    public static let raisedAngleDeg: Double = -54
-    public static let impactAngleDeg: Double = 8
-    public static let idleAngleDeg: Double = -24
-    public static let idleFlare: Double = 0.34
+    public static let raisedAngleDeg: Double = 16
+    public static let impactAngleDeg: Double = -44
+    public static let idleAngleDeg: Double = -30
+    public static let idleFlare: Double = 0.40
+    public static let holdEnd: Double = 0.14
+    public static let impactEnd: Double = 0.32
 
     public struct Point: Equatable, Sendable {
         public var x: Double
@@ -59,6 +71,13 @@ public enum ForgeStrikeMarkGeometry: Sendable {
         public var settled: Bool
     }
 
+    public struct FlareScale: Equatable, Sendable {
+        public var x: Double
+        public var y: Double
+        public var originX: Double
+        public var originY: Double
+    }
+
     public static func isCompact(size: Double) -> Bool {
         size < compactThreshold
     }
@@ -81,107 +100,168 @@ public enum ForgeStrikeMarkGeometry: Sendable {
 
     public static func hammerAngleDeg(progress: Double) -> Double {
         let p = min(1, max(0, progress))
-        if p <= 0.22 { return raisedAngleDeg }
-        if p <= 0.40 {
-            let t = (p - 0.22) / 0.18
-            return lerp(raisedAngleDeg, impactAngleDeg, t * t * t)
+        if p <= holdEnd { return raisedAngleDeg }
+        if p <= impactEnd {
+            let t = (p - holdEnd) / (impactEnd - holdEnd)
+            return lerp(raisedAngleDeg, impactAngleDeg, pow(t, 4))
         }
-        if p <= 0.62 {
-            let t = (p - 0.40) / 0.22
-            let eased = 1 - pow(1 - t, 3)
-            return lerp(impactAngleDeg, idleAngleDeg, eased)
-        }
-        return idleAngleDeg
+        return lerp(impactAngleDeg, idleAngleDeg, spring01((p - impactEnd) / (1 - impactEnd)))
     }
 
     public static func flare(progress: Double) -> Double {
         let p = min(1, max(0, progress))
-        let pre = idleFlare * 0.45
-        if p < 0.38 { return pre }
-        if p < 0.46 {
-            let t = (p - 0.38) / 0.08
-            return lerp(pre, 1.0, t)
+        let pre = idleFlare * 0.5
+        let wind = impactEnd - 0.02
+        if p < wind { return pre }
+        if p < impactEnd + 0.04 {
+            let t = (p - wind) / 0.06
+            return lerp(pre, 1.0, min(1, max(0, t)))
         }
-        if p < 0.88 {
-            let t = (p - 0.46) / 0.42
-            return lerp(1.0, idleFlare, t)
+        if p < 0.86 {
+            return lerp(1.0, idleFlare, spring01((p - 0.36) / 0.5))
         }
         return idleFlare
     }
 
-    /// Hammer silhouette in local space (origin at the neck, +x along the handle).
-    /// Tall cubic head + sharp inner corners so it reads as a hammer, not a spatula.
+    public static func flareScale(flare amount: Double) -> FlareScale {
+        let f = min(1, max(0, amount))
+        return FlareScale(
+            x: 0.94 + 0.06 * f,
+            y: 0.74 + 0.26 * f,
+            originX: flameOriginX,
+            originY: flameOriginY
+        )
+    }
+
+    public static func spring01(_ t: Double) -> Double {
+        let p = min(1, max(0, t))
+        let zeta = 0.62
+        let omega = 9.2
+        let wd = omega * sqrt(1 - zeta * zeta)
+        let env = exp(-zeta * omega * p)
+        return 1 - env * (cos(wd * p) + ((zeta * omega) / wd) * sin(wd * p))
+    }
+
+    /// Hammer silhouette in local space (origin at the eye, +x along the handle).
     public static func hammerCommands() -> [Command] {
         [
-            .move(-0.30, -0.165),
-            .line(-0.30, 0.165),
-            .line(-0.085, 0.165),
-            .line(-0.085, 0.058),
-            .line(0.40, 0.050),
-            .cubic(0.51, 0.050, 0.51, -0.050, 0.40, -0.050),
-            .line(-0.085, -0.058),
-            .line(-0.085, -0.165),
+            .move(-0.243, -0.102),
+            .cubic(-0.252, -0.102, -0.258, -0.095, -0.258, -0.086),
+            .line(-0.258, 0.086),
+            .cubic(-0.258, 0.095, -0.252, 0.102, -0.243, 0.102),
+            .line(-0.040, 0.090),
+            .cubic(-0.028, 0.090, -0.022, 0.084, -0.022, 0.074),
+            .line(-0.022, 0.038),
+            .cubic(-0.022, 0.033, -0.018, 0.030, -0.012, 0.030),
+            .line(0.340, 0.027),
+            .cubic(0.368, 0.027, 0.368, -0.027, 0.340, -0.027),
+            .line(-0.012, -0.030),
+            .cubic(-0.018, -0.030, -0.022, -0.033, -0.022, -0.038),
+            .line(-0.022, -0.074),
+            .cubic(-0.022, -0.084, -0.028, -0.090, -0.040, -0.090),
+            .close,
+            .move(-0.005, -0.015),
+            .cubic(0.006, -0.015, 0.016, -0.008, 0.016, 0.000),
+            .cubic(0.016, 0.008, 0.006, 0.015, -0.005, 0.015),
+            .cubic(-0.016, 0.015, -0.026, 0.008, -0.026, 0.000),
+            .cubic(-0.026, -0.008, -0.016, -0.015, -0.005, -0.015),
             .close
         ]
     }
 
-    /// Flame tongue `0` back, `1` mid, `2` core. Unit space, y-down.
-    public static func flameCommands(index: Int, flare amount: Double) -> [Command] {
-        let f = min(1, max(0, amount))
-        let rise = 0.62 + 0.38 * f
+    /// Inset cheek highlight — machined face, hero sizes only.
+    public static func hammerHighlightCommands() -> [Command] {
+        [
+            .move(-0.238, -0.084),
+            .cubic(-0.246, -0.084, -0.248, -0.079, -0.248, -0.072),
+            .line(-0.248, -0.012),
+            .line(-0.040, -0.010),
+            .line(-0.040, -0.072),
+            .cubic(-0.040, -0.078, -0.044, -0.082, -0.052, -0.084),
+            .close
+        ]
+    }
+
+    /// Canonical flame envelopes. `0` envelope, `1` body, `2` core, `3` kernel.
+    public static func flameCommands(index: Int, flare _: Double = 1) -> [Command] {
         switch index {
         case 0:
-            return tongue(
-                baseX: 0.34, baseY: 0.86,
-                tipX: 0.16 - 0.04 * f, tipY: 0.86 - 0.62 * rise,
-                width: 0.155 + 0.045 * f
-            )
+            return [
+                .move(0.248, 0.852),
+                .cubic(0.130, 0.720, 0.120, 0.490, 0.180, 0.300),
+                .cubic(0.228, 0.150, 0.300, 0.070, 0.350, 0.048),
+                .cubic(0.365, 0.070, 0.400, 0.130, 0.418, 0.165),
+                .cubic(0.445, 0.120, 0.475, 0.090, 0.500, 0.108),
+                .cubic(0.518, 0.130, 0.515, 0.185, 0.490, 0.240),
+                .cubic(0.535, 0.360, 0.555, 0.520, 0.528, 0.680),
+                .cubic(0.505, 0.800, 0.440, 0.870, 0.360, 0.888),
+                .cubic(0.295, 0.905, 0.255, 0.888, 0.248, 0.852),
+                .close
+            ]
         case 1:
-            return tongue(
-                baseX: 0.40, baseY: 0.88,
-                tipX: 0.36, tipY: 0.88 - 0.74 * rise,
-                width: 0.120 + 0.035 * f
-            )
+            return [
+                .move(0.282, 0.820),
+                .cubic(0.188, 0.705, 0.185, 0.500, 0.232, 0.335),
+                .cubic(0.268, 0.200, 0.322, 0.132, 0.358, 0.118),
+                .cubic(0.372, 0.138, 0.400, 0.185, 0.412, 0.212),
+                .cubic(0.432, 0.175, 0.455, 0.152, 0.472, 0.168),
+                .cubic(0.486, 0.188, 0.482, 0.230, 0.462, 0.275),
+                .cubic(0.500, 0.385, 0.512, 0.520, 0.492, 0.640),
+                .cubic(0.476, 0.740, 0.425, 0.808, 0.360, 0.828),
+                .cubic(0.315, 0.840, 0.292, 0.834, 0.282, 0.820),
+                .close
+            ]
+        case 2:
+            return [
+                .move(0.325, 0.520),
+                .cubic(0.300, 0.430, 0.302, 0.330, 0.332, 0.250),
+                .cubic(0.352, 0.195, 0.372, 0.165, 0.388, 0.158),
+                .cubic(0.400, 0.172, 0.412, 0.215, 0.416, 0.265),
+                .cubic(0.424, 0.340, 0.420, 0.430, 0.392, 0.490),
+                .cubic(0.375, 0.528, 0.345, 0.540, 0.325, 0.520),
+                .close
+            ]
         default:
-            return tongue(
-                baseX: 0.405, baseY: 0.84,
-                tipX: 0.39, tipY: 0.84 - 0.44 * rise,
-                width: 0.058 + 0.02 * f
-            )
+            return [
+                .move(0.348, 0.420),
+                .cubic(0.338, 0.380, 0.340, 0.340, 0.355, 0.312),
+                .cubic(0.365, 0.292, 0.378, 0.288, 0.385, 0.300),
+                .cubic(0.394, 0.322, 0.395, 0.365, 0.382, 0.405),
+                .cubic(0.374, 0.428, 0.358, 0.432, 0.348, 0.420),
+                .close
+            ]
         }
     }
 
     public static func spark(index: Int, progress: Double, reduceMotion: Bool) -> Spark {
         let i = max(0, min(sparkCount - 1, index))
         if reduceMotion {
-            return Spark(x: pivotX, y: pivotY, radius: 0, opacity: 0)
+            return Spark(x: strikeX, y: strikeY, radius: 0, opacity: 0)
         }
         let p = min(1, max(0, progress))
-        let birth = 0.40
-        let life = 0.36
-        let age = (p - birth) / life
+        let age = (p - impactEnd) / 0.34
         guard age > 0 else {
-            return Spark(x: pivotX, y: pivotY, radius: 0.004, opacity: 0)
+            return Spark(x: strikeX, y: strikeY, radius: 0.004, opacity: 0)
         }
         let travel = min(1, max(0, age))
         let fade = travel < 1 ? (1 - travel) : 0
         let seed = Double(i) * 17.13
-        let angle = (-125.0 + Double(i) * 28.0 + 8 * sin(seed)) * .pi / 180
-        let dist = (0.10 + 0.045 * Double(i % 3)) * travel
+        let angle = (-118.0 + Double(i) * 26.0 + 7 * sin(seed)) * .pi / 180
+        let dist = (0.09 + 0.04 * Double(i % 3)) * travel
         return Spark(
-            x: 0.41 + cos(angle) * dist,
-            y: 0.64 + sin(angle) * dist,
-            radius: 0.007 + 0.003 * hash01(seed),
-            opacity: 0.85 * fade
+            x: strikeX + cos(angle) * dist,
+            y: strikeY + sin(angle) * dist,
+            radius: 0.006 + 0.0025 * hash01(seed),
+            opacity: 0.72 * fade
         )
     }
 
     public static func impactGlowOpacity(flare amount: Double) -> Double {
-        max(0, min(1, (amount - idleFlare) / (1 - idleFlare))) * 0.55
+        max(0, min(1, (amount - idleFlare) / (1 - idleFlare))) * 0.42
     }
 
     public static func impactGlowRadius(flare amount: Double) -> Double {
-        0.04 + 0.05 * max(0, min(1, amount))
+        0.055 + 0.07 * max(0, min(1, amount))
     }
 
     /// Serialize commands to an SVG path in a `viewBox` of `side` units.
@@ -210,31 +290,6 @@ public enum ForgeStrikeMarkGeometry: Sendable {
     }
 
     // MARK: - Private
-
-    private static func tongue(baseX: Double, baseY: Double, tipX: Double, tipY: Double, width: Double) -> [Command] {
-        let left = baseX - width
-        let right = baseX + width
-        let rise = baseY - tipY
-        return [
-            .move(left, baseY),
-            .cubic(
-                left - width * 0.15, baseY - rise * 0.32,
-                tipX - width * 0.58, tipY + rise * 0.24,
-                tipX, tipY
-            ),
-            .cubic(
-                tipX + width * 0.58, tipY + rise * 0.24,
-                right + width * 0.15, baseY - rise * 0.32,
-                right, baseY
-            ),
-            .cubic(
-                baseX + width * 0.28, baseY + width * 0.38,
-                baseX - width * 0.28, baseY + width * 0.38,
-                left, baseY
-            ),
-            .close
-        ]
-    }
 
     private static func lerp(_ a: Double, _ b: Double, _ t: Double) -> Double {
         a + (b - a) * min(1, max(0, t))

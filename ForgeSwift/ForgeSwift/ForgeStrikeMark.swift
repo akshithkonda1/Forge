@@ -67,9 +67,12 @@ enum ForgeStrikeCanvas {
         let pose = ForgeStrikeMarkGeometry.pose(progress: progress, reduceMotion: reduceMotion)
         let compact = ForgeStrikeMarkGeometry.isCompact(size: Double(side))
         let paper = Color(hex: ForgeStrikeMarkGeometry.paperHex)
+        let paperShade = Color(hex: ForgeStrikeMarkGeometry.paperShadeHex)
         let ember = Color(hex: ForgeStrikeMarkGeometry.emberHex)
+        let emberLight = Color(hex: ForgeStrikeMarkGeometry.emberLightHex)
         let emberDark = Color(hex: ForgeStrikeMarkGeometry.emberDarkHex)
         let amber = Color(hex: ForgeStrikeMarkGeometry.amberHex)
+        let kernel = Color(hex: ForgeStrikeMarkGeometry.kernelHex)
 
         if compact {
             let tile = Path(
@@ -81,9 +84,13 @@ enum ForgeStrikeCanvas {
             context.stroke(tile, with: .color(Color.white.opacity(0.16)), lineWidth: 0.5)
         }
 
-        let glyphSide = compact ? side * 0.78 : side
+        let glyphSide = compact ? side * 0.80 : side
         if compact {
             context.translateBy(x: (side - glyphSide) / 2, y: (side - glyphSide) / 2)
+        }
+
+        if !compact {
+            paintUnderglow(context: &context, side: glyphSide, ember: ember, flare: pose.flare)
         }
 
         paintFlame(
@@ -93,21 +100,35 @@ enum ForgeStrikeCanvas {
             compact: compact,
             paper: paper,
             ember: ember,
+            emberLight: emberLight,
             emberDark: emberDark,
-            amber: amber
+            amber: amber,
+            kernel: kernel
         )
 
         if !compact {
             let glow = ForgeStrikeMarkGeometry.impactGlowOpacity(flare: pose.flare)
             if glow > 0.01 {
                 let radius = glyphSide * CGFloat(ForgeStrikeMarkGeometry.impactGlowRadius(flare: pose.flare))
+                let center = CGPoint(
+                    x: glyphSide * CGFloat(ForgeStrikeMarkGeometry.strikeX),
+                    y: glyphSide * CGFloat(ForgeStrikeMarkGeometry.strikeY)
+                )
                 let rect = CGRect(
-                    x: glyphSide * 0.41 - radius,
-                    y: glyphSide * 0.64 - radius,
+                    x: center.x - radius,
+                    y: center.y - radius,
                     width: radius * 2,
                     height: radius * 2
                 )
-                context.fill(Path(ellipseIn: rect), with: .color(ember.opacity(glow)))
+                context.fill(
+                    Path(ellipseIn: rect),
+                    with: .radialGradient(
+                        Gradient(colors: [ember.opacity(glow), ember.opacity(0)]),
+                        center: center,
+                        startRadius: 0,
+                        endRadius: radius
+                    )
+                )
             }
         }
 
@@ -117,7 +138,7 @@ enum ForgeStrikeCanvas {
             angleDeg: pose.hammerAngleDeg,
             compact: compact,
             paper: paper,
-            ember: ember
+            paperShade: paperShade
         )
 
         if !compact, !reduceMotion {
@@ -128,7 +149,7 @@ enum ForgeStrikeCanvas {
                     reduceMotion: false
                 )
                 guard spark.opacity > 0.01 else { continue }
-                let radius = max(0.6, glyphSide * CGFloat(spark.radius))
+                let radius = max(0.55, glyphSide * CGFloat(spark.radius))
                 let rect = CGRect(
                     x: glyphSide * CGFloat(spark.x) - radius,
                     y: glyphSide * CGFloat(spark.y) - radius,
@@ -140,6 +161,28 @@ enum ForgeStrikeCanvas {
         }
     }
 
+    private static func paintUnderglow(
+        context: inout GraphicsContext,
+        side: CGFloat,
+        ember: Color,
+        flare: Double
+    ) {
+        let glow = 0.16 + 0.14 * flare
+        let rx = side * 0.18
+        let ry = side * 0.12
+        let center = CGPoint(x: side * 0.40, y: side * 0.78)
+        let rect = CGRect(x: center.x - rx, y: center.y - ry, width: rx * 2, height: ry * 2)
+        context.fill(
+            Path(ellipseIn: rect),
+            with: .radialGradient(
+                Gradient(colors: [ember.opacity(glow), ember.opacity(0)]),
+                center: center,
+                startRadius: 0,
+                endRadius: rx
+            )
+        )
+    }
+
     private static func paintFlame(
         context: inout GraphicsContext,
         side: CGFloat,
@@ -147,18 +190,62 @@ enum ForgeStrikeCanvas {
         compact: Bool,
         paper: Color,
         ember: Color,
+        emberLight: Color,
         emberDark: Color,
-        amber: Color
+        amber: Color,
+        kernel: Color
     ) {
-        let fills: [Color] = compact
-            ? [paper, paper, paper]
-            : [emberDark, ember, amber]
-        for index in 0..<3 {
-            let path = path(
-                ForgeStrikeMarkGeometry.flameCommands(index: index, flare: flare),
-                side: side
-            )
-            context.fill(path, with: .color(fills[index]))
+        let scale = ForgeStrikeMarkGeometry.flareScale(flare: flare)
+        let origin = CGPoint(
+            x: side * CGFloat(scale.originX),
+            y: side * CGFloat(scale.originY)
+        )
+        context.drawLayer { ctx in
+            ctx.translateBy(x: origin.x, y: origin.y)
+            ctx.scaleBy(x: scale.x, y: scale.y)
+            ctx.translateBy(x: -origin.x, y: -origin.y)
+
+            for index in 0..<min(3, ForgeStrikeMarkGeometry.flameLayerCount) {
+                let path = path(
+                    ForgeStrikeMarkGeometry.flameCommands(index: index),
+                    side: side
+                )
+                if compact {
+                    ctx.fill(path, with: .color(paper))
+                    continue
+                }
+                switch index {
+                case 0:
+                    ctx.fill(
+                        path,
+                        with: .linearGradient(
+                            Gradient(colors: [ember, emberDark]),
+                            startPoint: CGPoint(x: side * 0.30, y: side * 0.14),
+                            endPoint: CGPoint(x: side * 0.40, y: side * 0.86)
+                        )
+                    )
+                case 1:
+                    ctx.fill(
+                        path,
+                        with: .linearGradient(
+                            Gradient(colors: [emberLight, ember]),
+                            startPoint: CGPoint(x: side * 0.34, y: side * 0.20),
+                            endPoint: CGPoint(x: side * 0.42, y: side * 0.82)
+                        )
+                    )
+                case 2:
+                    ctx.fill(
+                        path,
+                        with: .linearGradient(
+                            Gradient(colors: [kernel, amber]),
+                            startPoint: CGPoint(x: side * 0.38, y: side * 0.36),
+                            endPoint: CGPoint(x: side * 0.42, y: side * 0.76)
+                        )
+                    )
+                default:
+                    ctx.fill(path, with: .color(kernel.opacity(0.7)))
+                }
+            }
         }
     }
 
@@ -168,29 +255,36 @@ enum ForgeStrikeCanvas {
         angleDeg: Double,
         compact: Bool,
         paper: Color,
-        ember: Color
+        paperShade: Color
     ) {
         let pivot = CGPoint(
             x: side * CGFloat(ForgeStrikeMarkGeometry.pivotX),
             y: side * CGFloat(ForgeStrikeMarkGeometry.pivotY)
         )
         let local = path(ForgeStrikeMarkGeometry.hammerCommands(), side: side)
+        let highlight = path(ForgeStrikeMarkGeometry.hammerHighlightCommands(), side: side)
         context.drawLayer { ctx in
             ctx.translateBy(x: pivot.x, y: pivot.y)
             ctx.rotate(by: .degrees(angleDeg))
-            ctx.fill(local, with: .color(paper))
-            if !compact {
-                ctx.stroke(
+            if compact {
+                ctx.fill(local, with: .color(paper))
+            } else {
+                ctx.fill(
                     local,
-                    with: .color(Color.white.opacity(0.16)),
-                    lineWidth: max(0.6, side * 0.006)
+                    with: .linearGradient(
+                        Gradient(colors: [paper, paperShade]),
+                        startPoint: CGPoint(x: side * -0.24, y: side * -0.08),
+                        endPoint: CGPoint(x: side * 0.36, y: side * 0.04)
+                    )
                 )
+                ctx.fill(highlight, with: .color(Color.white.opacity(0.22)))
             }
         }
     }
 
     private static func path(_ commands: [ForgeStrikeMarkGeometry.Command], side: CGFloat) -> Path {
         var path = Path()
+        path.fillRule = .evenOdd
         for command in commands {
             switch command {
             case .move(let x, let y):
