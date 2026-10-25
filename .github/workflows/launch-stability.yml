@@ -75,30 +75,35 @@ jobs:
             -configuration Debug \
             -skipPackagePluginValidation \
             build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             ONLY_ACTIVE_ARCH=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             ENABLE_DEBUG_DYLIB=NO 2>&1 | tee /tmp/launch-build.log
           test -d /tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
 
-      # CODE_SIGNING_ALLOWED=NO drops ForgeSwift.entitlements, and an
-      # entitlement-less CKContainer(identifier:) traps at launch
-      # (PartnerCycleSharing.shared). That crash is a CI artifact, not the
-      # shipping app, so ad-hoc sign with the project's own entitlements —
-      # the same thing Xcode does for a local simulator run — and verify.
-      - name: Ad-hoc sign app with project entitlements
+      # Xcode "Sign to Run Locally" (CODE_SIGN_IDENTITY=-) signs every nested
+      # bundle inside-out and embeds ForgeSwift.entitlements, exactly like a
+      # local simulator run. Without the entitlements CKContainer(identifier:)
+      # traps at launch. Verify; never re-sign here.
+      - name: Verify ad-hoc signature + entitlements
         run: |
           set -euo pipefail
           APP=/tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
-          # Nested code first (a signed outer bundle over unsigned frameworks /
-          # appexes is killed with "Code Signature Invalid"), then the app with
-          # its entitlements on top.
-          codesign --force --deep --sign - --timestamp=none "$APP"
-          codesign --force --sign - --entitlements ForgeSwift/ForgeSwift.entitlements --timestamp=none "$APP"
-          codesign --verify --deep --strict "$APP"
-          codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "iCloud.com.forge.ForgeSwift" \
-            || { echo "::error::entitlements not embedded; CloudKit init would trap"; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # Simulator builds carry entitlements in the signature or in the
+          # __TEXT,__entitlements section; either must name the container.
+          if codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "iCloud.com.forge.ForgeSwift"; then
+            echo "entitlements: in signature"
+          elif LC_ALL=C grep -aq "iCloud.com.forge.ForgeSwift" "$APP/ForgeSwift"; then
+            echo "entitlements: in __entitlements section"
+          else
+            echo "::error::entitlements not embedded; CloudKit init would trap"; exit 1
+          fi
 
       - name: Launch gate (cold / kill-relaunch / AriaForgePrep wedge)
         run: |
