@@ -54,6 +54,10 @@ public extension View {
 /// (a coordinator method, a button that only navigates). Same mapping as
 /// `forgeHaptic(_:trigger:)`.
 public enum ForgeHaptics {
+    /// Hammer-on-anvil. `UIImpactFeedbackGenerator` `.rigid` — not the light
+    /// `.press` used for buttons. Off under Reduce Motion at the call site.
+    public static let strikeToken = "rigid"
+
     @MainActor
     public static func play(_ haptic: ForgeHaptic) {
         #if os(iOS)
@@ -78,6 +82,15 @@ public enum ForgeHaptics {
         case .error: type = .failure
         }
         WKInterfaceDevice.current().play(type)
+        #endif
+    }
+
+    @MainActor
+    public static func playStrike() {
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        #elseif os(watchOS)
+        WKInterfaceDevice.current().play(.click)
         #endif
     }
 }

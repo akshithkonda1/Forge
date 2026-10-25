@@ -1,11 +1,12 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// Locks the splash as a beat, not a wait, and rage-fire vs ember.
 final class ForgeSplashFireTests: XCTestCase {
 
     func testSplashHoldIsABeatNotAWait() {
-        XCTAssertEqual(ForgeSplashTiming.hold, 0.5, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.hold, 0.65, accuracy: 0.001)
         XCTAssertEqual(ForgeSplashTiming.reduceMotionHold, 0.3, accuracy: 0.001)
         XCTAssertEqual(ForgeSplashTiming.fadeOut, 0.3, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(ForgeSplashTiming.hold, ForgeSplashTiming.brandFloor)
@@ -16,12 +17,36 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertLessThan(ForgeSplashTiming.reduceMotionHold, ForgeSplashTiming.hold)
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false),
-            500_000_000
+            650_000_000
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: true),
             300_000_000
         )
+        XCTAssertEqual(ForgeSplashTiming.signedInHold, 0.25, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(ForgeSplashTiming.signedInHold, 0.3)
+        XCTAssertLessThan(
+            ForgeSplashTiming.signedInHold + ForgeSplashTiming.fadeOut,
+            ForgeSplashTiming.freezeCeiling
+        )
+        // Flag: full path is 0.95s, only 50ms under the 1.0s ceiling.
+        XCTAssertEqual(
+            ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut,
+            0.95,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(ForgeSplashTiming.freezeCeiling - 0.95, 0.05, accuracy: 0.001)
+        XCTAssertEqual(
+            ForgeSplashTiming.pauseNanoseconds(reduceMotion: false, signedIn: true),
+            250_000_000
+        )
+        XCTAssertEqual(
+            ForgeSplashTiming.pauseNanoseconds(reduceMotion: true, signedIn: true),
+            300_000_000
+        )
+        XCTAssertEqual(ForgeHaptics.strikeToken, "rigid")
+        XCTAssertEqual(ForgeHaptic.press.token, "light")
+        XCTAssertNotEqual(ForgeHaptics.strikeToken, ForgeHaptic.press.token)
     }
 
     func testWelcomeFireIsRageNotEmber() {
@@ -132,13 +157,35 @@ final class ForgeSplashFireTests: XCTestCase {
 
     func testFirePaintCadenceIsCapped() {
         XCTAssertEqual(ForgeFireGeometry.tickHz, 12, accuracy: 0.001)
-        XCTAssertLessThanOrEqual(ForgeFireGeometry.tickHz, 15)
+        XCTAssertLessThanOrEqual(ForgeFireGeometry.tickHz, 12)
         XCTAssertGreaterThanOrEqual(ForgeFireGeometry.tickHz, 12)
+        let a = ForgeFireGeometry.flickerTime(0.04)
+        let b = ForgeFireGeometry.flickerTime(0.07)
+        XCTAssertEqual(a, b, accuracy: 0.0001, "12 Hz bucket holds both samples")
+        XCTAssertGreaterThan(ForgeFireGeometry.flickerTime(0.12), a)
     }
 
     func testSplashStrikeFinishesInsideTheHold() {
-        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashDuration, ForgeSplashTiming.hold)
-        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashDuration, ForgeSplashTiming.brandFloor)
+        // Impact lands ~0.48s, with spark time before the curtain lifts.
+        XCTAssertEqual(ForgeStrikeGeometry.splashImpactTime, 0.48, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.46)
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.50)
+        XCTAssertLessThan(ForgeStrikeGeometry.splashImpactTime + 0.1, ForgeSplashTiming.hold)
+        XCTAssertLessThan(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, ForgeSplashTiming.freezeCeiling)
+        let sparks = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: ForgeStrikeGeometry.splashImpactTime + 0.05,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: false
+        )
+        XCTAssertGreaterThan(sparks.impact, 0.08, "sparks still flying after impact")
+        let reduced = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: ForgeStrikeGeometry.splashImpactTime,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: true
+        )
+        XCTAssertLessThan(reduced.impact, 0.08, "Reduce Motion: static pose, no sparks")
         let windup = ForgeStrikeGeometry.pose(
             variation: .strike,
             time: 0,
@@ -147,7 +194,7 @@ final class ForgeSplashFireTests: XCTestCase {
         )
         let hit = ForgeStrikeGeometry.pose(
             variation: .strike,
-            time: 0.38 * ForgeStrikeGeometry.splashDuration,
+            time: ForgeStrikeGeometry.splashImpactTime,
             duration: ForgeStrikeGeometry.splashDuration,
             reduceMotion: false
         )
@@ -167,7 +214,12 @@ final class ForgeSplashFireTests: XCTestCase {
     func testStrikeVariationsReadDifferently() {
         let duration = ForgeStrikeGeometry.duration
         let strikeStart = ForgeStrikeGeometry.pose(variation: .strike, time: 0, duration: duration, reduceMotion: false)
-        let strikeHit = ForgeStrikeGeometry.pose(variation: .strike, time: 0.38 * duration, duration: duration, reduceMotion: false)
+        let strikeHit = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: ForgeStrikeGeometry.strikeImpactFraction * duration,
+            duration: duration,
+            reduceMotion: false
+        )
         let quenchStart = ForgeStrikeGeometry.pose(variation: .quench, time: 0, duration: duration, reduceMotion: false)
         let quenchEnd = ForgeStrikeGeometry.pose(variation: .quench, time: duration, duration: duration, reduceMotion: false)
         let sparkHit = ForgeStrikeGeometry.pose(variation: .spark, time: 0.34 * duration, duration: duration, reduceMotion: false)
@@ -203,5 +255,67 @@ final class ForgeSplashFireTests: XCTestCase {
             let windup = ForgeStrikeGeometry.pose(variation: variation, time: 0, duration: 1.05, reduceMotion: false)
             XCTAssertGreaterThan(abs(settled.hammerAngle - windup.hammerAngle), 0.15)
         }
+    }
+
+    func testStrikeAcceleratesThenRebounds() {
+        let duration = ForgeStrikeGeometry.splashDuration
+        func pose(_ time: Double) -> ForgeStrikePose {
+            ForgeStrikeGeometry.pose(
+                variation: .strike,
+                time: time,
+                duration: duration,
+                reduceMotion: false
+            )
+        }
+        let windup = pose(0)
+        let mid = pose(ForgeStrikeGeometry.splashImpactTime * 0.5)
+        let hit = pose(ForgeStrikeGeometry.splashImpactTime)
+        let bounce = pose(ForgeStrikeGeometry.splashImpactTime + 0.06)
+        let linearMid = windup.hammerAngle + (hit.hammerAngle - windup.hammerAngle) * 0.5
+        XCTAssertGreaterThan(mid.hammerAngle, linearMid, "quartic ease-in stays high at midpoint")
+        XCTAssertGreaterThan(bounce.hammerAngle, hit.hammerAngle, "spring overshoot after impact")
+        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.46)
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.50)
+        XCTAssertEqual(ForgeStrikeMotion.style, .accelerateRebound, "default ships Option A")
+        XCTAssertTrue(ForgeStrikeMotion.allowsRebound)
+        XCTAssertTrue(ForgeStrikeMotion.allowsImpactShake)
+    }
+
+    func testForgeAndRestLandsWithoutRebound() {
+        let duration = ForgeStrikeGeometry.splashDuration
+        func pose(_ time: Double) -> ForgeStrikePose {
+            ForgeStrikeGeometry.pose(
+                variation: .strike,
+                time: time,
+                duration: duration,
+                reduceMotion: false,
+                style: .forgeAndRest
+            )
+        }
+        let windup = pose(0)
+        let mid = pose(ForgeStrikeGeometry.splashImpactTime * 0.5)
+        let hit = pose(ForgeStrikeGeometry.splashImpactTime)
+        let after = pose(ForgeStrikeGeometry.splashImpactTime + 0.06)
+        let settled = pose(duration)
+        let linearMid = windup.hammerAngle + (hit.hammerAngle - windup.hammerAngle) * 0.5
+        XCTAssertGreaterThan(mid.hammerAngle, linearMid, "B still eases in, never linear")
+        XCTAssertEqual(after.hammerAngle, hit.hammerAngle, accuracy: 0.001, "no rebound")
+        XCTAssertEqual(settled.hammerAngle, hit.hammerAngle, accuracy: 0.001, "rests on the flame")
+        XCTAssertGreaterThan(settled.flameScale, windup.flameScale, "flame gathers, does not die")
+        XCTAssertLessThan(settled.flameScale, 1.20, "rise, not a burst")
+    }
+
+    func testSparksAreOneShotBallisticChips() {
+        XCTAssertEqual(ForgeSparkBurst.kind, "ca-emitter")
+        XCTAssertEqual(ForgeSparkBurst.shape, "chip")
+        XCTAssertNotEqual(ForgeSparkBurst.shape, "circle")
+        XCTAssertGreaterThan(ForgeSparkBurst.gravity, 0)
+        XCTAssertTrue(ForgeSparkBurst.oneShot)
+        XCTAssertLessThanOrEqual(ForgeSparkBurst.maxLifetime, 0.6)
+        XCTAssertGreaterThan(ForgeSparkBurst.birthCount(for: .strike), ForgeSparkBurst.birthCount(for: .temper))
+        XCTAssertGreaterThan(ForgeSparkBurst.birthCount(for: .spark), ForgeSparkBurst.birthCount(for: .quench))
+        XCTAssertEqual(ForgeStrikeMotion.sparkBackend, "CAEmitterLayer")
+        XCTAssertEqual(ForgeStrikeMotion.swingEasing, "easeInQuart+spring")
+        XCTAssertFalse(ForgeStrikeMotion.swingIsLinear)
     }
 }
