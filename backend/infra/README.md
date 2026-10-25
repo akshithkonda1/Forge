@@ -39,23 +39,26 @@ Apply-failure catalog (also plan-only): [`TERRAFORM_PLAN.md`](TERRAFORM_PLAN.md)
 - DynamoDB single-table store (`pk` / `sk`, no GSI, `PAY_PER_REQUEST`, deletion protection on)
 - Cognito user-pool deletion protection on (`ACTIVE`); teardown is two applies (see [`SCALING.md`](SCALING.md))
 - S3 uploads bucket
-- Parameter Store SecureString parameters for `ELEVENLABS_*` (standard tier; seed after apply)
 - Parameter Store String `ARIA_PAUSED` (ARIA-only kill switch, default `"false"`)
+- Open Wearables (off by default): one ARM EC2 running the official compose stack, SSM SecureString secrets, HMAC webhook route. Voice is on-device (Kokoro); leftover ElevenLabs / Fish SSM parameters are not created.
 - CloudWatch log groups with retention (14 prod / 7 dev)
-- Optional free-tier CloudWatch alarms (7 standard) + one SNS topic (`enable_alarms`, default true)
+- Optional free-tier CloudWatch alarms (8 standard) + one SNS topic (`enable_alarms`, default true)
 - Optional CloudTrail management-event trail (`create_cloudtrail`, default
   **false** — exactly one trail per AWS account). `prod.tfvars` sets it true
   so the prod stack owns the trail; a shared-account `dev` plan stays false.
   The trail bucket has its own `force_destroy_cloudtrail_bucket` (default false)
-- AWS Budgets spend guard (default on, $25/mo). **Alerts only — never stops
-  spend.** ElevenLabs is invisible to it; that cap lives in the app quota.
-  A real apply requires `spend_guard_notification_email`
+- AWS Budgets spend guard (default on, $25/mo). Alerts at 80/100 actual and
+  100 forecasted. At 100% actual a budget action attaches a Deny-Bedrock
+  policy to the API Lambda (and Scout / Open Wearables roles if those flags
+  are on). A real apply requires `spend_guard_notification_email`
 - Anthropic-scoped plus Grok CRIS Bedrock IAM (unused while the Bedrock kill-switch is off)
 
 Grok 4.6 **is** on Bedrock (`xai.grok-4.6` plus runtime profiles
 `us.xai.grok-4.6` / `global.xai.grok-4.6` — official model card). This module
 still does not call it: `aria_bedrock_enabled` default **false**. IAM now
-allows Anthropic wildcards and Grok CRIS (`global.xai.*` / `us.xai.*`).
+allows the specific us.* and global.* inference-profile ARNs for the
+configured router (and Scout) model ids so Bedrock can route
+internationally. No anthropic.* / xai.* wildcards.
 
 ## Why this shape
 
@@ -73,19 +76,22 @@ doubled write cost). You can store:
 
 ## Files
 
-- `versions.tf`: Terraform and provider requirements
+- `versions.tf`: Terraform `~> 1.17.0`, AWS provider `~> 6.70`, archive `~> 2.8`
 - `providers.tf`: AWS provider configuration (`skip_aws_provider_checks` for CI)
 - `variables.tf`: stack inputs (`environment` has no default; `aria_bedrock_enabled` stays false)
 - `locals.tf`: shared naming, tagging, Cognito/SSM paths, JWT audiences, dev allowlist
 - `main.tf`: Lambda, HTTP API, DynamoDB, uploads, spend guard
-- `alarms.tf`: SNS + 7 standard CloudWatch alarms + HTTP API 429 metric filter
+- `alarms.tf`: SNS + 8 standard CloudWatch alarms + HTTP API 429 metric filter
 - `cognito.tf`: prefix domain, Kotlin + localhost clients, Apple/Google IdPs
-- `ssm.tf`: ElevenLabs SecureString parameters and the `ARIA_PAUSED` String kill switch
+- `ssm.tf`: `ARIA_PAUSED` String kill switch
+- `open_wearables.tf`: AWS-hosted Open Wearables (off by default)
+- `information.tf`: where data lives, encryption, migrations
+- `bootstrap/oidc.tf`: GitHub Actions OIDC deploy role (repo + branch conditions)
 - `SCALING.md`: serverless posture, alarm → knob table, kill-switch runbook, two-step teardown
 - `COST.md`: token audit, pause=zero-spend, monthly estimate (5 / 100 / 1k users)
 - `cloudtrail.tf`: optional management-event trail + locked bucket
 - `outputs.tf`: `client_configuration` plus allowlist-only `dev_client_configuration`
-- `bootstrap/`: SSE-S3 state bucket (TLS-only, GetObject limited to deploy role + account root, 30-day noncurrent expiry). IdP secrets land in state. **Local state** — it creates the bucket
+- `bootstrap/`: SSE-KMS (`alias/aws/s3`) state bucket (TLS-only, GetObject limited to the GitHub OIDC deploy role + account root, 30-day noncurrent expiry) plus that OIDC role. IdP secrets land in state. **Local state** — it creates the bucket
 - `backend.tf`: partial S3 backend (`region`, `encrypt`, `use_lockfile`). Bucket and key are not in this file
 - `backend/dev.s3.tfbackend` / `backend/prod.s3.tfbackend`: per-env state keys so dev and prod never share a state file
 - `lambda/handler.py`: shared backend handler (iOS, web, Android)
@@ -98,7 +104,7 @@ From this directory (`backend/infra`):
 1. Copy `terraform.tfvars.example` to `terraform.tfvars`. Set web callback URLs
    to the real https origins (a real apply fails if any web or Kotlin
    callback/logout URL contains `example.com`). Kotlin `[0]` is already the
-   custom scheme. Do **not** put Apple/Google/ElevenLabs secrets in tfvars.
+   custom scheme. Do **not** put Apple/Google/Open Wearables secrets in tfvars.
 2. Before a real apply, seed the social IdP SecureString parameters listed in `terraform.tfvars.example`.
 3. Optionally apply `bootstrap/` once (pass `state_bucket_deploy_role_arn`).
    That stack stays on local state because it creates the bucket. Then replace
@@ -120,8 +126,9 @@ From this directory (`backend/infra`):
    Do not set `aria_bedrock_enabled = true` for indie cheapest path.
    Set `spend_guard_notification_email` (required on a real apply when the
    budget is enabled). CloudTrail is enabled in `prod.tfvars` only.
-7. If you did apply and need ElevenLabs, seed the three `/…/ai/ELEVENLABS_*`
-   parameters with `aws ssm put-parameter --overwrite` so the key never lands in state.
+7. If you turn on Open Wearables, seed `/<prefix>/open-wearables/*`
+   SecureStrings with `aws ssm put-parameter --overwrite` so vendor OAuth
+   secrets and the webhook key never land in state.
    ARIA-only pause (voice stays up; up to ~60 s lag on warm invokes):
    `aws ssm put-parameter --name /<prefix>/ai/ARIA_PAUSED --value true --overwrite`
    Resume with `--value false`. See [`SCALING.md`](SCALING.md).

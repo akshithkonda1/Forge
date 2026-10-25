@@ -78,13 +78,19 @@ output "cloudtrail_bucket_name" {
   value       = var.create_cloudtrail ? aws_s3_bucket.cloudtrail[0].bucket : null
 }
 
-output "elevenlabs_parameter_names" {
-  description = "Parameter Store names for ELEVENLABS_* SecureString values. Seed out of band."
-  value = {
-    apiKey  = aws_ssm_parameter.elevenlabs_api_key.name
-    voiceId = aws_ssm_parameter.elevenlabs_voice_id.name
-    agentId = aws_ssm_parameter.elevenlabs_agent_id.name
-  }
+output "open_wearables_parameter_prefix" {
+  description = "Parameter Store prefix for Open Wearables SecureString secrets. Empty when enable_open_wearables is false."
+  value       = local.open_wearables_enabled ? local.ssm_open_wearables_prefix : ""
+}
+
+output "open_wearables_host" {
+  description = "Open Wearables TLS hostname (Caddy). Empty when enable_open_wearables is false."
+  value       = local.open_wearables_domain
+}
+
+output "open_wearables_webhook_url" {
+  description = "HMAC webhook URL the Open Wearables box POSTs to. Empty when the flag is off."
+  value       = local.open_wearables_enabled ? "${aws_apigatewayv2_api.http.api_endpoint}/integrations/open-wearables/webhook" : ""
 }
 
 output "client_configuration" {
