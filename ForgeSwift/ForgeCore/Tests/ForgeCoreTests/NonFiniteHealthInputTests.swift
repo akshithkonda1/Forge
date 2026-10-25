@@ -54,6 +54,8 @@ final class NonFiniteHealthInputTests: XCTestCase {
         XCTAssertEqual(SleepDebtMeter.minutesFromHours(-1e20), 0)
         XCTAssertEqual(SleepDebtMeter.minutesFromHours(Double(Int.max)), Int.max)
         XCTAssertEqual(SleepDebtMeter.minutesFromHours(Double(Int.min)), 0)
+        XCTAssertEqual(SleepDebtMeter.minutesFromHours(.greatestFiniteMagnitude), Int.max)
+        XCTAssertEqual(SleepDebtMeter.minutesFromHours(-.greatestFiniteMagnitude), 0)
     }
 
     // SleepModels.swift:86 — Int(totalMinutes) traps on NaN / ±inf / huge.

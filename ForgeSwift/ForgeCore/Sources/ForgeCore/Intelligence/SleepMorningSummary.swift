@@ -257,7 +257,11 @@ public enum SleepDebtMeter: Sendable {
     public static func minutesFromHours(_ hours: Double) -> Int {
         guard hours.isFinite else { return 0 }
         let minutes = (hours * 60).rounded()
-        guard minutes.isFinite else { return 0 }
+        // A huge finite hour count can overflow the *60 to ±inf. That is
+        // out of range, not missing data: pin to the Int bound.
+        if !minutes.isFinite {
+            return hours > 0 ? Int.max : 0
+        }
         if minutes >= Double(Int.max) { return Int.max }
         if minutes <= Double(Int.min) { return 0 }
         if minutes < 0 { return 0 }
