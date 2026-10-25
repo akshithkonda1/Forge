@@ -31,6 +31,10 @@ extension AppStore {
             authProvider = authProvider.isEmpty ? "legacy" : authProvider
         }
         guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else {
+            AriaForgePrepHandoff.validateFlag(
+                isOnboarded: false,
+                isAuthenticated: isAuthenticated
+            )
             if AriaForgePrepHandoff.isInterviewComplete {
                 restoreUserProfileForCurrentUser()
             }
@@ -38,7 +42,7 @@ extension AppStore {
         }
         restoreUserProfileForCurrentUser()
         isOnboarded = true
-        AriaForgePrepHandoff.clearInterviewComplete()
+        AriaForgePrepHandoff.validateFlag(isOnboarded: true, isAuthenticated: isAuthenticated)
     }
 
     func restoreUserProfileForCurrentUser() {
