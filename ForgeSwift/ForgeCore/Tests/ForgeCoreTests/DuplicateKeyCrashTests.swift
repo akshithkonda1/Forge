@@ -40,7 +40,7 @@ final class DuplicateKeyCrashTests: XCTestCase {
     }
 
     func testQualityOfLifeWeightsDoNotTrapOnAllCases() {
-        let weights = QualityOfLifeCalculator.weights(archetype: .balanced, hobbies: nil)
+        let weights = QualityOfLifePersona.weights(archetype: .balanced, hobbies: nil)
         XCTAssertEqual(weights.count, QualityOfLifePillar.allCases.count)
     }
 
