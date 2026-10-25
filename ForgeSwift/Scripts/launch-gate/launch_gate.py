@@ -23,7 +23,10 @@ import json, os, re, struct, subprocess, sys, time, zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUNDLE = "com.forge.ForgeSwift"
 OUT = os.environ.get("LAUNCH_GATE_OUT", "/tmp/launch-gate")
-IDLE_FRAMES = ("mach_msg2_trap", "mach_msg_trap", "mach_msg_overwrite")
+# Only the kernel traps themselves; wrappers (mach_msg_overwrite, mach_msg2_internal)
+# sit above the trap in the same stack and would double-count idle.
+IDLE_FRAMES = ("mach_msg2_trap", "mach_msg_trap")
+RUNLOOP_WAIT = ("__CFRunLoopServiceMachPort", "CFRunLoopRun", "__CFRunLoopRun")
 
 
 def load_thresholds():
@@ -51,7 +54,7 @@ def simctl(*a, **kw):
 
 
 # ---------- PNG (8-bit RGB/RGBA, non-interlaced) ----------
-def png_pixels(path, step=8):
+def png_pixels(path, step=8, want_pixels=False):
     data = open(path, "rb").read()
     assert data[:8] == b"\x89PNG\r\n\x1a\n", "not a PNG"
     pos, idat, hdr = 8, b"", None
@@ -70,7 +73,7 @@ def png_pixels(path, step=8):
     raw = zlib.decompress(idat)
     stride = w * bpp
     prev = bytearray(stride)
-    counts, i = {}, 0
+    counts, pixels, i = {}, [], 0
     for y in range(h):
         f = raw[i]; line = bytearray(raw[i + 1:i + 1 + stride]); i += 1 + stride
         for x in range(stride):
@@ -89,7 +92,18 @@ def png_pixels(path, step=8):
             for x in range(0, w, step):
                 px = bytes(line[x * bpp:x * bpp + 3])
                 counts[px] = counts.get(px, 0) + 1
-    return counts
+                pixels.append(px)
+    return (counts, pixels) if want_pixels else counts
+
+
+def diff_share(path_a, path_b, tol=24):
+    """Share of sampled pixels that differ (any channel > tol) between two shots."""
+    _, a = png_pixels(path_a, want_pixels=True)
+    _, b = png_pixels(path_b, want_pixels=True)
+    if len(a) != len(b) or not a:
+        raise RuntimeError(f"screenshot size mismatch {len(a)} vs {len(b)}")
+    d = sum(1 for p, q in zip(a, b) if max(abs(x - y) for x, y in zip(p, q)) > tol)
+    return d / len(a)
 
 
 def dominant_share(path):
@@ -114,32 +128,63 @@ def footprint_mb(pid):
     raise RuntimeError(f"could not read memory for pid {pid}: {r.stderr.strip()}")
 
 
-def main_thread_busy_s(pid, window, tag):
+def run_sample(pid, window, path, timeout):
+    """`sample` with retries; a run that never yields a file is a failure."""
+    last = ""
+    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
+        if os.path.exists(path):
+            os.remove(path)
+        try:
+            r = sh("sample", str(pid), str(int(window)), "1", "-mayDie", "-file", path,
+                   check=False, timeout=timeout)
+            if os.path.exists(path) and os.path.getsize(path) > 0:
+                return open(path).read()
+            last = f"rc={r.returncode}: {r.stderr.strip()}"
+        except subprocess.TimeoutExpired:
+            subprocess.run(["pkill", "-9", "-f", f"sample {pid} "], capture_output=True)
+            last = f"timed out after {timeout:.0f}s"
+        print(f"    sample attempt {attempt} failed ({last})", flush=True)
+        if not pid_alive(pid):
+            break
+    raise RuntimeError(f"sample failed after retries: {last}")
+
+
+def main_thread_busy_s(pid, window, tag, timeout):
     path = f"{OUT}/sample-{tag}.txt"
-    r = sh("sample", str(pid), str(int(window)), "1", "-mayDie", "-file", path,
-           check=False, timeout=window + 60)
-    if not os.path.exists(path):
-        raise RuntimeError(f"sample produced no output (rc={r.returncode}): {r.stderr.strip()}")
-    text = open(path).read()
+    text = run_sample(pid, window, path, timeout)
     # Main thread block runs until the next top-level "Thread_" line.
-    m = re.search(r"^\s*\d+ Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
+    m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
     if not m:
         raise RuntimeError("main thread not found in sample output")
-    total = int(m.group(0).split()[0])
+    total = int(m.group(2))
     rest = text[m.end():]
     nxt = re.search(r"^\s*\d+ Thread_\d+", rest, re.M)
     block = rest[:nxt.start()] if nxt else rest
-    # Idle = leaf samples in the run loop's mach_msg wait. A leaf line is the
-    # deepest frame; sum sample counts of lines naming an idle trap.
-    idle = 0
+    # Parse the call tree: (indent column of the count, count, text).
+    rows = []
     for line in block.splitlines():
-        if any(f in line for f in IDLE_FRAMES) and "(in libsystem_kernel.dylib)" in line:
-            mm = re.match(r"\s*[+!:| ]*(\d+)\s", line)
-            if mm:
-                idle += int(mm.group(1))
-    busy_samples = max(0, total - idle)
-    # ~1 sample per ms requested; normalise by observed total over the window.
-    return busy_samples / total * window if total else window, total, idle
+        mm = re.match(r"^([\s+!:|]*)(\d+)\s+(.*)$", line)
+        if mm:
+            rows.append((len(mm.group(1)), int(mm.group(2)), mm.group(3)))
+    # Idle = LEAF frames (no deeper child next) that are the kernel mach_msg
+    # trap. Leaves never nest, so this cannot double-count.
+    # The trap only counts as idle when its ancestors include the run loop's
+    # port wait; a mach_msg/semaphore block from app code is a hang, not idle.
+    idle, stack = 0, []
+    for i, (ind, n, txt) in enumerate(rows):
+        while stack and stack[-1][0] >= ind:
+            stack.pop()
+        stack.append((ind, txt))
+        leaf = i + 1 >= len(rows) or rows[i + 1][0] <= ind
+        if leaf and any(f in txt for f in IDLE_FRAMES) and \
+                any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1]):
+            idle += n
+    if total <= 0:
+        raise RuntimeError("main thread total sample count is 0")
+    if idle > total:
+        raise RuntimeError(f"parser invariant broken: idle {idle} > main-thread total {total}")
+    busy_samples = total - idle
+    return busy_samples / total * window, total, idle
 
 
 # ---------- scenario ----------
@@ -180,23 +225,32 @@ def run_scenario(name, udid, app):
         simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.completed", "-bool", "NO")
         simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
 
+    # Baseline: what the screen shows before the app runs (springboard).
+    # The app's frame must differ from it, so a pre-existing image can't pass.
+    base = f"{OUT}/{name}-baseline.png"
+    simctl("io", udid, "screenshot", base)
+    if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
+        raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
+
     pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
-    # first frame
-    frame_at, share = None, None
+    # first frame: non-blank AND >= FRAME_DIFF_MIN_SHARE of pixels changed vs baseline
+    frame_at, share, diff = None, None, None
     while el() < T["FIRST_FRAME_MAX_S"]:
         shot = f"{OUT}/{name}-frame.png"
         taken = el()  # capture start; screenshot latency is not app time
         if simctl("io", udid, "screenshot", shot, check=False).returncode == 0:
             share = dominant_share(shot)
-            if share < T["BLANK_DOMINANT_SHARE"]:
+            diff = diff_share(base, shot)
+            if share < T["BLANK_DOMINANT_SHARE"] and diff >= T["FRAME_DIFF_MIN_SHARE"]:
                 frame_at = taken; break
-        time.sleep(0.5)
+        time.sleep(0.25)
     check("alive@first_frame", pid_alive(pid), f"pid {pid}", "alive")
     check("first_frame", frame_at is not None and frame_at <= T["FIRST_FRAME_MAX_S"],
-          f"{frame_at:.2f}s" if frame_at else f"blank/none after {el():.1f}s (dominant {share})",
-          f"<= {T['FIRST_FRAME_MAX_S']}s non-blank")
+          f"{frame_at:.2f}s (diff vs baseline {diff:.2f}, dominant {share:.3f})" if frame_at is not None
+          else f"no app frame after {el():.1f}s (diff {diff}, dominant {share})",
+          f"<= {T['FIRST_FRAME_MAX_S']}s, non-blank, >= {T['FRAME_DIFF_MIN_SHARE']} changed vs baseline")
     if not pid_alive(pid):
         return res
 
@@ -205,7 +259,8 @@ def run_scenario(name, udid, app):
     for w in range(int(T["SAMPLE_WINDOWS"])):
         if not pid_alive(pid):
             break
-        busy, total, idle = main_thread_busy_s(pid, T["SAMPLE_WINDOW_S"], f"{name}-{w}")
+        tmo = T["SAMPLE_TIMEOUT_COLD_S"] if (name == "cold" and w == 0) else T["SAMPLE_TIMEOUT_S"]
+        busy, total, idle = main_thread_busy_s(pid, T["SAMPLE_WINDOW_S"], f"{name}-{w}", tmo)
         worst = max(worst, busy)
         print(f"    sample {w}: main busy {busy:.2f}s (samples total={total} idle={idle})")
     check("main_thread", worst <= T["MAIN_THREAD_BLOCK_MAX_S"] and pid_alive(pid),
