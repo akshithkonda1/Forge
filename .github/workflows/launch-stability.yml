@@ -91,7 +91,12 @@ jobs:
         run: |
           set -euo pipefail
           APP=/tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
+          # Nested code first (a signed outer bundle over unsigned frameworks /
+          # appexes is killed with "Code Signature Invalid"), then the app with
+          # its entitlements on top.
+          codesign --force --deep --sign - --timestamp=none "$APP"
           codesign --force --sign - --entitlements ForgeSwift/ForgeSwift.entitlements --timestamp=none "$APP"
+          codesign --verify --deep --strict "$APP"
           codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "iCloud.com.forge.ForgeSwift" \
             || { echo "::error::entitlements not embedded; CloudKit init would trap"; exit 1; }
 
