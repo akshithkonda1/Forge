@@ -64,6 +64,26 @@ _CLOUD_RUNTIME_ENV = (
 )
 
 
+# Dummy.respond() holds this >0 so look_up / research / environment never
+# open a socket. Unit tests that call those functions directly (and mock
+# urlopen) still exercise the live fetch path.
+_DUMMY_OFFLINE_DEPTH = 0
+
+
+def begin_dummy_offline() -> None:
+    global _DUMMY_OFFLINE_DEPTH
+    _DUMMY_OFFLINE_DEPTH += 1
+
+
+def end_dummy_offline() -> None:
+    global _DUMMY_OFFLINE_DEPTH
+    _DUMMY_OFFLINE_DEPTH = max(0, _DUMMY_OFFLINE_DEPTH - 1)
+
+
+def dummy_offline() -> bool:
+    return _DUMMY_OFFLINE_DEPTH > 0
+
+
 def _running_on_cloud_or_prod() -> bool:
     if (os.getenv("ENVIRONMENT") or "").strip().lower() in _PROD_LIKE:
         return True
@@ -172,7 +192,7 @@ def look_up(kind: str) -> str | None:
     call, as defense in depth rather than because either check alone is
     thought to be insufficient.
     """
-    if _running_on_cloud_or_prod():
+    if _running_on_cloud_or_prod() or dummy_offline():
         return None
     source = _SOURCES.get(kind)
     if source is None:
@@ -272,6 +292,8 @@ def web_enabled() -> bool:
 
 
 def _get(url: str, *, accept: str = "application/json", timeout: float = _TIMEOUT_SECONDS) -> bytes | None:
+    if dummy_offline():
+        return None
     request = Request(url, headers={"User-Agent": "Forge-SimRunner/1.0", "Accept": accept})
     try:
         with urlopen(request, timeout=timeout) as response:
@@ -390,7 +412,7 @@ def parse_environment(forecast: bytes | None, air: bytes | None) -> EnvironmentR
 
 def environment(lat: float, lon: float) -> EnvironmentRead | None:
     """Weather + air for a coarse location. ``None`` when web is off or down."""
-    if not web_enabled():
+    if dummy_offline() or not web_enabled():
         return None
     lat, lon = round(float(lat), 1), round(float(lon), 1)
     forecast = _get(
@@ -434,6 +456,8 @@ def _scout(need: ResearchNeed) -> Evidence | None:
 
 
 def _scout_remote(need: ResearchNeed) -> Evidence | None:
+    if dummy_offline():
+        return None
     url = (os.getenv("FORGE_SCOUT_URL") or "").strip()
     if not url.startswith("https://"):
         return None
@@ -521,9 +545,11 @@ def research(need: ResearchNeed) -> Evidence | None:
 
     The Scout dummy always runs (its default ``offline`` mode touches no
     network). The direct health APIs and catalog stay behind
-    ``FORGE_DUMMY_WEB``.
+    ``FORGE_DUMMY_WEB``. Dummy.respond() holds ``dummy_offline`` so this
+    function returns None without touching a socket; tests may still mock
+    ``research`` itself.
     """
-    if not need.query:
+    if dummy_offline() or not need.query:
         return None
     evidence = _scout(need)
     if evidence is not None and evidence.text:
