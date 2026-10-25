@@ -242,6 +242,12 @@ def run_scenario(name, udid, app):
 def main():
     udid, app = sys.argv[1], sys.argv[2]
     os.makedirs(OUT, exist_ok=True)
+    # The sim can be shut down under us during the long build; boot here.
+    # "already booted" is the only boot error tolerated; bootstatus must pass.
+    b = simctl("boot", udid, check=False)
+    if b.returncode != 0 and "Booted" not in b.stderr:
+        raise SystemExit(f"::error::simctl boot failed: {b.stderr.strip()}")
+    simctl("bootstatus", udid, "-b", timeout=300)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)
