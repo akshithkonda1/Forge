@@ -5,7 +5,7 @@ import XCTest
 final class ForgeSplashFireTests: XCTestCase {
 
     func testSplashHoldIsABeatNotAWait() {
-        XCTAssertEqual(ForgeSplashTiming.hold, 0.5, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.hold, 0.65, accuracy: 0.001)
         XCTAssertEqual(ForgeSplashTiming.reduceMotionHold, 0.3, accuracy: 0.001)
         XCTAssertEqual(ForgeSplashTiming.fadeOut, 0.3, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(ForgeSplashTiming.hold, ForgeSplashTiming.brandFloor)
@@ -16,7 +16,7 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertLessThan(ForgeSplashTiming.reduceMotionHold, ForgeSplashTiming.hold)
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false),
-            500_000_000
+            650_000_000
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: true),
@@ -137,8 +137,25 @@ final class ForgeSplashFireTests: XCTestCase {
     }
 
     func testSplashStrikeFinishesInsideTheHold() {
-        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashDuration, ForgeSplashTiming.hold)
-        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashDuration, ForgeSplashTiming.brandFloor)
+        // Impact lands ~0.5s, with spark time before the curtain lifts.
+        XCTAssertEqual(ForgeStrikeGeometry.splashImpactTime, 0.456, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.4)
+        XCTAssertLessThan(ForgeStrikeGeometry.splashImpactTime + 0.1, ForgeSplashTiming.hold)
+        XCTAssertLessThan(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, ForgeSplashTiming.freezeCeiling)
+        let sparks = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: ForgeStrikeGeometry.splashImpactTime + 0.05,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: false
+        )
+        XCTAssertGreaterThan(sparks.impact, 0.08, "sparks still flying after impact")
+        let reduced = ForgeStrikeGeometry.pose(
+            variation: .strike,
+            time: ForgeStrikeGeometry.splashImpactTime,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: true
+        )
+        XCTAssertLessThan(reduced.impact, 0.08, "Reduce Motion: static pose, no sparks")
         let windup = ForgeStrikeGeometry.pose(
             variation: .strike,
             time: 0,
@@ -147,7 +164,7 @@ final class ForgeSplashFireTests: XCTestCase {
         )
         let hit = ForgeStrikeGeometry.pose(
             variation: .strike,
-            time: 0.38 * ForgeStrikeGeometry.splashDuration,
+            time: ForgeStrikeGeometry.splashImpactTime,
             duration: ForgeStrikeGeometry.splashDuration,
             reduceMotion: false
         )

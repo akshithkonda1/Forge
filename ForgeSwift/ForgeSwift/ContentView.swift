@@ -112,6 +112,13 @@ struct ForgeSplashScreen: View {
                 .offset(y: textOffset)
             }
         }
+        .task {
+            // One light tap as the hammer lands. Off under Reduce Motion (static pose).
+            guard !reduceMotion else { return }
+            try? await Task.sleep(nanoseconds: UInt64(ForgeStrikeGeometry.splashImpactTime * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            ForgeHaptics.play(.press)
+        }
         .onAppear {
             let base: Animation = reduceMotion
                 ? .easeOut(duration: 0.25)

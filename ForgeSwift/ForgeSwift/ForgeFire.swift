@@ -6,9 +6,9 @@ import SwiftUI
 /// client's own rule is the rule here too: "Returning users already know
 /// the brand — keep a beat, not a wait." Lockstep with `src/lib/forge-splash.ts`.
 enum ForgeSplashTiming: Sendable {
-    /// 0.5s lands the wordmark. A beat, not a wait. (Was 2.45s — with the
-    /// real frame ready behind the curtain that read as a frozen launch.)
-    static let hold: TimeInterval = 0.5
+    /// 0.65s: the hammer lands at ~0.46s, sparks fly, then the curtain lifts.
+    /// A beat, not a wait. (Was 2.45s, which read as a frozen launch.)
+    static let hold: TimeInterval = 0.65
     static let reduceMotionHold: TimeInterval = 0.3
     static let fadeOut: TimeInterval = 0.3
 
@@ -20,7 +20,7 @@ enum ForgeSplashTiming: Sendable {
 
     static func pauseNanoseconds(reduceMotion: Bool) -> UInt64 {
         if reduceMotion { return 300_000_000 }
-        return 500_000_000
+        return 650_000_000
     }
 }
 
@@ -262,8 +262,13 @@ struct ForgeStrikePose: Equatable, Sendable {
 enum ForgeStrikeGeometry: Sendable {
     /// Welcome beat. Long enough to read the swing, then it holds.
     static let duration: TimeInterval = 1.05
-    /// Fits inside `ForgeSplashTiming.hold` so the launch curtain stays a beat.
-    static let splashDuration: TimeInterval = 0.5
+    /// Launch strike. Impact lands inside `ForgeSplashTiming.hold`; the
+    /// settle plays out under the fade, so the curtain stays a beat.
+    static let splashDuration: TimeInterval = 1.2
+    /// Where `.strike` peaks, as a fraction of its duration.
+    static let strikeImpactFraction: Double = 0.38
+    /// Seconds from splash appear to hammer impact (~0.46s).
+    static var splashImpactTime: TimeInterval { splashDuration * strikeImpactFraction }
 
     static func pose(
         variation: ForgeStrikeVariation,
@@ -283,8 +288,8 @@ enum ForgeStrikeGeometry: Sendable {
 
     /// Raised hammer falls into the fire. The flame flares, then settles into a hearth.
     private static func strike(_ u: Double) -> ForgeStrikePose {
-        let down = easeIn(window(u, 0, 0.38))
-        let hit = spike(u, center: 0.38, width: 0.10)
+        let down = easeIn(window(u, 0, strikeImpactFraction))
+        let hit = spike(u, center: strikeImpactFraction, width: 0.10)
         let bounce = spike(u, center: 0.50, width: 0.10)
         let settle = smoothstep(window(u, 0.38, 0.78))
         return ForgeStrikePose(
