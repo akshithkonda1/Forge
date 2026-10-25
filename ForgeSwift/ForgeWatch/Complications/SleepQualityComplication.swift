@@ -28,8 +28,9 @@ private struct SleepQualityComplicationView: View {
 
     private var quality: Int? { entry.snapshot?.sleepQualityScore }
     private var durationText: String? {
-        guard let minutes = entry.snapshot?.sleepMinutes else { return nil }
-        return "\(Int(minutes) / 60)h \(Int(minutes) % 60)m"
+        guard let raw = entry.snapshot?.sleepMinutes, raw.isFinite, raw >= 0 else { return nil }
+        let minutes = raw >= Double(Int.max) ? Int.max : Int(raw.rounded())
+        return "\(minutes / 60)h \(minutes % 60)m"
     }
 
     var body: some View {

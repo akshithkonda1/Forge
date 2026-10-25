@@ -241,8 +241,12 @@ public enum HobbyFit {
 
     public static func hobbies(from living: [LivingHobby]) -> [Hobby] {
         var out: [Hobby] = []
+        var seen: Set<String> = []
         for hobby in living {
             guard out.count < 8 else { break }
+            let id = hobby.rawValue
+            if seen.contains(id) { continue }
+            seen.insert(id)
             let kind: Kind
             let interest: Interest
             switch hobby {
@@ -263,7 +267,7 @@ public enum HobbyFit {
                 kind = .solo
                 interest = .low
             }
-            out.append(Hobby(id: hobby.rawValue, label: hobby.title, kind: kind, interest: interest))
+            out.append(Hobby(id: id, label: hobby.title, kind: kind, interest: interest))
         }
         return out
     }
@@ -521,7 +525,10 @@ public enum HobbyFit {
     }
 
     public static func engage(fromWorkouts workouts: [WorkoutHint], existing: [Hobby]) -> [Hobby] {
-        var byId = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+        // `Dictionary(uniqueKeysWithValues:)` traps on a duplicate key. Home
+        // concatenates persona chips + lifestyle-profile rows; both catalogs
+        // use `LivingHobby.outdoors` → id "outdoors". Keep the first row.
+        var byId = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for workout in workouts {
             guard let mapped = hobby(fromWorkout: workout) else { continue }
             if var current = byId[mapped.id] {

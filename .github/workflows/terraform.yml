@@ -1,9 +1,12 @@
 name: 'Terraform'
 
-# Plan-only. pull_request is unfiltered so required checks always report.
-# Push keeps a path filter. A live apply never runs from push/PR.
-# Apply is workflow_dispatch + run_apply=true only, in terraform-apply, after
-# the plan jobs and after GitHub Environment terraform-prod approval.
+# pull_request is unfiltered so required checks always report.
+# Push keeps a path filter.
+# Apply runs after the plan jobs on pull_request and push. workflow_dispatch
+# apply still requires run_apply=true (plan-only dispatch stays plan-only).
+# Nothing reaches AWS until GitHub Environment terraform-prod is approved
+# by its required reviewers. This job never auto-approves, never uses
+# continue-on-error, and never treats a skipped apply as success.
 on:
   push:
     paths:
@@ -20,11 +23,11 @@ on:
 permissions:
   contents: read
 
-# Plan runs on the same ref cancel each other. An in-progress apply uses its
-# own group and is never cancelled (see terraform-apply.concurrency).
+# Do not cancel a run whose apply job may be waiting on environment
+# approval. terraform-apply also has its own non-cancelling group.
 concurrency:
-  group: terraform-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.run_apply && 'apply' || 'plan' }}
-  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_apply) }}
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   AWS_REGION: us-east-1
@@ -86,7 +89,7 @@ jobs:
         if: needs.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
-          terraform_version: 1.15.0
+          terraform_version: 1.17.0
           terraform_wrapper: false
 
       # Force a local backend so plan stays green both before and after #371
@@ -112,6 +115,29 @@ jobs:
       - name: Terraform Validate
         if: needs.changes.outputs.relevant == 'true'
         run: terraform validate -no-color
+
+      - name: Setup TFLint
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          curl -fsSL -o /tmp/tflint.zip \
+            https://github.com/terraform-linters/tflint/releases/download/v0.65.0/tflint_linux_amd64.zip
+          sudo unzip -o /tmp/tflint.zip -d /usr/local/bin
+          tflint --version
+
+      - name: TFLint
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          tflint --init
+          tflint --format compact
+          tflint --chdir=bootstrap --init
+          tflint --chdir=bootstrap --format compact
+
+      - name: Checkov
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          python3 -m pip install --user 'checkov==3.3.30'
+          checkov -d . --framework terraform --config-file .checkov.yaml --compact --quiet
+          checkov -d bootstrap --framework terraform --config-file .checkov.yaml --compact --quiet
 
       - name: Terraform Plan
         if: needs.changes.outputs.relevant == 'true'
@@ -165,7 +191,7 @@ jobs:
         if: needs.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
-          terraform_version: 1.15.0
+          terraform_version: 1.17.0
           terraform_wrapper: false
 
       # Same local override as terraform-checks. See that job for why.
@@ -185,7 +211,10 @@ jobs:
   terraform-apply:
     name: 'Terraform Apply (dev, approval-gated)'
     needs: [terraform-checks, terraform-prod-plan]
-    if: github.event_name == 'workflow_dispatch' && inputs.run_apply == true
+    # Run on pull_request and push so this required check is not skipped.
+    # workflow_dispatch stays opt-in via run_apply. The only gate that can
+    # hold the job is GitHub Environment terraform-prod required reviewers.
+    if: github.event_name != 'workflow_dispatch' || inputs.run_apply == true
     environment: terraform-prod
     runs-on: ubuntu-latest
     # Two applies must not overlap. Never cancel an apply that has started.
@@ -229,7 +258,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
-          terraform_version: 1.15.0
+          terraform_version: 1.17.0
           terraform_wrapper: false
 
       - name: Require AWS credentials

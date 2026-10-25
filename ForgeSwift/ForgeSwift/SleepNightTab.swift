@@ -879,7 +879,7 @@ struct SleepDebtMeterCard: View {
 
     private var meter: SleepDebtMeter.Result {
         let need = hkService.estimatedSleepNeed(from: store.sleepData)
-        let byDate = Dictionary(uniqueKeysWithValues: store.sleepData.map { ($0.date, $0.totalHours) })
+        let byDate = SleepDebtMeter.uniquedNightsByDate(store.sleepData.map { ($0.date, $0.totalHours) })
         let hours = Array(store.sleepData.map(\.totalHours).reversed())
         return SleepDebtMeter.make(
             nightsByDate: byDate,

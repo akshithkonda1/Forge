@@ -400,6 +400,36 @@ class HobbyFitTests(unittest.TestCase):
         self.assertNotIn("Hike", hf.on_dismissal("Hike club"))
         self.assertTrue(hf.speech_is_clean(cool))
 
+    def test_living_hobby_catalog_has_unique_keys(self):
+        from aria_core import hobby_fit as hf
+        from aria_core import hobby_path as path
+        from aria_core import human_living_character as living
+
+        living_ids = list(hf._LIVING)
+        self.assertEqual(len(set(living_ids)), len(living_ids), "hobby catalog keys must be unique")
+        self.assertEqual(living_ids.count("outdoors"), 1)
+        self.assertEqual(list(path.TITLES).count("outdoors"), 1)
+        self.assertEqual(list(living.HOBBY_TITLE).count("outdoors"), 1)
+
+        rows = hf.hobbies_from_living(["outdoors", "gym", "outdoors"])
+        self.assertEqual([row["id"] for row in rows], ["outdoors", "gym"])
+
+        persona = hf.hobbies_from_living(["outdoors", "gym"])
+        profile = [
+            hf._row("outdoors", "Being outside", "outdoor", "medium", "2026-10-10"),
+            hf._row("cooking", "Cooking", "creative", "medium", None),
+        ]
+        engaged = hf.engage(
+            [
+                {"name": "Lunch walk", "type": "cardio", "dateISO": "2026-10-16"},
+                {"name": "Morning hike", "type": "cardio", "dateISO": "2026-10-16"},
+            ],
+            persona + profile,
+        )
+        outdoors = [row for row in engaged if row["id"] == "outdoors"]
+        self.assertEqual(len(outdoors), 1)
+        self.assertEqual(outdoors[0]["last_engaged_at"], "2026-10-16")
+
     def test_hobbies_shape_drops_pii_and_stays_out_of_patterns(self):
         from aria_core import hobby_fit as hf
         from services import coach_context

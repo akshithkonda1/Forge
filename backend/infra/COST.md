@@ -1,7 +1,8 @@
 # Forge AWS cost control
 
 Plan-only. **No apply.** Bedrock stays off (`aria_bedrock_enabled` default
-false). Scout stays off (`enable_scout` default false). The CloudWatch
+false). Scout stays off (`enable_scout` default false). Open Wearables
+stays off (`enable_open_wearables` default false). The CloudWatch
 dashboard stays off (`enable_cost_dashboard` default false — $3/month).
 
 ## Token audit
@@ -18,7 +19,7 @@ fail-paused), or when the per-user daily cap is exhausted.
 | `/coach/*` | `_safe_route` → `AIRouter` | Same as router + coach context block | same | Pause-gated at the handler. Falls back if Bedrock is off. |
 | `POST /workouts/form-check` `mode=briefing` | `generate_coach_text` | `live_system_prompt` + briefing task + snapshot ≤4k chars | 512 | **Not** handler-gated (degraded path stays up). Gateway + `is_aria_paused()` still block Converse. |
 | `POST /sleep/environment-check` | `generate_coach_vision` | Sleep specialist + image | 512 | Same: no Converse while paused. |
-| Voice | Kokoro-82M on the phone | No Hex TTS. No Fish / Polly / ElevenLabs. | — | `POST /ai/voice/speak` is gone. Load failure shows the text. |
+| `POST /ai/voice/speak` | Kokoro on-device TTS | Not an AWS spend. Bedrock stays off. | — | HTTP stays up. Leftover ElevenLabs / Fish SSM params are not created. |
 | `POST /ai/archetype` | simrunner `bedrock_client` when live | Short JSON instruction | 700 (simrunner only) | Lambda wraps and falls back locally. |
 | Scout `GrokBrain` | `plan` + `synthesize` | Plan ~200 tok out; synth 512 | 200 / **512** (was 700) | **Off** unless `enable_scout` and `aria_bedrock_enabled`. User-data no longer hardcodes Bedrock on. |
 | SimRunner `bedrock_client.converse` | `--live` CLI only | Eval prompts | 700 | Not in the Lambda plan. Dummy orchestrator never calls it. |
@@ -107,7 +108,7 @@ column.**
 | DynamoDB on-demand | $1.25 / 1M WRU, $0.25 / 1M RRU | [DynamoDB pricing](https://aws.amazon.com/dynamodb/pricing/) |
 | CloudWatch Logs ingest | $0.50 / GB (first 5 GB free) | [CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/) |
 | CloudWatch dashboard | $3 / dashboard / month (flag off) | same |
-| AWS Budgets (no actions) | first 2 free | [Budgets](https://aws.amazon.com/aws-cost-management/aws-budgets/) |
+| AWS Budgets (alerts + one IAM action) | first 2 free; actions included | [Budgets](https://aws.amazon.com/aws-cost-management/aws-budgets/) |
 | Claude Sonnet 5.5 | $2 / $10 per 1M in/out | [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing); Bedrock list is on [Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) |
 | Claude Opus 5.5 | $5 / $25 per 1M in/out | same (Opus 5 family list) |
 | Grok 4.7 Global CRIS | $2 / $6 per 1M in/out | [Grok 4.7 model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-xai-grok-4-7.html) (Geo is $2.20 / $6.60; Scout default is `global.xai.grok-4.7`) |
@@ -152,7 +153,8 @@ health/dashboard pennies.
 
 **What would make this expensive:** `aria_bedrock_enabled=true` without the
 daily cap, `enable_scout=true` (the box is ~$17/month before tokens — see
-the Scout handoff scenario below), `enable_cost_dashboard=true` (+$3), a
+the Scout handoff scenario below), `enable_open_wearables=true` (the box
+is ~$21/month at 100 MAU), `enable_cost_dashboard=true` (+$3), a
 second CloudTrail, or provisioned concurrency (CI-blocked).
 
 Leave `spend_guard_notification_email` for Akshith. The $25 budget fires

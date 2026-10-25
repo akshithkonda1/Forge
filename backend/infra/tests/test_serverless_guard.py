@@ -2,9 +2,9 @@
 
 Scans ``backend/infra/**/*.tf`` (not ``.terraform``). Fails on provisioned
 Lambda concurrency, provisioned DynamoDB, or always-on compute. The only
-exception is a forbidden resource whose ``count`` is exactly
-``local.scout_count`` (ARIA Scout, ``enable_scout`` default false).
-Reserved concurrency is allowed: it is a free cap, default null.
+exceptions are forbidden resources whose ``count`` is exactly
+``local.scout_count`` or ``local.open_wearables_count`` (both flags default
+false). Reserved concurrency is allowed: it is a free cap, default null.
 """
 
 from __future__ import annotations
@@ -32,10 +32,10 @@ FORBIDDEN_RESOURCE_TYPES = frozenset(
     }
 )
 FORBIDDEN_RESOURCE_PREFIXES = ("aws_elasticache_",)
-SCOUT_COUNT_ALLOWLIST = "local.scout_count"
+OFF_BY_DEFAULT_COUNTS = ("local.scout_count", "local.open_wearables_count")
 
 _RESOURCE_RE = re.compile(r'resource\s+"([^"]+)"\s+"([^"]+)"\s*\{')
-_COUNT_RE = re.compile(r"(?m)^\s*count\s*=\s*local\.scout_count\b")
+_COUNT_RE = re.compile(r"(?m)^\s*count\s*=\s*local\.(?:scout_count|open_wearables_count)\b")
 _BILLING_MODE_RE = re.compile(r"billing_mode\s*=\s*(?:\"([^\"]+)\"|([^\s#]+))")
 _CAPACITY_RE = re.compile(r"\b(read_capacity|write_capacity)\b")
 
@@ -134,7 +134,7 @@ def test_no_forbidden_always_on_resources():
                 continue
             findings.append(
                 f"{rel}: resource \"{resource_type}\" \"{name}\" is always-on "
-                f"(count is not {SCOUT_COUNT_ALLOWLIST})"
+                f"(count is not one of {OFF_BY_DEFAULT_COUNTS})"
             )
     assert findings == [], "always-on / billed-idle resources:\n" + "\n".join(findings)
 
@@ -226,4 +226,4 @@ def test_alarm_count_is_within_free_tier():
     keys = re.findall(r"^\s{4}([a-z0-9_]+)\s*=\s*\{", alarms_tf, re.M)
     # Keys of local.standard_alarms. Keep this in the 10-alarm free tier.
     assert 1 <= len(keys) <= 10, keys
-    assert len(keys) == 7, keys
+    assert len(keys) == 8, keys
