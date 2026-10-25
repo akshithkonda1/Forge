@@ -319,9 +319,11 @@ struct RecoveryMetricsCard: View {
     var recoveryScore: Int {
         var score = 0
         
-        // HRV component (40% weight)
+        // HRV component (40% weight). Clamp the Double first — Int() of a
+        // huge finite HRV still traps if min(..., 100) runs after the convert.
         let hrv = stats.hrv.isFinite ? stats.hrv : 0
-        let hrvScore = min(Int((hrv * 1.5).rounded()), 100)
+        let hrvScaled = min(100, max(0, hrv * 1.5)).rounded()
+        let hrvScore = hrvScaled.isFinite ? Int(hrvScaled) : 0
         score += Int(Double(hrvScore) * 0.4)
         
         // Resting HR component (30% weight)
