@@ -21,7 +21,14 @@ final class OnboardingCoordinator {
     /// Tests and DEBUG skip-wait inject these. Production uses the system clock
     /// and real Health / cloud loads.
     var prepClock: AriaForgePrepClock = AriaForgePrepSystemClock()
+    /// DEBUG Simulator skips the 45s–180s console hold so a kill/relaunch
+    /// into prep does not freeze on a dark screen. Real devices keep the
+    /// floor and cap exactly as `AriaForgePrep` defines them.
+    #if DEBUG
+    var skipPrepHold = TestReadyLaunchPolicy.isRunningOnSimulator
+    #else
     var skipPrepHold = false
+    #endif
     var prepWorkOverride: (() async -> Void)?
     var showAgeBlocked = false
     /// After the age block, the composer shows the birthday field. `.details`

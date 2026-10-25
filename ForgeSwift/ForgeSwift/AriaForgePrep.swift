@@ -207,8 +207,17 @@ enum AriaForgePrepHandoff {
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
-    static func needsPrep(isOnboarded: Bool) -> Bool {
-        isInterviewComplete && !isOnboarded
+    /// A leftover flag with no signed-in session is stale and is not a prep gate.
+    static func needsPrep(isOnboarded: Bool, isAuthenticated: Bool = true) -> Bool {
+        isInterviewComplete && !isOnboarded && isAuthenticated
+    }
+
+    /// Drop a leftover `interviewComplete` flag that cannot resume a real prep.
+    /// Does not change the 45s–180s hold on a valid resume.
+    static func validateFlag(isOnboarded: Bool, isAuthenticated: Bool) {
+        if isOnboarded || !isAuthenticated {
+            clearInterviewComplete()
+        }
     }
 }
 

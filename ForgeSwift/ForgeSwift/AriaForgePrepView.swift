@@ -23,13 +23,14 @@ struct AriaForgePrepView: View {
             VStack(spacing: 0) {
                 topBar
 
-                GeometryReader { geo in
-                    ScrollView(showsIndicators: false) {
-                        content(stage: stage, progress: progress)
-                            .frame(maxWidth: .infinity, minHeight: geo.size.height)
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
+                // Never size the copy against a GeometryReader that can report
+                // zero height on first layout — that collapsed the stack into
+                // a blank dark screen when prep resumed after a kill.
+                ScrollView(showsIndicators: false) {
+                    content(stage: stage, progress: progress)
+                        .frame(maxWidth: .infinity, minHeight: 420)
                 }
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
     }
