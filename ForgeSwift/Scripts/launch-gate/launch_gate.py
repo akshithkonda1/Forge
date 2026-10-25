@@ -187,13 +187,14 @@ def run_scenario(name, udid, app):
     frame_at, share = None, None
     while el() < T["FIRST_FRAME_MAX_S"]:
         shot = f"{OUT}/{name}-frame.png"
+        taken = el()  # capture start; screenshot latency is not app time
         if simctl("io", udid, "screenshot", shot, check=False).returncode == 0:
             share = dominant_share(shot)
             if share < T["BLANK_DOMINANT_SHARE"]:
-                frame_at = el(); break
+                frame_at = taken; break
         time.sleep(0.5)
     check("alive@first_frame", pid_alive(pid), f"pid {pid}", "alive")
-    check("first_frame", frame_at is not None,
+    check("first_frame", frame_at is not None and frame_at <= T["FIRST_FRAME_MAX_S"],
           f"{frame_at:.2f}s" if frame_at else f"blank/none after {el():.1f}s (dominant {share})",
           f"<= {T['FIRST_FRAME_MAX_S']}s non-blank")
     if not pid_alive(pid):

@@ -82,6 +82,19 @@ jobs:
             ENABLE_DEBUG_DYLIB=NO 2>&1 | tee /tmp/launch-build.log
           test -d /tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
 
+      # CODE_SIGNING_ALLOWED=NO drops ForgeSwift.entitlements, and an
+      # entitlement-less CKContainer(identifier:) traps at launch
+      # (PartnerCycleSharing.shared). That crash is a CI artifact, not the
+      # shipping app, so ad-hoc sign with the project's own entitlements —
+      # the same thing Xcode does for a local simulator run — and verify.
+      - name: Ad-hoc sign app with project entitlements
+        run: |
+          set -euo pipefail
+          APP=/tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
+          codesign --force --sign - --entitlements ForgeSwift/ForgeSwift.entitlements --timestamp=none "$APP"
+          codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "iCloud.com.forge.ForgeSwift" \
+            || { echo "::error::entitlements not embedded; CloudKit init would trap"; exit 1; }
+
       - name: Launch gate (cold / kill-relaunch / AriaForgePrep wedge)
         run: |
           set -euo pipefail
