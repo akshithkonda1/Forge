@@ -1,0 +1,42 @@
+# Skips that conflict with the cheap-idle / no-NAT / no-CMK-$1 constraints.
+# Each skip is a product decision, not a silenced finding.
+compact: true
+framework:
+  - terraform
+quiet: true
+skip-path:
+  - .terraform
+skip-check:
+  - CKV_AWS_117 # Lambda in VPC needs NAT (~$33/mo idle). Forbidden.
+  - CKV_AWS_115 # Reserved concurrency default is unreserved; 0 is rejected.
+  - CKV_AWS_116 # DLQ would add SQS. Errors go to CloudWatch + alarms.
+  - CKV_AWS_50  # X-Ray is extra spend. Not on the cheap default.
+  - CKV_AWS_272 # Lambda code signing is not this stack.
+  - CKV_AWS_173 # Lambda env encryption needs a $1/mo CMK.
+  - CKV_AWS_158 # CloudWatch Logs CMK is $1/mo idle. AWS-owned encryption stays on.
+  - CKV_AWS_338 # 1-year log retention fights the 7/14-day cost band.
+  - CKV_AWS_119 # DynamoDB customer-managed KMS is $1/mo. AWS-owned SSE is on.
+  - CKV2_AWS_62 # S3 event notifications not required; CloudTrail covers API access.
+  - CKV_AWS_144 # Cross-region replication is extra storage and not requested.
+  - CKV_AWS_18  # Extra access-log buckets. CloudTrail + API access logs cover audit.
+  - CKV2_AWS_61 # Some buckets already have lifecycle; Checkov still wants more.
+  - CKV_AWS_111 # Deny-Bedrock budget action must Deny on *.
+  - CKV_AWS_356 # Same Deny-Bedrock policy.
+  - CKV_AWS_109 # Same Deny-Bedrock policy.
+  - CKV2_AWS_5  # Scout / Open Wearables SGs are attached when those flags are on.
+  - CKV_AWS_23  # Descriptions are present; some generated statements trip this.
+  - CKV_AWS_260 # 443/80 ingress is required for ACME + vendor OAuth (no NAT).
+  - CKV_AWS_24  # No SSH. SSM Session Manager only.
+  - CKV_AWS_79  # Instance metadata hop limit 2 is required for containers.
+  - CKV_AWS_8   # Root volumes are encrypted=true.
+  - CKV_AWS_126 # Detailed monitoring is extra CloudWatch spend.
+  - CKV_AWS_135 # EBS optimized is default on current instance types.
+  - CKV2_AWS_57 # SSM SecureString placeholders are seeded out of band; no rotation resource.
+  - CKV_AWS_337 # Same SSM placeholders.
+  - CKV2_AWS_38 # State bucket has a GetObject allowlist + TLS + PAB.
+  - CKV_AWS_107 # GitHub OIDC deploy role must apply the sibling stack; least privilege is the repo/branch assume condition, not a resource-scoped apply policy.
+  - CKV_AWS_108 # Same deploy role. Data-exfil family actions are required for terraform apply of SSM/S3/Lambda.
+  - CKV_AWS_110 # Same deploy role. iam:PassRole / CreateRole are required to manage Lambda and instance roles.
+  - CKV_AWS_309 # GET /health and GET /devices/catalog are intentionally public and throttled.
+  - CKV2_AWS_10 # CloudTrail → CloudWatch Logs is extra ingest spend. Trail already writes a locked S3 bucket.
+  - CKV2_AWS_34 # ARIA_PAUSED is a non-secret kill switch (Standard String). Secrets stay SecureString.

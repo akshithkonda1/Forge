@@ -28,6 +28,14 @@ describe("ChatPage speech", () => {
     useAppStore.setState({ activeTab: "home" });
   });
 
+  it("never fetches a cloud TTS API from the Dummy chat mouth", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ChatPage />);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it("cancels speech when the tab switches to Home", () => {
     render(<ChatPage />);
     expect(cancel).not.toHaveBeenCalled();

@@ -60,20 +60,15 @@ data "aws_iam_policy_document" "backend_lambda" {
     sid = "AppDataTableAccess"
 
     actions = [
-      "dynamodb:BatchGetItem",
-      "dynamodb:BatchWriteItem",
-      "dynamodb:ConditionCheckItem",
       "dynamodb:DeleteItem",
       "dynamodb:GetItem",
       "dynamodb:PutItem",
       "dynamodb:Query",
-      "dynamodb:Scan",
       "dynamodb:UpdateItem",
     ]
 
     resources = [
       aws_dynamodb_table.app_data.arn,
-      "${aws_dynamodb_table.app_data.arn}/index/*",
     ]
   }
 
@@ -104,35 +99,6 @@ data "aws_iam_policy_document" "backend_lambda" {
   }
 
   statement {
-    sid = "UploadsKMS"
-
-    actions = [
-      "kms:Decrypt",
-      "kms:DescribeKey",
-      "kms:GenerateDataKey",
-    ]
-
-    resources = [
-      aws_kms_key.uploads.arn,
-    ]
-  }
-
-  statement {
-    sid = "ElevenLabsParameterRead"
-
-    actions = [
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-    ]
-
-    resources = [
-      aws_ssm_parameter.elevenlabs_api_key.arn,
-      aws_ssm_parameter.elevenlabs_voice_id.arn,
-      aws_ssm_parameter.elevenlabs_agent_id.arn,
-    ]
-  }
-
-  statement {
     sid = "AriaPauseRead"
 
     actions = [
@@ -144,27 +110,47 @@ data "aws_iam_policy_document" "backend_lambda" {
     ]
   }
 
-  statement {
-    sid = "ElevenLabsParameterDecrypt"
+  dynamic "statement" {
+    for_each = local.open_wearables_enabled ? [1] : []
 
-    actions = [
-      "kms:Decrypt",
-    ]
+    content {
+      sid = "OpenWearablesWebhookSecret"
 
-    resources = [
-      "arn:aws:kms:${var.aws_region}:${local.account_id_for_naming}:key/*",
-    ]
+      actions = [
+        "ssm:GetParameter",
+      ]
 
-    condition {
-      test     = "ForAnyValue:StringEquals"
-      variable = "kms:ResourceAliases"
-      values   = ["alias/aws/ssm"]
+      resources = [
+        aws_ssm_parameter.open_wearables["WEBHOOK_SECRET"].arn,
+      ]
     }
+  }
 
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${var.aws_region}.amazonaws.com"]
+  dynamic "statement" {
+    for_each = local.open_wearables_enabled ? [1] : []
+
+    content {
+      sid = "OpenWearablesWebhookDecrypt"
+
+      actions = [
+        "kms:Decrypt",
+      ]
+
+      resources = [
+        "arn:aws:kms:${var.aws_region}:${local.account_id_for_naming}:key/*",
+      ]
+
+      condition {
+        test     = "ForAnyValue:StringEquals"
+        variable = "kms:ResourceAliases"
+        values   = ["alias/aws/ssm"]
+      }
+
+      condition {
+        test     = "StringEquals"
+        variable = "kms:ViaService"
+        values   = ["ssm.${var.aws_region}.amazonaws.com"]
+      }
     }
   }
 
@@ -172,17 +158,15 @@ data "aws_iam_policy_document" "backend_lambda" {
     sid = "BedrockInvokeClaudeAndGrok"
 
     # Lets the AI router, coach routes, and ARIA's live reasoning path call
-    # Claude and Grok on Bedrock via Converse *if* ARIA_BEDROCK_ENABLED is true.
-    # Default is false — this statement is unused on the Dummy-offline and
-    # live-API-no-Bedrock paths (no token spend while the flag stays off).
+    # the configured Claude and Grok ids via Converse *if* ARIA_BEDROCK_ENABLED
+    # is true. Default is false — unused on Dummy-offline and
+    # live-API-no-Bedrock (no token spend while the flag stays off).
     #
-    # Anthropic wildcards cover the code defaults (Sonnet 5.5 / Opus 5.5 via
-    # global.* inference profiles) and any later swap without rewriting IAM.
-    # xAI wildcards cover Grok 4.6 / 4.7 CRIS (us.xai.* / global.xai.*) on
-    # bedrock-runtime. Grok 4.3 is mantle In-Region only; this runtime client
-    # does not use it. project/default is on the Grok 4.6 card for runtime
-    # InvokeModel. Still gated by the flag, account model-access, and (for
-    # Anthropic) Marketplace subscribe / FTU. See ROADMAP_IAC_READINESS.md.
+    # Resources are the specific foundation-model and us.*/global.* inference
+    # profile ARNs for the three router slots (and Scout when enabled). The
+    # sibling geo profile is included so Bedrock can route internationally.
+    # No anthropic.* / xai.* wildcards. Still gated by the flag, account
+    # model-access, and (for Anthropic) Marketplace subscribe / FTU.
     actions = [
       "bedrock:InvokeModel",
       "bedrock:InvokeModelWithResponseStream",
@@ -190,14 +174,10 @@ data "aws_iam_policy_document" "backend_lambda" {
       "bedrock:ConverseStream",
     ]
 
-    resources = [
-      "arn:aws:bedrock:*::foundation-model/anthropic.*",
-      "arn:aws:bedrock:*::foundation-model/xai.*",
-      "arn:aws:bedrock:*:*:inference-profile/*anthropic*",
-      "arn:aws:bedrock:*:*:inference-profile/global.xai.*",
-      "arn:aws:bedrock:*:*:inference-profile/us.xai.*",
-      "arn:aws:bedrock:*:*:project/default",
-    ]
+    resources = concat(
+      local.bedrock_foundation_model_arns,
+      local.bedrock_inference_profile_arns,
+    )
   }
 }
 
@@ -421,6 +401,48 @@ resource "aws_s3_bucket_public_access_block" "uploads" {
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_ownership_controls" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+data "aws_iam_policy_document" "uploads" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.uploads.arn,
+      "${aws_s3_bucket.uploads.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+  policy = data.aws_iam_policy_document.uploads.json
+
+  depends_on = [
+    aws_s3_bucket_public_access_block.uploads,
+    aws_s3_bucket_ownership_controls.uploads,
+  ]
+}
+
 resource "aws_s3_bucket_versioning" "uploads" {
   bucket = aws_s3_bucket.uploads.id
 
@@ -441,7 +463,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "uploads" {
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "aws:kms"
-      kms_master_key_id = aws_kms_key.uploads.arn
+      kms_master_key_id = "alias/aws/s3"
     }
     bucket_key_enabled = true
   }
@@ -585,16 +607,13 @@ resource "aws_lambda_function" "backend" {
 
   environment {
     variables = {
-      ELEVENLABS_API_KEY_PARAMETER_NAME       = aws_ssm_parameter.elevenlabs_api_key.name
-      ELEVENLABS_ARIA_VOICE_ID_PARAMETER_NAME = aws_ssm_parameter.elevenlabs_voice_id.name
-      ELEVENLABS_ARIA_AGENT_ID_PARAMETER_NAME = aws_ssm_parameter.elevenlabs_agent_id.name
-      ARIA_PAUSED_PARAMETER_NAME              = aws_ssm_parameter.aria_paused.name
-      ARIA_PAUSE_FAIL_MODE                    = var.aria_pause_fail_mode
-      ARIA_DAILY_REQUEST_CAP                  = tostring(var.aria_daily_request_cap)
-      ARIA_DAILY_TOKEN_CAP                    = tostring(var.aria_daily_token_cap)
-      APP_DATA_TABLE_NAME                     = aws_dynamodb_table.app_data.name
-      ARIA_BEDROCK_ENABLED                    = var.aria_bedrock_enabled ? "true" : "false"
-      ENVIRONMENT                             = var.environment
+      ARIA_PAUSED_PARAMETER_NAME = aws_ssm_parameter.aria_paused.name
+      ARIA_PAUSE_FAIL_MODE       = var.aria_pause_fail_mode
+      ARIA_DAILY_REQUEST_CAP     = tostring(var.aria_daily_request_cap)
+      ARIA_DAILY_TOKEN_CAP       = tostring(var.aria_daily_token_cap)
+      APP_DATA_TABLE_NAME        = aws_dynamodb_table.app_data.name
+      ARIA_BEDROCK_ENABLED       = var.aria_bedrock_enabled ? "true" : "false"
+      ENVIRONMENT                = var.environment
       # Fail-closed twin of local.is_dev_pool. Only dev/local/sandbox get
       # unsigned override tokens and seeded demo data.
       FORGE_ALLOW_DEV_OVERRIDE = local.is_dev_pool ? "true" : "false"
@@ -602,7 +621,8 @@ resource "aws_lambda_function" "backend" {
       # empty model id, so an unset variable falls back to the code default.
       # Inert while ARIA_BEDROCK_ENABLED is false. Slot 1/2 ids match
       # ai_router.default_models() (Claude Sonnet 5.5 / Opus 5.5 Global CRIS);
-      # slot 3 is Grok 4.7 Global CRIS. IAM already allows anthropic.* profiles.
+      # slot 3 is Grok 4.7 Global CRIS. IAM also allows the sibling us.*
+      # profile so Bedrock can route internationally.
       AI_ROUTER_MODEL_1_ID   = var.ai_router_model_1_id != "" ? var.ai_router_model_1_id : "global.anthropic.claude-sonnet-5-5"
       AI_ROUTER_MODEL_1_NAME = var.ai_router_model_1_name != "" ? var.ai_router_model_1_name : "Claude Sonnet 5.5"
       AI_ROUTER_MODEL_2_ID   = var.ai_router_model_2_id != "" ? var.ai_router_model_2_id : "global.anthropic.claude-opus-5-5"
@@ -612,6 +632,9 @@ resource "aws_lambda_function" "backend" {
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
       UPLOADS_KMS_KEY_ARN    = aws_kms_key.uploads.arn
       USER_POOL_ID           = aws_cognito_user_pool.forge.id
+      OPEN_WEARABLES_WEBHOOK_PARAMETER_NAME = (
+        local.open_wearables_enabled ? aws_ssm_parameter.open_wearables["WEBHOOK_SECRET"].name : ""
+      )
     }
   }
 
@@ -744,6 +767,17 @@ resource "aws_apigatewayv2_stage" "default" {
     }
   }
 
+  # Open Wearables webhook (open_wearables.tf) — HMAC, not JWT.
+  dynamic "route_settings" {
+    for_each = local.open_wearables_enabled ? [local.open_wearables_route_key] : []
+
+    content {
+      route_key              = route_settings.value
+      throttling_burst_limit = var.open_wearables_throttling_burst_limit
+      throttling_rate_limit  = var.open_wearables_throttling_rate_limit
+    }
+  }
+
   depends_on = [aws_cloudwatch_log_resource_policy.api_access]
 
   tags = local.common_tags
@@ -762,9 +796,9 @@ resource "aws_lambda_permission" "api_gateway" {
 # charges may appear under the model provider, not "Amazon Bedrock", so this
 # is an account-level COST budget rather than a Bedrock-only filter.
 #
-# The budget only ALERTS — it never stops spend (no ACTUAL/FORECASTED action
-# that blocks APIs). ElevenLabs is billed outside AWS, so it is invisible
-# here; the ElevenLabs cap lives in the app quota, not this budget.
+# Email alerts fire at 80/100 actual and 100 forecasted. At 100% actual the
+# budget action below attaches a Deny-Bedrock IAM policy to the API Lambda
+# (and Scout / Open Wearables instance roles when those flags are on).
 resource "aws_budgets_budget" "spend_guard" {
   count = var.enable_spend_guard ? 1 : 0
 
@@ -793,9 +827,131 @@ resource "aws_budgets_budget" "spend_guard" {
   lifecycle {
     precondition {
       condition     = var.skip_aws_provider_checks || var.spend_guard_notification_email != ""
-      error_message = "spend_guard_notification_email must be non-empty on a real apply when enable_spend_guard is true. The budget only alerts (it never stops spend); ElevenLabs spend is invisible to it."
+      error_message = "spend_guard_notification_email must be non-empty on a real apply when enable_spend_guard is true. Alerts fire at 80/100; a budget action denies Bedrock at 100% actual."
     }
   }
 
   tags = local.common_tags
+}
+
+data "aws_iam_policy_document" "deny_bedrock" {
+  statement {
+    sid    = "DenyBedrockAtBudgetCap"
+    effect = "Deny"
+
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+      "bedrock:Converse",
+      "bedrock:ConverseStream",
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "deny_bedrock" {
+  count = var.enable_spend_guard ? 1 : 0
+
+  name        = "${local.name_prefix}-deny-bedrock"
+  description = "Attached by the spend-guard budget action at 100% actual. Blocks live Bedrock invokes."
+  policy      = data.aws_iam_policy_document.deny_bedrock.json
+
+  tags = local.common_tags
+}
+
+data "aws_iam_policy_document" "budgets_action_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["budgets.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "budgets_action_exec" {
+  count = var.enable_spend_guard ? 1 : 0
+
+  statement {
+    sid = "AttachDenyBedrock"
+
+    actions = [
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+    ]
+
+    resources = concat(
+      [aws_iam_role.backend_lambda.arn],
+      aws_iam_role.scout[*].arn,
+      aws_iam_role.open_wearables[*].arn,
+    )
+  }
+
+  statement {
+    sid = "ReadDenyBedrockPolicy"
+
+    actions = [
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+    ]
+
+    resources = [aws_iam_policy.deny_bedrock[0].arn]
+  }
+}
+
+resource "aws_iam_role" "budgets_action" {
+  count = var.enable_spend_guard ? 1 : 0
+
+  name               = "${local.name_prefix}-budgets-action"
+  assume_role_policy = data.aws_iam_policy_document.budgets_action_assume.json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy" "budgets_action" {
+  count = var.enable_spend_guard ? 1 : 0
+
+  name   = "${local.name_prefix}-budgets-action"
+  role   = aws_iam_role.budgets_action[0].id
+  policy = data.aws_iam_policy_document.budgets_action_exec[0].json
+}
+
+resource "aws_budgets_budget_action" "deny_bedrock" {
+  count = var.enable_spend_guard ? 1 : 0
+
+  budget_name        = aws_budgets_budget.spend_guard[0].name
+  action_type        = "APPLY_IAM_POLICY"
+  approval_model     = "AUTOMATIC"
+  notification_type  = "ACTUAL"
+  execution_role_arn = aws_iam_role.budgets_action[0].arn
+
+  action_threshold {
+    action_threshold_type  = "PERCENTAGE"
+    action_threshold_value = 100
+  }
+
+  definition {
+    iam_action_definition {
+      policy_arn = aws_iam_policy.deny_bedrock[0].arn
+      roles = compact(concat(
+        [aws_iam_role.backend_lambda.name],
+        aws_iam_role.scout[*].name,
+        aws_iam_role.open_wearables[*].name,
+      ))
+    }
+  }
+
+  subscriber {
+    address           = var.spend_guard_notification_email != "" ? var.spend_guard_notification_email : "ci-placeholder@example.com"
+    subscription_type = "EMAIL"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.skip_aws_provider_checks || var.spend_guard_notification_email != ""
+      error_message = "spend_guard_notification_email must be non-empty on a real apply; it is the budget-action subscriber."
+    }
+  }
 }

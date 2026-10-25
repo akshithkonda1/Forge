@@ -230,11 +230,6 @@ def _route(event, _context):
 
             return aria.handle_put_ai_voice(body, user_id=user_id)
 
-        if method == "POST" and path == "/ai/voice/speak":
-            from routes import aria
-
-            return aria.handle_post_ai_voice_speak(body, user_id=user_id)
-
         if method == "POST" and path == "/ai/weekly-review":
             from routes import aria
 

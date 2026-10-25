@@ -7,4 +7,13 @@ provider "aws" {
   skip_region_validation      = var.skip_aws_provider_checks
   skip_requesting_account_id  = var.skip_aws_provider_checks
   token                       = var.skip_aws_provider_checks ? "terraform-ci-placeholder" : null
+
+  default_tags {
+    tags = {
+      Application = "forge"
+      ManagedBy   = "Terraform"
+      Purpose     = "terraform-state"
+      Repository  = var.github_repository
+    }
+  }
 }

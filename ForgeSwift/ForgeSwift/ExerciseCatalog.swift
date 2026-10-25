@@ -931,7 +931,15 @@ enum ExerciseLibrary {
             ?? sports.first
             ?? calisthenics.first
         else {
-            preconditionFailure("ExerciseCatalog: catalog contains no sports or calisthenics definitions")
+            let intensity: WorkoutIntensity = minutes >= 75 ? .high : (minutes >= 40 ? .moderate : .low)
+            return WorkoutPlan(
+                id: "sport-\(UUID().uuidString.prefix(6))",
+                name: named.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Sport" : named,
+                type: .sportSpecific,
+                duration: max(10, minutes),
+                intensity: intensity,
+                exercises: []
+            )
         }
         var row = asPlanRow(def)
         row.sets = 1

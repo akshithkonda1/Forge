@@ -603,7 +603,9 @@ extension AppStore {
         }
         let fitHobbies = HobbyFit.engage(
             fromWorkouts: Array(hints),
-            existing: HobbyFit.hobbies(from: persona.hobbies ?? []) + userProfile.lifestyleProfile.hobbies
+            existing: HobbyFit.normalizeHobbies(
+                HobbyFit.hobbies(from: persona.hobbies ?? []) + userProfile.lifestyleProfile.hobbies
+            )
         )
         let hour = Calendar.current.component(.hour, from: Date())
         let live = HobbyFit.LiveSignals(

@@ -1,10 +1,10 @@
-"""Per-user daily Bedrock request and token caps.
+"""Per-user daily Bedrock request/token caps.
 
-Both caps are config (env). Defaults are conservative so a leaked JWT cannot
+Caps are config (env). Defaults are conservative so a leaked JWT cannot
 run up a Bedrock bill. Set a cap to ``0`` to disable that counter. Reservation
 happens *before* Converse using ``max_tokens`` as the output-side estimate;
 input tokens are not known until after the call, so this is a ceiling, not a
-precise meter.
+precise meter. There is no voice-char cap — Kokoro is on-device.
 """
 
 from __future__ import annotations

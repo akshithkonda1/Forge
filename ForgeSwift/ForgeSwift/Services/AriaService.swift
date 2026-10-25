@@ -488,7 +488,7 @@ final class DataPermissionsStore: ObservableObject {
             for domain in Self.domains where merged[domain] == nil { merged[domain] = true }
             grants = merged
         } else {
-            grants = Dictionary(uniqueKeysWithValues: Self.domains.map { ($0, true) })
+            grants = Dictionary(Self.domains.map { ($0, true) }, uniquingKeysWith: { first, _ in first })
         }
     }
 

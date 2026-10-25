@@ -33,8 +33,8 @@ struct ForgeSwiftApp: App {
                     // WCSession companion sync is owned by
                     // WorkoutActivityCoordinator.activationDidCompleteWith.
                     // Do not retry on a 1.5 / 4 / 8s ladder from here.
-                    HealthDeviceCatalogSync.shared.loadCached()
                     Task {
+                        HealthDeviceCatalogSync.shared.loadCached()
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }

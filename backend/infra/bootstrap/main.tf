@@ -2,10 +2,19 @@ data "aws_caller_identity" "current" {
   count = var.skip_aws_provider_checks ? 0 : 1
 }
 
-data "aws_region" "current" {}
-
 locals {
   account_id = var.skip_aws_provider_checks ? "ci" : data.aws_caller_identity.current[0].account_id
+  github_oidc_subs = length(var.github_oidc_allowed_subs) > 0 ? var.github_oidc_allowed_subs : [
+    "repo:${var.github_repository}:ref:refs/heads/main",
+    "repo:${var.github_repository}:environment:terraform-prod",
+    # Least-privilege extra for the approval-gated Apply (dev) job when it
+    # runs from a pull_request. GitHub's sub for a job with `environment:`
+    # is repo:org/repo:environment:NAME, not the PR branch ref. terraform-prod
+    # already covers that job today; environment:dev is the matching subject
+    # if the GitHub Environment is named `dev` instead. This is narrower
+    # than repo:...:pull_request (any PR).
+    "repo:${var.github_repository}:environment:dev",
+  ]
   state_bucket_name = coalesce(
     var.state_bucket_name,
     "forge-tf-state-${local.account_id}"
@@ -19,7 +28,11 @@ locals {
   deploy_role_arn = (
     var.skip_aws_provider_checks
     ? "arn:aws:iam::ci:role/ci-placeholder-deploy"
-    : var.state_bucket_deploy_role_arn
+    : (
+      var.state_bucket_deploy_role_arn != ""
+      ? var.state_bucket_deploy_role_arn
+      : try(aws_iam_role.github_deploy[0].arn, "")
+    )
   )
   deploy_role_name = (
     local.deploy_role_arn == ""
@@ -45,7 +58,7 @@ locals {
       Application = "forge"
       ManagedBy   = "Terraform"
       Purpose     = "terraform-state"
-      Repository  = "Forge"
+      Repository  = var.github_repository
     },
     var.tags
   )
@@ -87,17 +100,18 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tf_state" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = "alias/aws/s3"
     }
     bucket_key_enabled = true
   }
 }
 
 # Versioned so a bad apply can roll state back. Noncurrent versions expire
-# after 30 days so the bucket does not grow forever. Stay on SSE-S3 (AES256)
-# at $0 — no customer KMS key. Cognito IdP client secrets from the sibling
-# stack land in this state file after the first real apply; treat the bucket
-# as secret material.
+# after 30 days so the bucket does not grow forever. Stay on SSE-KMS with
+# alias/aws/s3 ($0 idle — no customer CMK). Cognito IdP client secrets from
+# the sibling stack land in this state file after the first real apply;
+# treat the bucket as secret material.
 resource "aws_s3_bucket_lifecycle_configuration" "tf_state" {
   bucket = aws_s3_bucket.tf_state.id
 
@@ -109,6 +123,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "tf_state" {
 
     noncurrent_version_expiration {
       noncurrent_days = 30
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
 
@@ -141,8 +159,8 @@ data "aws_iam_policy_document" "tf_state" {
   # Restrict s3:GetObject to the deploy role (and its assumed-role sessions)
   # plus the account root. Do not lock out root — IdP secrets in state would
   # then be unrecoverable. No DenyUnencryptedObjectUploads: bucket default
-  # encryption is SSE-S3, and requiring the explicit header breaks the
-  # Terraform S3 backend which relies on that default.
+  # encryption is SSE-KMS (alias/aws/s3), and requiring the explicit header
+  # breaks the Terraform S3 backend which relies on that default.
   statement {
     sid    = "DenyGetObjectExceptDeployAndRoot"
     effect = "Deny"

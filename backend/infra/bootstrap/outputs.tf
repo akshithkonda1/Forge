@@ -16,3 +16,8 @@ output "backend_snippet" {
     # key = "backend/dev/terraform.tfstate"  or  "backend/prod/terraform.tfstate"
   EOT
 }
+
+output "github_deploy_role_arn" {
+  description = "IAM role GitHub Actions assumes via OIDC. Put this in the AWS_ROLE_ARN repository secret. Null when enable_github_oidc is false."
+  value       = try(aws_iam_role.github_deploy[0].arn, null)
+}

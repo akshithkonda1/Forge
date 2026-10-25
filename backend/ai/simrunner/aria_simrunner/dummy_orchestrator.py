@@ -22,15 +22,16 @@ dumping the numbers the stub reasoned over. Close to realistic. Not real.
 This module is local-only. It refuses production-like ``ENVIRONMENT`` values
 and any cloud runtime (Lambda, Cloud Run, Azure, GCP). It never imports a
 cloud SDK and never calls ``ARIAEngine.respond`` (that method can leave the
-machine). ``use_real_api`` is hard-off.
+machine). ``use_real_api`` is hard-off. ``respond()`` holds
+``web_research`` in dummy-offline so look_up / research / environment never
+open a socket, construct an HTTP client, or spend a token. Tests may still
+mock those functions. The lambda engine is in-process only: fusion +
+deterministic ``generate_response``, never ``generate_response_live`` and
+never a cloud SDK.
 
-The one intentional exception: ``respond()`` can call out to
-``web_research``, a separate, clearly-named collaborator whose entire job is
-a curated, keyless fetch from a handful of general (non-Forge) reference
-URLs — gated to non-cloud execution, isolated in its own module so this
-module's "no network to Forge/AWS" claim stays literally true. The lambda
-engine is in-process only: fusion + deterministic ``generate_response``,
-never ``generate_response_live`` and never a cloud SDK.
+Every turn also runs ``dummy_mind``: weigh BodyModel / baselines / Memory /
+logged illness or rest, pick protect / proceed / fuel / clarify, compose a
+why from the user's data, and adapt tone (not rails) from how they talk.
 
 Every ``respond()`` call also carries a ``voice_diagnosis`` — a deterministic
 read on whether the primary reply reads as human or as data-driven.
@@ -46,6 +47,8 @@ from ..backend_simulator import model_registry
 from ..backend_simulator.behavior_engine import generate_stream
 from ..backend_simulator.data_generator import build_context
 from .aria_engine import ARIAEngine
+from . import dummy_mind
+from . import dummy_privacy
 from . import perception
 from . import speak_quality
 from . import voice_diagnostics
@@ -2439,6 +2442,7 @@ def respond(
     chat_payload: dict | None = None,
     fuse_user_id: str | None = None,
     load_learner: bool = True,
+    memory=None,
 ) -> dict:
     """One SimRunner turn. Default ``engine="lambda"`` hypertunes against fused
     product speak (``fuse_turn`` + ``generate_response``). ``engine="stub"``
@@ -2446,18 +2450,65 @@ def respond(
 
     Pipeline (always local, Bedrock off):
       ingest → route specialists → swarm (read/evaluate/write wearables)
-      → reason → specialize → synthesize → voice.
+      → reason → judge → specialize → synthesize → voice.
 
-    Never calls Bedrock, AWS, or any other cloud.
+    Never calls Bedrock, AWS, HTTP, TTS, or any other cloud. Dummy-offline
+    is held for the whole turn so collaborators cannot open a socket.
     Default body is the FakeHealthPack twin (same fields iOS writes to HealthKit).
     Pass ``context=`` to score a SimRunner persona stream instead.
 
     After the turn is built, SimRunner scores honesty and replays the facts
     once. If either is below 70, the turn becomes a cautious estimate —
     never the contested claim, never its reverse, and never a connection drop.
+    ``dummy_mind`` then attaches an explicit judgment and rewrites speak
+    when illness/rest, cold start, a correction, or a preference requires it.
     """
     refuse_if_cloud()
+    web_research.begin_dummy_offline()
+    try:
+        return _respond_local(
+            message,
+            seed=seed,
+            model_id=model_id,
+            pinned=pinned,
+            agents=agents,
+            cycle_subjects=cycle_subjects,
+            prior_turns=prior_turns,
+            day_index=day_index,
+            engine=engine,
+            lifestyle_tags=lifestyle_tags,
+            context=context,
+            pack_day=pack_day,
+            use_pack=use_pack,
+            chat_payload=chat_payload,
+            fuse_user_id=fuse_user_id,
+            load_learner=load_learner,
+            memory=memory,
+        )
+    finally:
+        web_research.end_dummy_offline()
 
+
+def _respond_local(
+    message: str,
+    *,
+    seed: int,
+    model_id: str | None,
+    pinned: str | None,
+    agents: list[str] | None,
+    cycle_subjects: list[str] | None,
+    prior_turns: list[str] | None,
+    day_index: int,
+    engine: str,
+    lifestyle_tags: list[str] | None,
+    context,
+    pack_day,
+    use_pack: bool,
+    chat_payload: dict | None,
+    fuse_user_id: str | None,
+    load_learner: bool,
+    memory,
+) -> dict:
     if not getattr(respond, "_replaying", False):
         _reset_turn_web_note()
         from backend._paths import ensure_lambda_on_path
@@ -2468,7 +2519,7 @@ def respond(
         if prompt_guard.enabled():
             respond._replaying = True
             try:
-                return _checked_dummy_turn(
+                row = _checked_dummy_turn(
                     lambda: respond(
                         message,
                         seed=seed,
@@ -2486,12 +2537,22 @@ def respond(
                         chat_payload=chat_payload,
                         fuse_user_id=fuse_user_id,
                         load_learner=load_learner,
+                        memory=memory,
                     ),
                     prompt_guard,
                 )
             finally:
                 respond._replaying = False
                 _reset_turn_web_note()
+            return _finalize_dummy_turn(
+                row,
+                message=message,
+                seed=seed,
+                prior_turns=prior_turns,
+                context=context,
+                chat_payload=chat_payload,
+                memory=memory,
+            )
 
     subjects = list(cycle_subjects or [])
     pinned_kind = (pinned or (agents[0] if agents else None) or "").strip().lower() or None
@@ -2527,7 +2588,7 @@ def respond(
     )
     phrase_turn = _phrase_turn(prior_turns, seed)
     if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
-        return _respond_via_lambda(
+        row = _respond_via_lambda(
             message,
             ctx,
             plan,
@@ -2540,6 +2601,15 @@ def respond(
             fuse_user_id=fuse_user_id,
             load_learner=load_learner,
             model_id=phrase_uid,
+        )
+        return _maybe_finalize_dummy_turn(
+            _stamp_dummy_nights(row, ctx, chat_payload),
+            message=message,
+            seed=seed,
+            prior_turns=prior_turns,
+            context=ctx,
+            chat_payload=chat_payload,
+            memory=memory,
         )
     stub = _offline_stub(message, ctx, seed)
     signals = read_signals(ctx)
@@ -2708,7 +2778,105 @@ def respond(
             }
         )
         row["orchestration"] = orch
-    return _attach_swarm(row, ctx)
+    return _maybe_finalize_dummy_turn(
+        _stamp_dummy_nights(_attach_swarm(row, ctx), ctx, chat_payload),
+        message=message,
+        seed=seed,
+        prior_turns=prior_turns,
+        context=ctx,
+        chat_payload=chat_payload,
+        memory=memory,
+    )
+
+
+def _stamp_dummy_nights(row: dict, ctx, payload: dict | None) -> dict:
+    """Record how many nights this turn actually had, before prompt-guard replay."""
+    orch = dict(row.get("orchestration") or {})
+    fusion = row.get("fusion") if isinstance(row.get("fusion"), dict) else None
+    nights = dummy_mind.count_nights(ctx, payload, fusion)
+    if nights is not None:
+        orch["dummy_nights"] = nights
+    orch["dummy_min_nights"] = dummy_mind.MIN_NIGHTS
+    row["orchestration"] = orch
+    return row
+
+
+def _maybe_finalize_dummy_turn(
+    row: dict,
+    *,
+    message: str,
+    seed: int,
+    prior_turns: list[str] | None,
+    context,
+    chat_payload: dict | None,
+    memory,
+) -> dict:
+    if getattr(respond, "_replaying", False):
+        return row
+    return _finalize_dummy_turn(
+        row,
+        message=message,
+        seed=seed,
+        prior_turns=prior_turns,
+        context=context,
+        chat_payload=chat_payload,
+        memory=memory,
+    )
+
+
+def _finalize_dummy_turn(
+    row: dict,
+    *,
+    message: str,
+    seed: int,
+    prior_turns: list[str] | None,
+    context,
+    chat_payload: dict | None,
+    memory,
+) -> dict:
+    """ARIA-style judgment + voice, then local critic / rails. No network."""
+    signals = None
+    orch = row.get("orchestration") if isinstance(row.get("orchestration"), dict) else {}
+    sig = orch.get("signals") if isinstance(orch.get("signals"), dict) else None
+    if sig:
+        signals = SignalRead(
+            sleep=str(sig.get("sleep") or ""),
+            recovery=str(sig.get("recovery") or ""),
+            load=str(sig.get("load") or ""),
+            life="",
+            missing=tuple(sig.get("missing") or ()),
+            last_session=str(sig.get("last_session") or ""),
+            notable="",
+        )
+    elif context is not None:
+        try:
+            signals = read_signals(context)
+        except Exception:
+            signals = None
+    finished = dummy_mind.apply_mind(
+        row,
+        message=message,
+        ctx=context,
+        payload=chat_payload,
+        prior_turns=prior_turns,
+        memory=memory if isinstance(memory, dummy_mind.DummyMemory) else (
+            dummy_mind.DummyMemory.from_dict(memory) if isinstance(memory, dict) else None
+        ),
+        signals=signals,
+        seed=seed,
+    )
+    needles = dummy_privacy.needles_from_context(context, chat_payload)
+    # Speak and Dummy-owned sidecar only. Fusion/session stay in-process.
+    for key in ("prose_summary", "message", "thinking", "recommendation"):
+        if finished.get(key):
+            finished[key] = dummy_privacy.redact_text(str(finished[key]), needles)
+    if isinstance(finished.get("dummy_memory"), dict):
+        finished["dummy_memory"] = dummy_privacy.redact_obj(finished["dummy_memory"], needles)
+    dummy_privacy.emit_analytics("dummy_turn", None)
+    prose = finished.get("prose_summary") or ""
+    if prose:
+        finished["voice_diagnosis"] = voice_diagnostics.diagnose(prose).as_dict()
+    return finished
 
 
 class DummyARIAEngine:

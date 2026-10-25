@@ -59,13 +59,49 @@ locals {
 
   hosted_ui_domain = "${local.cognito_domain_prefix}.auth.${var.aws_region}.amazoncognito.com"
 
-  # Parameter names only. ElevenLabs values are SecureString objects seeded
-  # out of band. ARIA_PAUSED is a Standard String (not encrypted). Never
-  # taken from tfvars.
-  ssm_elevenlabs_api_key   = "/${local.name_prefix}/ai/ELEVENLABS_API_KEY"
-  ssm_elevenlabs_voice_id  = "/${local.name_prefix}/ai/ELEVENLABS_ARIA_VOICE_ID"
-  ssm_elevenlabs_agent_id  = "/${local.name_prefix}/ai/ELEVENLABS_ARIA_AGENT_ID"
-  ssm_aria_paused          = "/${local.name_prefix}/ai/ARIA_PAUSED"
+  # Parameter names only. Voice is on-device (Kokoro); leftover ElevenLabs /
+  # Fish Audio SecureStrings are not created. ARIA_PAUSED is a Standard
+  # String (not encrypted). Open Wearables secrets live under
+  # /{prefix}/open-wearables/ and are created only when that flag is on.
+  ssm_aria_paused           = "/${local.name_prefix}/ai/ARIA_PAUSED"
+  ssm_open_wearables_prefix = "/${local.name_prefix}/open-wearables"
+
+  ai_router_model_1_id = var.ai_router_model_1_id != "" ? var.ai_router_model_1_id : "global.anthropic.claude-sonnet-5-5"
+  ai_router_model_2_id = var.ai_router_model_2_id != "" ? var.ai_router_model_2_id : "global.anthropic.claude-opus-5-5"
+  ai_router_model_3_id = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.7"
+
+  bedrock_configured_profile_ids = distinct(compact([
+    local.ai_router_model_1_id,
+    local.ai_router_model_2_id,
+    local.ai_router_model_3_id,
+    var.enable_scout ? var.scout_model_id : "",
+  ]))
+
+  # Sibling geo profile so Bedrock can fail over between US Geo and Global
+  # CRIS without a wildcard. eu.* / apac.* are not in this stack.
+  bedrock_inference_profile_ids = distinct(flatten([
+    for id in local.bedrock_configured_profile_ids : [
+      id,
+      startswith(id, "global.") ? replace(id, "global.", "us.") : (
+        startswith(id, "us.") ? replace(id, "us.", "global.") : id
+      ),
+    ]
+  ]))
+
+  bedrock_foundation_model_ids = distinct([
+    for id in local.bedrock_inference_profile_ids :
+    trimprefix(trimprefix(id, "global."), "us.")
+  ])
+
+  bedrock_inference_profile_arns = [
+    for id in local.bedrock_inference_profile_ids :
+    "arn:aws:bedrock:${var.aws_region}:${local.account_id_for_naming}:inference-profile/${id}"
+  ]
+
+  bedrock_foundation_model_arns = [
+    for id in local.bedrock_foundation_model_ids :
+    "arn:aws:bedrock:*::foundation-model/${id}"
+  ]
   ssm_google_client_id     = "/${local.name_prefix}/cognito/google/client_id"
   ssm_google_client_secret = "/${local.name_prefix}/cognito/google/client_secret"
   ssm_apple_client_id      = "/${local.name_prefix}/cognito/apple/client_id"

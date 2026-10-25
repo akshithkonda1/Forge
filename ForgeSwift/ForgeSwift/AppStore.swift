@@ -326,24 +326,11 @@ final class AppStore: ObservableObject {
     // MARK: - Initialization
     
     init() {
-        // Initialize AI response generator
-        //
-        // Simulator has no model catalog (see FoundationModelsResponseGenerator's
-        // own init comment) — merely evaluating `SystemLanguageModel.default`
-        // there, which happens as soon as FoundationModelsResponseGenerator is
-        // constructed, has been reported to trap rather than return
-        // `.unavailable` on some OS/Simulator combinations. Skip constructing it
-        // in Simulator builds entirely rather than relying on `isAvailable` to
-        // fail gracefully after the fact.
-        #if canImport(FoundationModels) && !targetEnvironment(simulator)
-        let foundationModelsGenerator = FoundationModelsResponseGenerator()
-        self.aiModelAvailable = foundationModelsGenerator.isAvailable
-        self.responseGenerator = foundationModelsGenerator.isAvailable ?
-            foundationModelsGenerator : RuleBasedResponseGenerator()
-        #else
+        // First frame always gets the rule-based generator. Evaluating
+        // `SystemLanguageModel.default` in FoundationModelsResponseGenerator
+        // can trap or stall launch; probe it after paint, never in init.
         self.responseGenerator = RuleBasedResponseGenerator()
         self.aiModelAvailable = false
-        #endif
         
         AriaContextStore.shared.configure()
         AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
@@ -351,13 +338,16 @@ final class AppStore: ObservableObject {
         // Restore persisted onboarding so a returning user skips setup entirely.
         restoreOnboardingState()
 
-        // Chat transcript is restored synchronously so the first render of
-        // ChatView already has real history — no mock flash on cold launch.
-        restoreChatHistory()
-
         // Training habits restore synchronously too — the suggestion box needs
         // to know this person's patterns before the first Train question.
         restoreTrainingHabits()
+
+        // Chat JSON is decoded after the first frame. Home is the launch tab,
+        // so a deferred transcript cannot flash mock chat. Tests still restore
+        // synchronously so cases that write history see it immediately.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            restoreChatHistory()
+        }
 
         // Real nights, history, and today's session come from Apple Health + this
         // person's profile — never demo sleep or "Upper Body Power".
@@ -368,6 +358,16 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
+            #if canImport(FoundationModels) && !targetEnvironment(simulator)
+            let foundationModelsGenerator = FoundationModelsResponseGenerator()
+            if foundationModelsGenerator.isAvailable {
+                self.aiModelAvailable = true
+                self.responseGenerator = foundationModelsGenerator
+            }
+            #endif
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                self.restoreChatHistory()
+            }
             // Sole launch owner for refreshDailyData. Home must not start a
             // second pass — the coalesce window is a backstop, not a second owner.
             // Let the first frame (and splash dismiss) land before HealthKit
@@ -493,7 +493,7 @@ final class AppStore: ObservableObject {
     // MARK: - Onboarding → ARIA handoff
 
     var needsForgePrep: Bool {
-        AriaForgePrepHandoff.needsPrep(isOnboarded: isOnboarded)
+        AriaForgePrepHandoff.needsPrep(isOnboarded: isOnboarded, isAuthenticated: isAuthenticated)
     }
 
     func markOnboardingInterviewComplete() {

@@ -7,10 +7,10 @@ import ForgeCore
 ///
 /// Transport uses the same two gates as `AriaService.sendMessage`, in the same
 /// order, and never silently upgrades dummy → cloud. Dummy and local testing
-/// stay on-device (SpeechManager STT + dummy/local brain via chat). Live opens
-/// ElevenLabs ConvAI with a short-lived signed URL from Forge — the API key
-/// never lands on the phone. A 911 / triage session is the exception: it is
-/// always on-device (`keepingOnDevice`), so ARIA's own copy is what is said.
+/// stay on-device (SpeechManager STT + dummy/local brain via chat). The
+/// mouth is always Kokoro on this iPhone. A 911 / triage session is the
+/// exception for the brain: it is always on-device (`keepingOnDevice`),
+/// so ARIA's own copy is what is said.
 @MainActor
 @Observable
 final class AriaVoiceSession {
@@ -69,8 +69,8 @@ final class AriaVoiceSession {
         startGeneration += 1
         applyPhase(captureMic ? .listening : .thinking)
 
-        // Session start already unmuted. Fish TTS is the mouth via
-        // speakChatReply. Mic and brain stay on-device for every transport.
+        // Session start already unmuted. Kokoro is the mouth via
+        // speakChatReply. Mic stays on-device for every transport.
         if captureMic {
             speech.startListening()
         }
@@ -108,7 +108,7 @@ final class AriaVoiceSession {
         }
     }
 
-    /// After chat lands a trainer reply, play the Fish (or dummy) fill-in.
+    /// After chat lands a trainer reply, play the on-device Kokoro line.
     func speakChatReply(_ reply: AriaResponse) {
         guard isActive else { return }
         // Muted or nothing to say: no mouth callback is coming, so leave
@@ -343,7 +343,7 @@ final class AriaVoiceProfileStore: ObservableObject {
     }
 
     func refreshCatalog() async {
-        guard let request = AriaFishAudioVoice.makeCatalogRequest(baseURL: AriaService.shared.baseURL) else {
+        guard let request = AriaKokoroVoice.makeCatalogRequest(baseURL: AriaService.shared.baseURL) else {
             return
         }
         guard let (data, _) = try? await ForgeAPI.send(request),
@@ -362,7 +362,7 @@ final class AriaVoiceProfileStore: ObservableObject {
     }
 
     func saveToAccount() async {
-        guard let request = AriaFishAudioVoice.makePersistRequest(
+        guard let request = AriaKokoroVoice.makePersistRequest(
             baseURL: AriaService.shared.baseURL,
             selection: selection
         ) else { return }
