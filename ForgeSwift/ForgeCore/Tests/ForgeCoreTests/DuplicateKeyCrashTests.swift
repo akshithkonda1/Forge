@@ -31,12 +31,21 @@ final class DuplicateKeyCrashTests: XCTestCase {
         ])
         XCTAssertEqual(byDate["2026-10-16"], 7.2)
         XCTAssertEqual(byDate.count, 2)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 16, hour: 12))!
         let meter = SleepDebtMeter.make(
             nightsByDate: byDate,
             needHours: 8,
-            asleepHoursOldestFirst: [8.0, 7.2]
+            asleepHoursOldestFirst: [8.0, 7.2],
+            now: now,
+            calendar: calendar
         )
-        XCTAssertEqual(meter.days.filter { $0.hours != nil }.count >= 0, true)
+        let scored = meter.days.filter { $0.hours != nil }
+        XCTAssertEqual(scored.count, 2)
+        XCTAssertEqual(scored.first { $0.dateKey == "2026-10-16" }?.hours, 7.2)
+        XCTAssertEqual(scored.first { $0.dateKey == "2026-10-15" }?.hours, 8.0)
     }
 
     func testQualityOfLifeWeightsDoNotTrapOnAllCases() {
