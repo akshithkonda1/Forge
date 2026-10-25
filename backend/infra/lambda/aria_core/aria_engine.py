@@ -3701,11 +3701,14 @@ def live_system_prompt(
     agents: list[str] | None = None,
     *,
     style: str = "coach",
+    model_class: str | None = None,
 ) -> str:
     """ARIA's persona plus soul rails and the security law, for any live model call.
 
     Every path that reaches a model goes through this function. Soul rails are
     identical on Sonnet, Grok, Opus, and the ensemble synthesizer.
+
+    `model_class` is accepted for caller compatibility and is unused.
     """
     from security import AI_SECURITY_DIRECTIVE
 

@@ -7,6 +7,7 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
+from ai_router import AIRouter, RouteRequest
 from aria_core.privacy import filter_memory_items, redact_for_log, share_flags
 from aria_core.rails import apply_to_envelope, needs_model_verifier, validate_output
 from aria_core.soul import soul_breaks_rails, soul_directive, soul_sanitize
@@ -14,6 +15,9 @@ from aria_core.untrusted import isolate, looks_like_injection
 from aria_core import aria_engine
 from handler import handler
 from security import isolate_user_message
+from test_ai_router import FakeGateway
+
+MEDICAL_CLAIM_DRAFT = "You have diabetes — start metformin."
 
 
 def event(method, path, body=None, *, user_id="auth-user-123"):
@@ -102,7 +106,33 @@ class RailsTests(unittest.TestCase):
 
     def test_cheap_verifier_gate(self):
         self.assertFalse(needs_model_verifier("Easy 20 minutes, then call it."))
-        self.assertTrue(needs_model_verifier("You have diabetes — start metformin."))
+        self.assertTrue(needs_model_verifier(MEDICAL_CLAIM_DRAFT))
+
+    def test_single_model_medical_claim_does_not_reach_the_user(self):
+        """Pinned draft at test_cheap_verifier_gate cannot ship unchanged."""
+        self.assertTrue(needs_model_verifier(MEDICAL_CLAIM_DRAFT))
+        gateway = FakeGateway(
+            responses={
+                "global.anthropic.claude-sonnet-5-5": {
+                    "delay": 0.01,
+                    "answer": MEDICAL_CLAIM_DRAFT,
+                },
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus unused"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok unused"},
+            },
+            consensus_answer="Easy 20 minutes, then call it. Talk to your doctor about medication.",
+        )
+        response = AIRouter(gateway=gateway).route(
+            RouteRequest.from_payload({"question": "How did I sleep?", "packageSizeBytes": 1024})
+        )
+        spoken = response["finalAnswer"]
+        self.assertNotEqual(spoken, MEDICAL_CLAIM_DRAFT)
+        self.assertNotIn("metformin", spoken.lower())
+        self.assertNotIn("you have diabetes", spoken.lower())
+        self.assertEqual(response["suite"].get("extra"), "rails_verifier")
+        self.assertTrue(
+            any("Draft to rewrite onto rails" in call["user_prompt"] for call in gateway.calls)
+        )
 
 
 class AuthzAndLimitsTests(unittest.TestCase):
