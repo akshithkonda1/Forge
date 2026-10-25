@@ -48,8 +48,9 @@ variable "github_oidc_allowed_subs" {
   description = <<-EOT
     token.actions.githubusercontent.com:sub values allowed to assume the
     deploy role. Empty (default) derives repo:var.github_repository locked
-    to main and the terraform-prod environment used by the approval-gated
-    apply job. Set this only to add extra branches or environments.
+    to main plus the terraform-prod and dev GitHub Environments used by
+    the approval-gated apply job. Set this only to add extra branches or
+    environments.
   EOT
   type        = list(string)
   default     = []

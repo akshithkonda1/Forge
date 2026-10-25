@@ -7,6 +7,13 @@ locals {
   github_oidc_subs = length(var.github_oidc_allowed_subs) > 0 ? var.github_oidc_allowed_subs : [
     "repo:${var.github_repository}:ref:refs/heads/main",
     "repo:${var.github_repository}:environment:terraform-prod",
+    # Least-privilege extra for the approval-gated Apply (dev) job when it
+    # runs from a pull_request. GitHub's sub for a job with `environment:`
+    # is repo:org/repo:environment:NAME, not the PR branch ref. terraform-prod
+    # already covers that job today; environment:dev is the matching subject
+    # if the GitHub Environment is named `dev` instead. This is narrower
+    # than repo:...:pull_request (any PR).
+    "repo:${var.github_repository}:environment:dev",
   ]
   state_bucket_name = coalesce(
     var.state_bucket_name,
