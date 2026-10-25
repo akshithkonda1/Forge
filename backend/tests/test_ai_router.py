@@ -45,8 +45,10 @@ class FakeGateway:
 
     def converse(self, *, model_id, system_prompt, user_prompt, max_tokens, temperature, request_timeout_seconds=None):
         lowered = system_prompt.lower()
-        if "you are forge aria's critic" in lowered or "consensus finalizer" in lowered:
+        if "you are forge aria's critic" in lowered:
             call_kind = "critic"
+        elif "consensus finalizer" in lowered:
+            call_kind = "consensus"
         else:
             call_kind = "model"
         self.calls.append(
@@ -60,11 +62,12 @@ class FakeGateway:
                 "request_timeout_seconds": request_timeout_seconds,
             }
         )
-        if call_kind == "critic":
+        if call_kind in {"critic", "consensus"}:
             if self.consensus_error:
                 raise RuntimeError(self.consensus_error)
+            default_answer = "critic answer" if call_kind == "critic" else "consensus answer"
             return {
-                "answer": self.consensus_answer if self.consensus_answer is not None else "critic answer",
+                "answer": self.consensus_answer if self.consensus_answer is not None else default_answer,
                 "usage": {"inputTokens": 10, "outputTokens": 20},
             }
         config = self.responses[model_id]
@@ -294,7 +297,7 @@ class AIRouterTests(unittest.TestCase):
     def test_router_uses_head_object_size_for_metadata_not_fanout(self):
         gateway = FakeGateway(
             responses={
-                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "Keep today easy."},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "sonnet answer"},
                 "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus unused"},
                 "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok unused"},
             },
