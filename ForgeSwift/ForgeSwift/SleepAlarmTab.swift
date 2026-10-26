@@ -186,7 +186,7 @@ enum SleepAlarmScheduler {
             expected: expected,
             pending: standing,
             addFailures: addFailures,
-            authError: authError
+            authError: nil
         )
     }
 
