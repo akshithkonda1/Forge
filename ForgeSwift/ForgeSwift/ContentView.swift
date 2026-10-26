@@ -10,6 +10,10 @@ struct ContentView: View {
     /// Once per process — recreating this view must not put the splash back
     /// on top of Home and eat taps.
     @State private var showSplash = !Self.didFinishSplash
+    @State private var splashBlocksHits = !Self.didFinishSplash
+    /// Mount the app chrome on the next turn so the splash's first frame
+    /// is only the matched launch field + strike, not AuthWelcome/Home.
+    @State private var revealApp = Self.didFinishSplash
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
@@ -17,26 +21,31 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Group {
-                if !store.isAuthenticated {
-                    AuthWelcomeView()
-                } else if !store.isOnboarded {
-                    OnboardingView()
-                } else {
-                    MainTabView()
+            Color(hex: ForgeSplashScreen.backdropHex)
+                .ignoresSafeArea()
+
+            if revealApp {
+                Group {
+                    if !store.isAuthenticated {
+                        AuthWelcomeView()
+                    } else if !store.isOnboarded {
+                        OnboardingView()
+                    } else {
+                        MainTabView()
+                    }
                 }
+                .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
+                .animation(ForgeMotion.crossfade, value: store.isOnboarded)
             }
-            .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
-            .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
             if showSplash {
-                ForgeSplashScreen()
+                ForgeSplashScreen(signedIn: store.isAuthenticated, onSkip: dismissSplash)
                     .transition(.opacity)
                     .zIndex(999)
                     // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
                     .accessibilityHidden(true)
-                    // Never block Home if the hide animation stalls.
-                    .allowsHitTesting(false)
+                    // Tap skips. Hits pass through once the fade starts.
+                    .allowsHitTesting(splashBlocksHits)
             }
         }
         .sheet(isPresented: neuralPromptBinding) {
@@ -49,16 +58,38 @@ struct ContentView: View {
                 neuralVoiceGate?.refreshCatalog()
             }
         }
-        .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
-            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
-            Self.didFinishSplash = true
-            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
-                showSplash = false
+        .onAppear {
+            if !revealApp {
+                DispatchQueue.main.async { revealApp = true }
             }
+        }
+        .task {
+            if showSplash {
+                try? await Task.sleep(
+                    nanoseconds: ForgeSplashTiming.pauseNanoseconds(
+                        reduceMotion: reduceMotion,
+                        signedIn: store.isAuthenticated
+                    )
+                )
+                if showSplash { dismissSplash() }
+            }
+            attachNeuralGate()
+        }
+    }
+
+    private func attachNeuralGate() {
+        guard neuralVoiceGate == nil else { return }
+        let gate = AriaNeuralVoiceGate.shared
+        neuralVoiceGate = gate
+        gate.refreshCatalog()
+    }
+
+    private func dismissSplash() {
+        guard showSplash else { return }
+        splashBlocksHits = false
+        Self.didFinishSplash = true
+        withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
+            showSplash = false
         }
     }
 
@@ -73,40 +104,35 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
+    /// Same hex as `LaunchBackground` so the system launch image hands off
+    /// without a blank flash.
+    static let backdropHex = "09090B"
+    static let launchColorName = "LaunchBackground"
+
+    /// Already-authenticated users get a trimmed beat: static flame, no swing.
+    var signedIn: Bool = false
+    var onSkip: (() -> Void)? = nil
     @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
     @State private var textOffset: CGFloat = 16
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
-            PremiumAtmosphere(
-                accent: ForgePalette.ember,
-                secondary: Color(hex: "A9D8FF"),
-                intensity: 0.55 + 0.45 * glowIntensity,
-                loopMotion: false
-            )
+            Color(hex: Self.backdropHex)
+                .ignoresSafeArea()
 
-            VStack(spacing: FDS.Spacing.xl) {
-                ZStack {
-                    PremiumPresenceBloom(
-                        size: 220,
-                        accent: ForgePalette.ember,
-                        frost: Color(hex: "A9D8FF"),
-                        live: false
+            VStack(spacing: FDS.Spacing.lg) {
+                GeometryReader { geo in
+                    let side = min(geo.size.width, geo.size.height)
+                    ForgeStrikeMark(
+                        duration: ForgeStrikeGeometry.splashDuration,
+                        playback: signedIn ? .trimmed : .full
                     )
-                    AuroraOrbView(
-                        state: .idle,
-                        amplitude: 0.62,
-                        mood: .energized,
-                        size: 148,
-                        followPresence: false
-                    )
-                    .environment(\.forgeMinimalAnimation, true)
+                    .frame(width: side, height: side)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .scaleEffect(logoScale)
-                .opacity(logoOpacity)
+                .frame(maxWidth: 460)
+                .frame(height: 380)
 
                 VStack(spacing: FDS.Spacing.md) {
                     HStack(spacing: FDS.Spacing.md) {
@@ -126,19 +152,26 @@ struct ForgeSplashScreen: View {
                 .offset(y: textOffset)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onSkip?() }
+        .accessibilityAction(.escape) { onSkip?() }
+        .task {
+            // One rigid tap as the hammer lands. Off under Reduce Motion
+            // (static pose) and on the signed-in trim (no swing).
+            guard !reduceMotion, !signedIn else { return }
+            try? await Task.sleep(nanoseconds: UInt64(ForgeStrikeGeometry.splashImpactTime * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            ForgeHaptics.playStrike()
+        }
         .onAppear {
-            let base: Animation = reduceMotion
-                ? .easeOut(duration: 0.3)
-                : ForgeMotion.gentle
-            withAnimation(base) {
-                logoScale = 1.0
-                logoOpacity = 1.0
-            }
-            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : ForgeMotion.gentle).delay(0.18)) {
+            if reduceMotion || signedIn {
+                logoOpacity = 1
                 textOffset = 0
+                return
             }
-            withAnimation(.easeInOut(duration: 0.5).delay(0.1)) {
-                glowIntensity = 1.0
+            withAnimation(ForgeMotion.gentle.delay(ForgeStrikeGeometry.splashImpactTime)) {
+                logoOpacity = 1
+                textOffset = 0
             }
         }
     }

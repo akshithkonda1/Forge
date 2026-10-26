@@ -50,6 +50,7 @@ final class ForgeAlarmStore: ObservableObject {
             routine = RoutineItem.defaults
         }
         SleepAlarmScheduler.registerCategories()
+        // Schedule only. `arm` no longer presents the permission sheet.
         Task { await SleepAlarmScheduler.sync(alarms) }
     }
 
@@ -113,6 +114,10 @@ final class ForgeAlarmStore: ObservableObject {
 enum SleepAlarmScheduler {
     private static let center = UNUserNotificationCenter.current()
 
+    /// Launch used to ask here via `ForgeAlarmStore` init and cover the splash.
+    /// The system sheet now waits for onboarding after sign-in.
+    static let promptsWhenUndetermined = false
+
     static func registerCategories() {
         let snooze = UNNotificationAction(
             identifier: SleepWakeEngine.actionSnooze,
@@ -139,23 +144,12 @@ enum SleepAlarmScheduler {
     }
 
     /// Schedules every enabled alarm, then fail-closes if iPhone cannot deliver.
+    /// Never presents the system permission sheet — a fresh install used to
+    /// ask from `ForgeAlarmStore` init during the launch splash.
     private static func arm(_ alarms: [ForgeAlarm]) async -> SleepAlarmDelivery {
-        var authError: String?
-        var authorization = await center.notificationSettings().authorizationStatus
-        if authorization == .notDetermined || authorization == .provisional {
-            do {
-                _ = try await center.requestAuthorization(
-                    options: SleepAlarmAppleAPI.authorizationOptions
-                )
-            } catch {
-                authError = error.localizedDescription
-                print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
-            }
-        }
-
-        let afterAsk = await center.notificationSettings()
-        authorization = afterAsk.authorizationStatus
-        let timeSensitive = afterAsk.timeSensitiveSetting
+        let settings = await center.notificationSettings()
+        let authorization = settings.authorizationStatus
+        let timeSensitive = settings.timeSensitiveSetting
         let expected = SleepAlarmScheduleMath.expectedPendingCount(in: alarms)
 
         let pending = await center.pendingNotificationRequests()
@@ -169,7 +163,7 @@ enum SleepAlarmScheduler {
                 expected: expected,
                 pending: 0,
                 addFailures: 0,
-                authError: authError
+                authError: nil
             )
         }
 
@@ -192,7 +186,7 @@ enum SleepAlarmScheduler {
             expected: expected,
             pending: standing,
             addFailures: addFailures,
-            authError: authError
+            authError: nil
         )
     }
 
