@@ -11,6 +11,9 @@ struct ContentView: View {
     /// on top of Home and eat taps.
     @State private var showSplash = !Self.didFinishSplash
     @State private var splashBlocksHits = !Self.didFinishSplash
+    /// Mount the app chrome on the next turn so the splash's first frame
+    /// is only the matched launch field + strike, not AuthWelcome/Home.
+    @State private var revealApp = Self.didFinishSplash
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
@@ -18,20 +21,25 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Group {
-                if !store.isAuthenticated {
-                    AuthWelcomeView()
-                } else if !store.isOnboarded {
-                    OnboardingView()
-                } else {
-                    MainTabView()
+            Color(hex: ForgeSplashScreen.backdropHex)
+                .ignoresSafeArea()
+
+            if revealApp {
+                Group {
+                    if !store.isAuthenticated {
+                        AuthWelcomeView()
+                    } else if !store.isOnboarded {
+                        OnboardingView()
+                    } else {
+                        MainTabView()
+                    }
                 }
+                .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
+                .animation(ForgeMotion.crossfade, value: store.isOnboarded)
             }
-            .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
-            .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
             if showSplash {
-                ForgeSplashScreen(signedIn: splashSignedIn, onSkip: dismissSplash)
+                ForgeSplashScreen(signedIn: store.isAuthenticated, onSkip: dismissSplash)
                     .transition(.opacity)
                     .zIndex(999)
                     // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
@@ -50,20 +58,30 @@ struct ContentView: View {
                 neuralVoiceGate?.refreshCatalog()
             }
         }
-        .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
-            try? await Task.sleep(
-                nanoseconds: ForgeSplashTiming.pauseNanoseconds(
-                    reduceMotion: reduceMotion,
-                    signedIn: splashSignedIn
-                )
-            )
-            guard showSplash else { return }
-            dismissSplash()
+        .onAppear {
+            if !revealApp {
+                DispatchQueue.main.async { revealApp = true }
+            }
         }
+        .task {
+            if showSplash {
+                try? await Task.sleep(
+                    nanoseconds: ForgeSplashTiming.pauseNanoseconds(
+                        reduceMotion: reduceMotion,
+                        signedIn: store.isAuthenticated
+                    )
+                )
+                if showSplash { dismissSplash() }
+            }
+            attachNeuralGate()
+        }
+    }
+
+    private func attachNeuralGate() {
+        guard neuralVoiceGate == nil else { return }
+        let gate = AriaNeuralVoiceGate.shared
+        neuralVoiceGate = gate
+        gate.refreshCatalog()
     }
 
     private func dismissSplash() {
@@ -73,11 +91,6 @@ struct ContentView: View {
         withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
             showSplash = false
         }
-    }
-
-    /// Existing auth tree only: AppStore flag, restored from `ForgeAuthClient`.
-    private var splashSignedIn: Bool {
-        store.isAuthenticated || ForgeAuthClient.shared.session != nil
     }
 
     private var neuralPromptBinding: Binding<Bool> {
@@ -91,6 +104,11 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
+    /// Same hex as `LaunchBackground` so the system launch image hands off
+    /// without a blank flash.
+    static let backdropHex = "09090B"
+    static let launchColorName = "LaunchBackground"
+
     /// Already-authenticated users get a trimmed beat: static flame, no swing.
     var signedIn: Bool = false
     var onSkip: (() -> Void)? = nil
@@ -100,19 +118,21 @@ struct ForgeSplashScreen: View {
 
     var body: some View {
         ZStack {
-            PremiumAtmosphere(
-                accent: ForgePalette.ember,
-                secondary: Color(hex: "A9D8FF"),
-                intensity: 1,
-                loopMotion: false
-            )
+            Color(hex: Self.backdropHex)
+                .ignoresSafeArea()
 
             VStack(spacing: FDS.Spacing.lg) {
-                ForgeStrikeMark(
-                    duration: ForgeStrikeGeometry.splashDuration,
-                    playback: signedIn ? .trimmed : .full
-                )
-                .frame(width: 280, height: 228)
+                GeometryReader { geo in
+                    let side = min(geo.size.width, geo.size.height)
+                    ForgeStrikeMark(
+                        duration: ForgeStrikeGeometry.splashDuration,
+                        playback: signedIn ? .trimmed : .full
+                    )
+                    .frame(width: side, height: side)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: 460)
+                .frame(height: 380)
 
                 VStack(spacing: FDS.Spacing.md) {
                     HStack(spacing: FDS.Spacing.md) {

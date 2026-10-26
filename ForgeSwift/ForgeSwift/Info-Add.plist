@@ -35,6 +35,15 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
+	<!-- Matches ForgeSplashScreen.backdropHex so the system launch image
+	     and the first SwiftUI frame are the same dark field. Generated
+	     UILaunchScreen was an empty hold that read as 5s of blank. -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+
 	<!-- Sleep soundscapes and the wake tone keep playing when the screen locks. -->
 	<key>UIBackgroundModes</key>
 	<array>
