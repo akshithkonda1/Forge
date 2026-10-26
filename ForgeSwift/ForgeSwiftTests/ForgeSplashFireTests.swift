@@ -6,42 +6,59 @@ import ForgeCore
 final class ForgeSplashFireTests: XCTestCase {
 
     func testSplashHoldIsABeatNotAWait() {
-        XCTAssertEqual(ForgeSplashTiming.hold, 1.20, accuracy: 0.001)
-        XCTAssertEqual(ForgeSplashTiming.reduceMotionHold, 0.35, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.hold, 2.10, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.reduceMotionHold, 0.40, accuracy: 0.001)
         XCTAssertEqual(ForgeSplashTiming.fadeOut, 0.35, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(ForgeSplashTiming.hold, ForgeSplashTiming.brandFloor)
         XCTAssertLessThanOrEqual(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, ForgeSplashTiming.freezeCeiling)
-        XCTAssertLessThanOrEqual(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, 1.60)
+        XCTAssertLessThanOrEqual(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, 2.50)
         XCTAssertLessThan(ForgeSplashTiming.reduceMotionHold, ForgeSplashTiming.hold)
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false),
-            1_200_000_000
+            2_100_000_000
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: true),
-            350_000_000
+            400_000_000
         )
-        XCTAssertEqual(ForgeSplashTiming.signedInHold, 0.28, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.signedInHold, 0.40, accuracy: 0.001)
         XCTAssertLessThan(
             ForgeSplashTiming.signedInHold + ForgeSplashTiming.fadeOut,
             ForgeSplashTiming.freezeCeiling
         )
         XCTAssertEqual(
             ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut,
-            1.55,
+            2.45,
             accuracy: 0.001
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false, signedIn: true),
-            280_000_000
+            400_000_000
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: true, signedIn: true),
-            350_000_000
+            400_000_000
         )
         XCTAssertEqual(ForgeHaptics.strikeToken, "rigid")
         XCTAssertEqual(ForgeHaptic.press.token, "light")
         XCTAssertNotEqual(ForgeHaptics.strikeToken, ForgeHaptic.press.token)
+    }
+
+    func testLaunchScreenMatchesSplashField() {
+        XCTAssertEqual(ForgeSplashScreen.backdropHex, "09090B")
+        XCTAssertEqual(ForgeSplashScreen.launchColorName, "LaunchBackground")
+    }
+
+    func testNotificationPromptWaitsForOnboarding() {
+        XCTAssertEqual(ForgeNotificationScheduler.promptPolicy, "onboarding-after-sign-in")
+        XCTAssertFalse(ForgeNotificationScheduler.syncPromptsWhenUndetermined)
+        XCTAssertFalse(SleepAlarmScheduler.promptsWhenUndetermined)
+    }
+
+    func testImpactGlowStaysLocalized() {
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.maxLocalizedGlow, 0.28)
+        XCTAssertEqual(ForgeFireGeometry.tickHz, 12, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.paintHz, 60)
     }
 
     func testStrikeLivesOnSplashNotWelcome() {
@@ -167,9 +184,9 @@ final class ForgeSplashFireTests: XCTestCase {
     }
 
     func testSplashStrikeFinishesInsideTheHold() {
-        XCTAssertEqual(ForgeStrikeGeometry.splashImpactTime, 0.484, accuracy: 0.001)
-        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.46)
-        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.50)
+        XCTAssertEqual(ForgeStrikeGeometry.splashImpactTime, 0.777, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.74)
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.82)
         XCTAssertLessThan(ForgeStrikeGeometry.splashImpactTime + 0.1, ForgeSplashTiming.hold)
         XCTAssertLessThanOrEqual(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, ForgeSplashTiming.freezeCeiling)
         let sparks = ForgeStrikeGeometry.pose(
@@ -226,13 +243,13 @@ final class ForgeSplashFireTests: XCTestCase {
     }
 
     func testReduceMotionFreezesTheStrike() {
-        let settled = ForgeStrikeGeometry.pose(time: 0, duration: 1.10, reduceMotion: true)
-        let later = ForgeStrikeGeometry.pose(time: 4, duration: 1.10, reduceMotion: true)
+        let settled = ForgeStrikeGeometry.pose(time: 0, duration: 1.85, reduceMotion: true)
+        let later = ForgeStrikeGeometry.pose(time: 4, duration: 1.85, reduceMotion: true)
         XCTAssertEqual(settled.hammerAngle, later.hammerAngle, accuracy: 0.0001)
         XCTAssertEqual(settled.impact, later.impact, accuracy: 0.0001)
         XCTAssertEqual(settled.flameScale, later.flameScale, accuracy: 0.0001)
         XCTAssertEqual(settled.sparkTravel, later.sparkTravel, accuracy: 0.0001)
-        let windup = ForgeStrikeGeometry.pose(time: 0, duration: 1.10, reduceMotion: false)
+        let windup = ForgeStrikeGeometry.pose(time: 0, duration: 1.85, reduceMotion: false)
         XCTAssertGreaterThan(abs(settled.hammerAngle - windup.hammerAngle), 0.15)
     }
 
@@ -252,8 +269,8 @@ final class ForgeSplashFireTests: XCTestCase {
         let linearMid = windup.hammerAngle + (hit.hammerAngle - windup.hammerAngle) * 0.5
         XCTAssertGreaterThan(mid.hammerAngle, linearMid, "quartic ease-in stays high at midpoint")
         XCTAssertGreaterThan(bounce.hammerAngle, hit.hammerAngle, "spring overshoot after impact")
-        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.46)
-        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.50)
+        XCTAssertGreaterThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.74)
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.splashImpactTime, 0.82)
         XCTAssertEqual(ForgeStrikeMotion.style, .accelerateRebound, "default ships Option A")
         XCTAssertTrue(ForgeStrikeMotion.allowsRebound)
         XCTAssertTrue(ForgeStrikeMotion.allowsImpactShake)
@@ -289,7 +306,7 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertGreaterThan(ForgeSparkBurst.gravity, 0)
         XCTAssertTrue(ForgeSparkBurst.oneShot)
         XCTAssertLessThanOrEqual(ForgeSparkBurst.maxLifetime, 0.6)
-        XCTAssertEqual(ForgeSparkBurst.count, 8)
+        XCTAssertEqual(ForgeSparkBurst.count, 10)
         XCTAssertEqual(ForgeSparkBurst.chips.count, ForgeSparkBurst.count)
         XCTAssertEqual(ForgeStrikeMotion.sparkBackend, "canvas")
         XCTAssertEqual(ForgeStrikeMotion.swingEasing, "anticipate+easeInQuart+spring")

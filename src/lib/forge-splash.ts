@@ -1,8 +1,8 @@
 /**
  * Brand hold on the launch splash.
- * Flag: iOS `ForgeSplashTiming` is 1200ms hold + 350ms fade = 1550ms
- * (under a 1600ms freezeCeiling). This file is still 2450ms /
- * freezeCeiling 3100ms — not lockstep with the iOS beat.
+ * Flag: iOS `ForgeSplashTiming` is 2100ms hold + 350ms fade = 2450ms
+ * (under a 2500ms freezeCeiling). This file is still 2450ms /
+ * freezeCeiling 3100ms — hold matches, ceiling does not.
  */
 export const FORGE_SPLASH = {
   holdMs: 2450,
