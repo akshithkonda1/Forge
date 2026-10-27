@@ -83,7 +83,11 @@ struct AuthWelcomeView: View {
             }
             Spacer(minLength: FDS.Spacing.sm)
             AriaSpokenMuteButton()
-            signInButton
+            // Nothing to sign back into while Cognito isn't configured;
+            // Get started is the way in.
+            if ForgeAuthClient.shared.offersSignIn {
+                signInButton
+            }
         }
     }
 

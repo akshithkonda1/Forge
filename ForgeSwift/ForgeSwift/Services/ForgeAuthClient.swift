@@ -1,8 +1,9 @@
 import Foundation
 import ForgeCore
 
-/// Phone-side auth. Cognito for real accounts; a DEBUG tester session so
-/// device work does not depend on AWS secrets.
+/// Phone-side auth. Cognito for real accounts; a device-only account while
+/// Cognito isn't configured; a DEBUG tester session so device work does not
+/// depend on AWS secrets.
 @MainActor
 final class ForgeAuthClient: ObservableObject {
     static let shared = ForgeAuthClient()
@@ -20,7 +21,18 @@ final class ForgeAuthClient: ObservableObject {
         ForgeAuthPolicy.devOverrideAllowed(userEnabled: devOverrideEnabled, config: config)
     }
 
+    /// "Start on this iPhone". Release included; see `ForgeAuthPolicy.localAccountOffered`.
+    var offersLocalAccount: Bool {
+        ForgeAuthPolicy.localAccountOffered(config: config)
+    }
+
+    /// Something to sign back into: Cognito, or the DEBUG tester account.
+    var offersSignIn: Bool {
+        config.cognitoConfigured || canUseDevOverride
+    }
+
     private static let overrideKey = "forge.auth.devOverride"
+    private static let localUserIdKey = "forge.auth.localUserId"
     private static let sessionKey = "forge.aria.authSession"
     private let store: SecureStore
 
@@ -71,6 +83,8 @@ final class ForgeAuthClient: ObservableObject {
         if let current = session, current.mode == .cognito, !config.apiIsLoopback {
             return current
         }
+        // Someone who chose "Start on this iPhone" keeps their own profile.
+        if session?.mode == .local { return session }
         if session?.mode == .devOverride { return session }
         let minted = DevAuthOverride.session()
         try? persist(minted)
@@ -87,6 +101,20 @@ final class ForgeAuthClient: ObservableObject {
     func continueAsTester() throws -> ForgeAuthSession {
         guard canUseDevOverride else { throw ForgeAuthError.overrideDisabled }
         let minted = DevAuthOverride.session()
+        try persist(minted)
+        AriaOperatingMode.refresh()
+        return minted
+    }
+
+    /// One device-only profile per install: signing out and starting again on
+    /// this iPhone comes back to the same profile and chat instead of leaving
+    /// them behind under an id nobody can reach.
+    func startLocalAccount(displayName: String) throws -> ForgeAuthSession {
+        guard offersLocalAccount else { throw ForgeAuthError.localAccountUnavailable }
+        let defaults = UserDefaults.standard
+        let userId = defaults.string(forKey: Self.localUserIdKey) ?? LocalDeviceAccount.newUserId()
+        defaults.set(userId, forKey: Self.localUserIdKey)
+        let minted = LocalDeviceAccount.session(userId: userId, displayName: displayName)
         try persist(minted)
         AriaOperatingMode.refresh()
         return minted
@@ -170,8 +198,8 @@ final class ForgeAuthClient: ObservableObject {
         if let existing = refreshTask { return try await existing.value }
 
         guard let current = session else { throw ForgeAuthError.signedOut }
-        // A tester session has no Cognito behind it; renewing is a no-op rather
-        // than an error, so DEBUG device work keeps running.
+        // Tester and device-only sessions have no Cognito behind them; renewing
+        // is a no-op rather than an error.
         guard current.mode == .cognito else { return current }
         guard let refreshToken = current.refreshToken, !refreshToken.isEmpty else {
             signOut()
@@ -229,8 +257,10 @@ final class ForgeAuthClient: ObservableObject {
         LocalTestingOrchestrator.shared.resetForNewSession()
     }
 
+    /// Nil for a device-only session: it has no token to send.
     func authorizationHeader() -> String? {
-        session.map(\.authorizationHeader)
+        guard let session, session.mode != .local else { return nil }
+        return session.authorizationHeader
     }
 
     private func persist(_ session: ForgeAuthSession) throws {
