@@ -244,7 +244,10 @@ final class LocalTestingOrchestrator {
         let guidance = AriaGuidancePolicy.decide(text: text)
         if guidance.band == .referOut, let line = guidance.line {
             return AriaResponse(
-                confidenceReason: "Local testing — outside coaching scope, referred out.",
+                confidenceReason: Self.confidenceNote(
+                    release: "Outside what ARIA coaches on, so this points you to the right help.",
+                    debug: "outside coaching scope, referred out."
+                ),
                 proseSummary: line,
                 message: line,
                 richCard: nil,
@@ -344,6 +347,11 @@ final class LocalTestingOrchestrator {
         let swarmTag = swarmPicture.sources.contains(where: \.present)
             ? " · swarm \(swarmPicture.slotName)"
             : " · swarm"
+        let note = Self.confidenceNote(
+            release: usedWeb ? "Answered on your iPhone, with a quick web search." : "Answered on your iPhone.",
+            debug: "\(specialists) · \(engine) · slot \(tier.slot) (\(tier.displayName)) · no cloud"
+                + "\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10."
+        )
         let planRequested = AriaThemeResolver.isPlanRequest(text) || TargetMuscle.mentioned(in: text) != nil
         if planRequested || base.richCard?.type == .workoutPlan {
             let plan = AriaPlanEngine.evaluate(input: text, context: context)
@@ -360,8 +368,7 @@ final class LocalTestingOrchestrator {
                     )
                 )
                 return AriaResponse(
-                    confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
-                        + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10.",
+                    confidenceReason: note,
                     proseSummary: body,
                     message: body,
                     richCard: AriaService.payload(from: plan.richCard),
@@ -380,8 +387,7 @@ final class LocalTestingOrchestrator {
             )
         )
         return AriaResponse(
-            confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
-                + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10.",
+            confidenceReason: note,
             proseSummary: body,
             message: body,
             richCard: base.richCard.flatMap(AriaService.payload(from:)),
@@ -389,6 +395,16 @@ final class LocalTestingOrchestrator {
             contextUpdates: ["relationship_level": familiarity],
             confidence: base.confidence
         )
+    }
+
+    /// The line behind the confidence chip. DEBUG keeps the full routing
+    /// diagnostic for tuning ARIA; Release says where the answer came from.
+    private static func confidenceNote(release: String, debug diagnostic: @autoclosure () -> String) -> String {
+        #if DEBUG
+        return "Local testing — " + diagnostic()
+        #else
+        return release
+        #endif
     }
 
     // MARK: - Simulated thinking
