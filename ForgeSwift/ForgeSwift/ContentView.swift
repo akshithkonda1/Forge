@@ -47,6 +47,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 neuralVoiceGate?.refreshCatalog()
+                store.refreshOnDeviceModel()
             }
         }
         .task {

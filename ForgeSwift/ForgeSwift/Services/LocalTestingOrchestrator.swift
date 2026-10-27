@@ -165,8 +165,8 @@ final class LocalTestingOrchestrator {
     /// already applies for every other ARIA surface — falling back to
     /// `RuleBasedResponseGenerator` only where Foundation Models isn't
     /// available. Neither call touches Forge's own network.
-    private let generator: TrainerResponseGenerator
-    private let usingFoundationModels: Bool
+    private var generator: TrainerResponseGenerator
+    private var usingFoundationModels: Bool
 
     /// Re-derived per session so a tester does not see identical phrasing every
     /// launch. `AriaSeededRNG` is the same generator the voice layer uses.
@@ -174,6 +174,15 @@ final class LocalTestingOrchestrator {
 
     private init() {
         seed = Self.freshSeed()
+        generator = domainClassifier
+        usingFoundationModels = false
+        refreshOnDeviceModel()
+    }
+
+    /// Apple's model can still be downloading the first time ARIA is used.
+    /// Checking once at launch left ARIA on rules until a relaunch, so this
+    /// runs again on a new session and when the app comes to the foreground.
+    func refreshOnDeviceModel() {
         // Simulator has no model catalog — see FoundationModelsResponseGenerator's
         // own init comment and AppStore's identical guard. Evaluating
         // `SystemLanguageModel.default`, which happens as soon as
@@ -187,9 +196,6 @@ final class LocalTestingOrchestrator {
             generator = domainClassifier
             usingFoundationModels = false
         }
-        #else
-        generator = domainClassifier
-        usingFoundationModels = false
         #endif
     }
 
@@ -199,6 +205,7 @@ final class LocalTestingOrchestrator {
         exchanges = 0
         facts = [:]
         seed = Self.freshSeed()
+        refreshOnDeviceModel()
     }
 
     static func freshSeed() -> UInt64 {
@@ -244,7 +251,10 @@ final class LocalTestingOrchestrator {
         let guidance = AriaGuidancePolicy.decide(text: text)
         if guidance.band == .referOut, let line = guidance.line {
             return AriaResponse(
-                confidenceReason: "Local testing — outside coaching scope, referred out.",
+                confidenceReason: Self.confidenceNote(
+                    release: "Outside what ARIA coaches on, so this points you to the right help.",
+                    debug: "outside coaching scope, referred out."
+                ),
                 proseSummary: line,
                 message: line,
                 richCard: nil,
@@ -344,6 +354,11 @@ final class LocalTestingOrchestrator {
         let swarmTag = swarmPicture.sources.contains(where: \.present)
             ? " · swarm \(swarmPicture.slotName)"
             : " · swarm"
+        let note = Self.confidenceNote(
+            release: usedWeb ? "Answered on your iPhone, with a quick web search." : "Answered on your iPhone.",
+            debug: "\(specialists) · \(engine) · slot \(tier.slot) (\(tier.displayName)) · no cloud"
+                + "\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10."
+        )
         let planRequested = AriaThemeResolver.isPlanRequest(text) || TargetMuscle.mentioned(in: text) != nil
         if planRequested || base.richCard?.type == .workoutPlan {
             let plan = AriaPlanEngine.evaluate(input: text, context: context)
@@ -360,8 +375,7 @@ final class LocalTestingOrchestrator {
                     )
                 )
                 return AriaResponse(
-                    confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
-                        + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10.",
+                    confidenceReason: note,
                     proseSummary: body,
                     message: body,
                     richCard: AriaService.payload(from: plan.richCard),
@@ -380,8 +394,7 @@ final class LocalTestingOrchestrator {
             )
         )
         return AriaResponse(
-            confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
-                + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10.",
+            confidenceReason: note,
             proseSummary: body,
             message: body,
             richCard: base.richCard.flatMap(AriaService.payload(from:)),
@@ -389,6 +402,16 @@ final class LocalTestingOrchestrator {
             contextUpdates: ["relationship_level": familiarity],
             confidence: base.confidence
         )
+    }
+
+    /// The line behind the confidence chip. DEBUG keeps the full routing
+    /// diagnostic for tuning ARIA; Release says where the answer came from.
+    private static func confidenceNote(release: String, debug diagnostic: @autoclosure () -> String) -> String {
+        #if DEBUG
+        return "Local testing — " + diagnostic()
+        #else
+        return release
+        #endif
     }
 
     // MARK: - Simulated thinking

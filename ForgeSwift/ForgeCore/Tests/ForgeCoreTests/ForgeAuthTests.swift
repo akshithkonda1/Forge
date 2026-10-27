@@ -253,6 +253,69 @@ final class ForgeAuthTests: XCTestCase {
         #endif
     }
 
+    // MARK: Release has a way in
+
+    /// The TestFlight dead end from the Oct 20 readiness audit: the shipped
+    /// Info.plist has blank Cognito ids and the tester account is debug-only,
+    /// so a Release build ended at "Sign-up isn't configured for this build."
+    /// Reads the real Info-Add.plist so blanking the ids again cannot
+    /// quietly bring the dead end back.
+    func testShippedPlistInReleaseAlwaysOffersAWayIn() throws {
+        let config = ForgeAuthConfig.fromInfoDictionary(try Self.shippedInfoAdditions())
+        let tester = ForgeAuthPolicy.devOverrideAllowed(userEnabled: true, config: config, debugBuild: false)
+        XCTAssertFalse(tester, "The tester account must stay out of Release.")
+        XCTAssertTrue(
+            config.cognitoConfigured || ForgeAuthPolicy.localAccountOffered(config: config),
+            "A Release build needs email sign-up or Start on this iPhone."
+        )
+    }
+
+    func testBlankCognitoOffersTheLocalAccount() {
+        let blank = ForgeAuthConfig.fromInfoDictionary([
+            "FORGEEnvironment": "dummy",
+            "FORGECognitoRegion": "",
+            "FORGECognitoClientId": "",
+            "FORGECognitoUserPoolId": "",
+        ])
+        XCTAssertFalse(blank.cognitoConfigured)
+        XCTAssertTrue(ForgeAuthPolicy.localAccountOffered(config: blank))
+    }
+
+    func testConfiguredCognitoKeepsEmailSignUpPrimary() {
+        let paired = ForgeAuthConfig(
+            apiBaseURL: URL(string: "https://api.forge.example")!,
+            cognitoRegion: "us-east-1",
+            cognitoClientId: "ios-client",
+            cognitoUserPoolId: "us-east-1_pool",
+            environment: "prod"
+        )
+        XCTAssertFalse(ForgeAuthPolicy.localAccountOffered(config: paired))
+    }
+
+    func testLocalAccountIsDeviceOnlyAndSurvivesTheKeychainRoundTrip() throws {
+        let session = LocalDeviceAccount.session(userId: LocalDeviceAccount.newUserId(), displayName: "Maya")
+        XCTAssertEqual(session.mode, .local)
+        XCTAssertEqual(session.provider, LocalDeviceAccount.provider)
+        XCTAssertTrue(session.accessToken.isEmpty)
+        XCTAssertNil(session.refreshToken)
+        XCTAssertTrue(session.userId.hasPrefix("device-"))
+        XCTAssertNotEqual(session.userId, ForgeAuthConfig.testUserId)
+        let stored = try JSONEncoder().encode(session)
+        XCTAssertEqual(try JSONDecoder().decode(ForgeAuthSession.self, from: stored), session)
+    }
+
+    private static func shippedInfoAdditions() throws -> [String: Any] {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("ForgeSwift")
+            .appendingPathComponent("Info-Add.plist")
+        let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil)
+        return try XCTUnwrap(plist as? [String: Any])
+    }
+
     private func base64URL(_ string: String) -> String {
         Data(string.utf8).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")

@@ -5,9 +5,14 @@ import Foundation
 /// Production talks to Cognito. Debug builds may mint a local tester
 /// session so a device or simulator can exercise the rest of the app
 /// without AWS secrets. That path is compiled out of Release.
+///
+/// A build with no Cognito configured offers a device-only account
+/// instead, in every configuration: a real profile that lives on this
+/// iPhone, with no token and nothing for a server to accept.
 public enum ForgeAuthMode: String, Equatable, Sendable, Codable {
     case cognito
     case devOverride
+    case local
 }
 
 public struct ForgeAuthConfig: Equatable, Sendable {
@@ -183,6 +188,15 @@ public enum ForgeAuthPolicy {
         return false
     }
 
+    /// "Start on this iPhone" is offered whenever there is no Cognito to sign
+    /// up with, Release included, so a TestFlight build never dead-ends on
+    /// the welcome screen. It is not the tester account: it creates the
+    /// person's own profile and never seeds fake health data. Once the
+    /// Cognito ids are filled in, email sign-up is the path again.
+    public static func localAccountOffered(config: ForgeAuthConfig) -> Bool {
+        !config.cognitoConfigured
+    }
+
     /// Mint the tester session so Device Hub / loopback runs never wait on AWS.
     public static func shouldAutoInstallTester(
         allowed: Bool,
@@ -231,6 +245,28 @@ public enum DevAuthOverride {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
+    }
+}
+
+/// The device-only account behind "Start on this iPhone". The id scopes the
+/// person's profile and chat on this phone; there is no token because there
+/// is no server that would accept one.
+public enum LocalDeviceAccount {
+    public static let provider = "device"
+
+    public static func newUserId() -> String {
+        "device-\(UUID().uuidString.lowercased())"
+    }
+
+    public static func session(userId: String, displayName: String) -> ForgeAuthSession {
+        ForgeAuthSession(
+            userId: userId,
+            email: "",
+            displayName: displayName,
+            provider: provider,
+            accessToken: "",
+            mode: .local
+        )
     }
 }
 
@@ -491,6 +527,8 @@ public enum ForgeAuthError: Error, Equatable {
     case cognitoNotConfigured
     case cognitoRejected(String)
     case overrideDisabled
+    /// This build has Cognito configured; the device-only account is not offered.
+    case localAccountUnavailable
     case network
     /// No session, or a refresh token Cognito has revoked. Distinct from
     /// `.network` on purpose: one means try again later, the other means the
@@ -506,6 +544,7 @@ public enum ForgeAuthError: Error, Equatable {
         case .cognitoNotConfigured: return "Sign-in isn't configured for this build."
         case .cognitoRejected(let message): return message
         case .overrideDisabled: return "Tester sign-in is off in this build."
+        case .localAccountUnavailable: return "This build signs in with an account. Continue with email."
         case .network: return "Couldn't reach Forge. Check your connection and try again."
         case .signedOut: return "Your session expired. Sign in to continue."
         }

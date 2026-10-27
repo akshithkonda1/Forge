@@ -358,13 +358,7 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
-            #if canImport(FoundationModels) && !targetEnvironment(simulator)
-            let foundationModelsGenerator = FoundationModelsResponseGenerator()
-            if foundationModelsGenerator.isAvailable {
-                self.aiModelAvailable = true
-                self.responseGenerator = foundationModelsGenerator
-            }
-            #endif
+            self.refreshOnDeviceModel()
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 self.restoreChatHistory()
             }
@@ -377,6 +371,22 @@ final class AppStore: ObservableObject {
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
+    }
+
+    /// Moves ARIA onto Apple's on-device model once it is ready. On a first
+    /// launch it can still be downloading, so this runs again whenever the app
+    /// comes back to the foreground instead of waiting for a relaunch.
+    func refreshOnDeviceModel() {
+        #if canImport(FoundationModels) && !targetEnvironment(simulator)
+        if !aiModelAvailable {
+            let foundationModelsGenerator = FoundationModelsResponseGenerator()
+            if foundationModelsGenerator.isAvailable {
+                aiModelAvailable = true
+                responseGenerator = foundationModelsGenerator
+            }
+        }
+        #endif
+        LocalTestingOrchestrator.shared.refreshOnDeviceModel()
     }
 
     // MARK: - Chat Persistence & Momentum
