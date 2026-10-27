@@ -165,8 +165,8 @@ final class LocalTestingOrchestrator {
     /// already applies for every other ARIA surface — falling back to
     /// `RuleBasedResponseGenerator` only where Foundation Models isn't
     /// available. Neither call touches Forge's own network.
-    private let generator: TrainerResponseGenerator
-    private let usingFoundationModels: Bool
+    private var generator: TrainerResponseGenerator
+    private var usingFoundationModels: Bool
 
     /// Re-derived per session so a tester does not see identical phrasing every
     /// launch. `AriaSeededRNG` is the same generator the voice layer uses.
@@ -174,6 +174,15 @@ final class LocalTestingOrchestrator {
 
     private init() {
         seed = Self.freshSeed()
+        generator = domainClassifier
+        usingFoundationModels = false
+        refreshOnDeviceModel()
+    }
+
+    /// Apple's model can still be downloading the first time ARIA is used.
+    /// Checking once at launch left ARIA on rules until a relaunch, so this
+    /// runs again on a new session and when the app comes to the foreground.
+    func refreshOnDeviceModel() {
         // Simulator has no model catalog — see FoundationModelsResponseGenerator's
         // own init comment and AppStore's identical guard. Evaluating
         // `SystemLanguageModel.default`, which happens as soon as
@@ -187,9 +196,6 @@ final class LocalTestingOrchestrator {
             generator = domainClassifier
             usingFoundationModels = false
         }
-        #else
-        generator = domainClassifier
-        usingFoundationModels = false
         #endif
     }
 
@@ -199,6 +205,7 @@ final class LocalTestingOrchestrator {
         exchanges = 0
         facts = [:]
         seed = Self.freshSeed()
+        refreshOnDeviceModel()
     }
 
     static func freshSeed() -> UInt64 {
