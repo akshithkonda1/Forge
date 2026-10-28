@@ -97,7 +97,7 @@ public enum ForgeLifestyleProfile: Sendable {
         public var saferFraming: String {
             switch self {
             case .seizures, .epilepsy:
-                return "Here's what works with your body: grounded intensity, predictable rest windows, no solo high-risk work, and honest sleep. Lifestyle coaching only — if anything feels off, run it past a doctor."
+                return "Here's what works with your body: grounded intensity, no solo swimming or climbing, and extra care after short sleep or heat. Lifestyle coaching only — if anything feels off, run it past a doctor."
             case .diabetes:
                 return "Here's what works with your body: timing and fueling reminders around the session you already planned. Anything medical is a doctor."
             case .injury:
@@ -274,7 +274,7 @@ public enum ForgeLifestyleProfile: Sendable {
         }
         if snap.relationship == nil { snap.relationship = signals.relationship }
         if snap.social.isEmpty { snap.social = signals.social }
-        if snap.healthConstraints.isEmpty { snap.healthConstraints = signals.conditions }
+        // Conditions are user-declared only. Never guess from conversation or HealthKit.
         return snap
     }
 
@@ -376,11 +376,8 @@ public enum ForgeLifestyleProfile: Sendable {
             let names = snap.hobbies.prefix(3).map(\.label).joined(separator: ", ")
             parts.append("Free days include \(names). Those hours count toward the day — not decoration.")
         }
-        if snap.hasSeizureConstraint {
-            parts.append("They live with seizures. Safer, predictable activity. Suggest a doctor for anything medical. Never diagnose. Never treat the condition as who they are.")
-        } else if !snap.healthConstraints.isEmpty {
-            let names = snap.healthConstraints.map(\.label).joined(separator: ", ")
-            parts.append("Respect \(names) as a constraint on the day, not as who they are. Coach, not doctor.")
+        if !snap.healthConstraints.isEmpty {
+            parts.append("They declared a condition. Use the safety rules that already changed the plan. Never name the condition. Never diagnose. Never treat a condition as who they are.")
         }
         parts.append("Never sell this. Never use it for ads.")
         return parts.joined(separator: " ")

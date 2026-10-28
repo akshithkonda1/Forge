@@ -16,6 +16,8 @@ struct SettingsPageView: View {
     @State private var showStandBySheet = false
     @State private var catalogRevision = 0
     @State private var showWhatIKnow = false
+    @State private var showPatterns = false
+    @State private var showPrivacyLog = false
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
     @State private var showCoachingPersonalityPicker = false
@@ -121,6 +123,16 @@ struct SettingsPageView: View {
                 WhatIKnowView()
             }
         }
+        .sheet(isPresented: $showPatterns) {
+            NavigationStack {
+                AriaPersonalPatternsView()
+            }
+        }
+        .sheet(isPresented: $showPrivacyLog) {
+            NavigationStack {
+                AriaPrivacyLogView()
+            }
+        }
         .sheet(isPresented: $showTrainingThemePicker) {
             TrainingThemePickerView()
         }
@@ -195,12 +207,27 @@ struct SettingsPageView: View {
     private var localPrivacySheet: some View {
         NavigationStack {
             ScrollView {
-                Text(ForgePrivacyCopy.healthStaysOnDevice)
-                    .font(HomeType.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .forgeWrapping()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .forgeScreenInsets(top: FDS.Spacing.lg)
+                VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                    Text(ForgePrivacyCopy.healthStaysOnDevice)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    Text("Personal patterns and ARIA memory stay on this phone too. Claude and Grok get computed facts only: sleep band, readiness band, gym, and whether a safety rule changed the plan. Never samples. Never condition names.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    Text("Forge does not sell health data and does not advertise on it. There is no ad SDK and no analytics on health screens. Speech stays on this phone. Server voice is off until you turn it on.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    ForgeTextLink(title: "What left your phone today", accent: .ember) {
+                        showLocalPrivacy = false
+                        showPrivacyLog = true
+                    }
+                    .accessibilityAddTraits(.isButton)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
             .background(Color.background)
             .navigationTitle("Privacy")
@@ -262,6 +289,14 @@ struct SettingsPageView: View {
                     label: "Aria's memory",
                     footnote: "This is what Aria remembers. Add or remove anything."
                 ) { showWhatIKnow = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "waveform.path.ecg",
+                    iconColor: .ember,
+                    label: "Your patterns",
+                    footnote: "What ARIA learned, the evidence, and what it changed."
+                ) { showPatterns = true }
 
                 SettingsHairline()
                 settingsLink(
@@ -904,6 +939,14 @@ struct SettingsPageView: View {
                     label: "ARIA Data Permissions",
                     trailingText: "Manage"
                 ) { showDataPermissions = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "iphone.and.arrow.forward",
+                    iconColor: .steel,
+                    label: "What left your phone today",
+                    footnote: "Computed facts only. Health stays here."
+                ) { showPrivacyLog = true }
 
                 SettingsHairline()
                 ShareLink(item: store.exportUserDataJSON()) {

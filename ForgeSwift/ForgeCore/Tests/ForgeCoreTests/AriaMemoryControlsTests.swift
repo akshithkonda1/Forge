@@ -303,6 +303,12 @@ final class AriaMemoryControlsTests: XCTestCase {
         XCTAssertEqual(AriaMemoryAccess.toneLabel(.space, selected: false), "Tone, Space")
         XCTAssertEqual(AriaMemoryAccess.checkInLabel(.weekly, selected: true), "Check-in, Weekly, selected")
         XCTAssertEqual(AriaMemoryAccess.checkInLabel(.off, selected: false), "Check-in, Off")
+        XCTAssertEqual(
+            AriaMemoryAccess.talkativenessLabel(.quiet, selected: true),
+            "How much I speak, Quiet, selected"
+        )
+        XCTAssertFalse(AriaCompanionPreferences.default.serverVoiceEnabled)
+        XCTAssertEqual(AriaCompanionPreferences.default.talkativeness, .balanced)
         XCTAssertEqual(AriaMemoryAccess.folderUseLabel(.events), "ARIA may use Events")
         XCTAssertEqual(AriaMemoryAccess.personaActionLabel(interviewCompleted: true), "Update who I am")
         XCTAssertEqual(AriaMemoryAccess.personaActionLabel(interviewCompleted: false), "Tell ARIA who you are")

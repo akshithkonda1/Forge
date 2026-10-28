@@ -72,13 +72,17 @@ public struct AriaCompanionPreferences: Codable, Equatable, Sendable {
     public var personaEnabled: Bool
     public var tone: AriaCompanionTone
     public var checkInCadence: AriaCheckInCadence
+    public var talkativeness: AriaMorningCardBuilder.Talkativeness
+    public var serverVoiceEnabled: Bool
 
     public static let `default` = AriaCompanionPreferences(
         memoryEnabled: true,
         disabledCategories: [],
         personaEnabled: true,
         tone: .checkIn,
-        checkInCadence: .weekly
+        checkInCadence: .weekly,
+        talkativeness: .balanced,
+        serverVoiceEnabled: false
     )
 
     public init(
@@ -86,13 +90,17 @@ public struct AriaCompanionPreferences: Codable, Equatable, Sendable {
         disabledCategories: [String] = [],
         personaEnabled: Bool = true,
         tone: AriaCompanionTone = .checkIn,
-        checkInCadence: AriaCheckInCadence = .weekly
+        checkInCadence: AriaCheckInCadence = .weekly,
+        talkativeness: AriaMorningCardBuilder.Talkativeness = .balanced,
+        serverVoiceEnabled: Bool = false
     ) {
         self.memoryEnabled = memoryEnabled
         self.disabledCategories = disabledCategories
         self.personaEnabled = personaEnabled
         self.tone = tone
         self.checkInCadence = checkInCadence
+        self.talkativeness = talkativeness
+        self.serverVoiceEnabled = serverVoiceEnabled
     }
 
     public init(from decoder: Decoder) throws {
@@ -102,6 +110,22 @@ public struct AriaCompanionPreferences: Codable, Equatable, Sendable {
         personaEnabled = try c.decodeIfPresent(Bool.self, forKey: .personaEnabled) ?? true
         tone = try c.decodeIfPresent(AriaCompanionTone.self, forKey: .tone) ?? .checkIn
         checkInCadence = try c.decodeIfPresent(AriaCheckInCadence.self, forKey: .checkInCadence) ?? .weekly
+        talkativeness = try c.decodeIfPresent(
+            AriaMorningCardBuilder.Talkativeness.self,
+            forKey: .talkativeness
+        ) ?? .balanced
+        serverVoiceEnabled = try c.decodeIfPresent(Bool.self, forKey: .serverVoiceEnabled) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(memoryEnabled, forKey: .memoryEnabled)
+        try c.encode(disabledCategories, forKey: .disabledCategories)
+        try c.encode(personaEnabled, forKey: .personaEnabled)
+        try c.encode(tone, forKey: .tone)
+        try c.encode(checkInCadence, forKey: .checkInCadence)
+        try c.encode(talkativeness, forKey: .talkativeness)
+        try c.encode(serverVoiceEnabled, forKey: .serverVoiceEnabled)
     }
 
     public func isCategoryEnabled(_ category: AriaKnowledgeCategory, kind: String = "") -> Bool {
@@ -344,6 +368,19 @@ public struct AriaMemoryControls: Equatable {
         prefs.checkInCadence = cadence
         AriaCompanionPreferencesStore.save(prefs, defaults: defaults)
     }
+
+    public mutating func setTalkativeness(
+        _ value: AriaMorningCardBuilder.Talkativeness,
+        defaults: UserDefaults = .standard
+    ) {
+        prefs.talkativeness = value
+        AriaCompanionPreferencesStore.save(prefs, defaults: defaults)
+    }
+
+    public mutating func setServerVoiceEnabled(_ enabled: Bool, defaults: UserDefaults = .standard) {
+        prefs.serverVoiceEnabled = enabled
+        AriaCompanionPreferencesStore.save(prefs, defaults: defaults)
+    }
 }
 
 /// VoiceOver copy + Reduce Motion contract for the vault screen.
@@ -367,6 +404,15 @@ public enum AriaMemoryAccess: Sendable {
     public static let folderPickerLabel = "Folder"
     public static let howITalkHeader = "How I talk"
     public static let checkInsHeader = "Check-ins"
+    public static let talkativenessHeader = "How much I speak"
+    public static let serverVoiceHeader = "Server voice"
+
+    public static func talkativenessLabel(
+        _ value: AriaMorningCardBuilder.Talkativeness,
+        selected: Bool
+    ) -> String {
+        selected ? "How much I speak, \(value.title), selected" : "How much I speak, \(value.title)"
+    }
 
     public static func rememberMeValue(isOn: Bool) -> String { isOn ? "On" : "Off" }
 

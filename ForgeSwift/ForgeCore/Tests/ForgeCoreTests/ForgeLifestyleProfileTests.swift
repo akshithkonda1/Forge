@@ -16,7 +16,9 @@ final class ForgeLifestyleProfileTests: XCTestCase {
 
         let sleepAria = ForgeLifestyleProfile.ariaEmphasis(sleep).lowercased()
         let socialAria = ForgeLifestyleProfile.ariaEmphasis(social).lowercased()
-        XCTAssertTrue(sleepAria.contains("seizure"))
+        XCTAssertTrue(sleepAria.contains("declared a condition") || sleepAria.contains("safety rules"))
+        XCTAssertFalse(sleepAria.contains("seizure"))
+        XCTAssertFalse(sleepAria.contains("medication"))
         XCTAssertFalse(sleepAria.contains("identity"))
         XCTAssertTrue(socialAria.contains("nights out") || socialAria.contains("drinking") || socialAria.contains("non-judgmental"))
 
@@ -29,6 +31,30 @@ final class ForgeLifestyleProfileTests: XCTestCase {
         XCTAssertTrue(ForgeLifestyleProfile.onboardingBeats(sleep).contains(.relationship))
         XCTAssertTrue(ForgeLifestyleProfile.onboardingBeats(sleep).contains(.healthConstraints) == false)
         XCTAssertTrue(ForgeLifestyleProfile.onboardingBeats(social).isEmpty || !ForgeLifestyleProfile.onboardingBeats(social).contains(.relationship))
+    }
+
+    func testEvolveNeverGuessesConditionsFromSignals() {
+        var current = ForgeLifestyleProfile.Snapshot()
+        current.healthConstraints = [.diabetes]
+        let kept = ForgeLifestyleProfile.evolve(
+            current: current,
+            signals: .init(
+                conversation: ["I had a seizure last night"],
+                conditions: [.epilepsy]
+            )
+        )
+        XCTAssertEqual(kept.healthConstraints, [.diabetes])
+
+        let blank = ForgeLifestyleProfile.evolve(
+            signals: .init(
+                conversation: ["epilepsy", "climbing"],
+                conditions: [.epilepsy, .seizures]
+            )
+        )
+        XCTAssertTrue(blank.healthConstraints.isEmpty)
+        let emphasis = ForgeLifestyleProfile.ariaEmphasis(current).lowercased()
+        XCTAssertFalse(emphasis.contains("medication"))
+        XCTAssertFalse(emphasis.contains("seizure"))
     }
 
     func testRedactionAndSkipStayOnDevice() {

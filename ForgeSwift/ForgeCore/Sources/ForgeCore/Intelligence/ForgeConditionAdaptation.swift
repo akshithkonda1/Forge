@@ -36,7 +36,7 @@ public enum ForgeConditionAdaptation: Sendable {
     ) -> String {
         switch condition {
         case .seizures, .epilepsy:
-            return "Here's what works with your body: seizure-aware intensity ceiling, predictable rest windows, skip solo high-risk work, and sleep-deprivation awareness. Lifestyle coaching only."
+            return ForgeConditionSafety.trainingLine([condition])
         case .diabetes:
             return "Here's what works with your body: blood-sugar-aware timing and fueling reminders around the session as written. Lifestyle coaching only."
         case .adhd:
@@ -113,7 +113,9 @@ public enum ForgeConditionAdaptation: Sendable {
     }
 
     /// Solo or extreme names the epilepsy constraint should not surface first.
+    /// Swimming and climbing are also blocked — see `ForgeConditionSafety`.
     public static func isSoloHighRisk(_ name: String) -> Bool {
+        if ForgeConditionSafety.isSoloSwimOrClimb(name) { return true }
         let lower = name.lowercased()
         let tokens = [
             "hang clean", "snatch", "clean and jerk", "muscle-up",
@@ -130,7 +132,7 @@ public enum ForgeConditionAdaptation: Sendable {
         case (.training, _):
             return trainingConstraint(condition)
         case (.sleep, .seizures), (.sleep, .epilepsy):
-            return "Sleep-deprivation awareness: protect rest windows so the next day has a grounded intensity ceiling."
+            return "Protect rest windows so the next day has a grounded intensity ceiling."
         case (.sleep, .diabetes):
             return "Sleep timing that leaves room for fueling reminders around the morning session."
         case (.sleep, .adhd):
@@ -154,7 +156,7 @@ public enum ForgeConditionAdaptation: Sendable {
         case (.mood, _):
             return "Here's what works with your body today. Coach, not clinician."
         case (.dayToDay, .seizures), (.dayToDay, .epilepsy):
-            return "Day-to-day: skip solo high-risk, keep rest windows, watch sleep debt."
+            return "Day-to-day: skip solo swimming and climbing, keep rest windows, watch sleep debt."
         case (.dayToDay, .diabetes):
             return "Day-to-day: blood-sugar-aware timing and fueling reminders as written."
         case (.dayToDay, .adhd):

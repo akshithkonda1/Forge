@@ -48,7 +48,7 @@ export function ReadinessSection() {
 
   const breakdownItems: BreakdownItem[] = [
     { label: "Sleep Quality", value: readiness.sleepQuality },
-    { label: "Recovery", value: readiness.recoveryScore },
+    { label: "Overnight", value: readiness.recoveryScore },
     { label: "Stress", value: readiness.stressLevel, inverted: true },
     { label: "Energy Bank", value: readiness.energyBank },
   ];
