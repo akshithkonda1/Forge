@@ -433,11 +433,11 @@ export default function SettingsPage() {
         <SettingsRow
           icon={<Bell size={18} />}
           iconColor="text-success"
-          label="Recovery Alerts"
+          label="Overnight alerts"
           rightElement={
             <ToggleSwitch
               enabled={notificationPrefs.recoveryAlerts}
-              label="Recovery alerts"
+              label="Overnight alerts"
               onToggle={() => handleToggle("recoveryAlerts")}
             />
           }
@@ -591,10 +591,18 @@ export default function SettingsPage() {
       </Sheet>
 
       <Sheet open={sheet === "privacy"} onClose={() => setSheet(null)} title="Data & Privacy">
-        <p className="text-sm leading-relaxed text-text-secondary">
-          Forge keeps structured health signals on-device and in your account. ARIA only
-          uses the domains you grant. Clinical notes and insurance coverage stay out.
-        </p>
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-text-secondary">
+          <p>
+            Health data, patterns, and memory stay on this device where they can.
+            Models get computed facts only — sleep band, readiness band, gym, and
+            whether a safety rule changed the plan. Never samples. Never condition names.
+          </p>
+          <p>
+            Forge does not sell health data and does not advertise on it. Server voice
+            is off until you turn it on. Nothing left this browser today unless you
+            opened chat.
+          </p>
+        </div>
       </Sheet>
 
       <Sheet open={sheet === "subscription"} onClose={() => setSheet(null)} title="Subscription">
@@ -606,7 +614,7 @@ export default function SettingsPage() {
 
       <Sheet open={sheet === "help"} onClose={() => setSheet(null)} title="Help & Support">
         <p className="text-sm leading-relaxed text-text-secondary">
-          Ask ARIA from the chat tab for training and recovery. For account issues,
+          Ask ARIA from the chat tab for training and sleep. For account issues,
           use the in-app chat or email support from the iOS client.
         </p>
       </Sheet>

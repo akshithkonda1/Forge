@@ -99,6 +99,14 @@ final class AriaMemoryControlsViewModel: ObservableObject {
         controls.setCheckInCadence(cadence, defaults: defaults)
     }
 
+    func setTalkativeness(_ value: AriaMorningCardBuilder.Talkativeness) {
+        controls.setTalkativeness(value, defaults: defaults)
+    }
+
+    func setServerVoiceEnabled(_ enabled: Bool) {
+        controls.setServerVoiceEnabled(enabled, defaults: defaults)
+    }
+
     static let privacyRefusal =
         "I can't store places, invites, or addresses. Kinds and days-until only."
 }
