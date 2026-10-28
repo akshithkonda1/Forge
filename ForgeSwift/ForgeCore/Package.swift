@@ -294,6 +294,7 @@ let package = Package(
                 "AriaMorningCardTests.swift",
                 "AriaDeviceEgressTests.swift",
                 "ForgeStabilityTests.swift",
+                "LaunchStabilityFixtureTests.swift",
                 "WorkoutCoachingTests.swift",
                 "WorkoutModelsTests.swift",
                 "ForgeCloudContractsTests.swift",
