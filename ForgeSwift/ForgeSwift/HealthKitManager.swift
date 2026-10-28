@@ -591,11 +591,13 @@ class HealthKitManager: ObservableObject {
                 } catch {
                     authorizationErrorMessage = error.localizedDescription
                     isAuthorized = false
+                    ReliabilityLog.noteFailure(.healthKit, .healthAuthorization, error: error)
                     throw error
                 }
             }
             authorizationErrorMessage = error.localizedDescription
             isAuthorized = false
+            ReliabilityLog.noteFailure(.healthKit, .healthAuthorization, error: error)
             throw error
         }
     }
