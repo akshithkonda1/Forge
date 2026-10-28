@@ -113,6 +113,13 @@ jobs:
             -project ForgeSwift.xcodeproj \
             -scheme ForgeSwift
 
+      - name: Kokoro license / G2P gate
+        if: needs.changes.outputs.relevant == 'true'
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/check-kokoro-licenses.py
+        env:
+          KOKORO_SOURCEPACKAGES: ${{ github.workspace }}/ForgeSwift/SourcePackages/checkouts
+
       - name: Test ForgeCore
         if: needs.changes.outputs.relevant == 'true'
         run: |
