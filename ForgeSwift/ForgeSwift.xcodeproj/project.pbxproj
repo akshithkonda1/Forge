@@ -177,6 +177,7 @@
 		1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07500000000000000A /* OnboardingGateTests.swift */; };
 		1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */; };
 		1TEST07A00000000000000A /* ForgeAuthClientInitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07900000000000000A /* ForgeAuthClientInitTests.swift */; };
+		1TEST07C00000000000000A /* LaunchStabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07B00000000000000A /* LaunchStabilityGateTests.swift */; };
 		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
@@ -569,6 +570,7 @@
 		1TEST07500000000000000A /* OnboardingGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGateTests.swift; sourceTree = "<group>"; };
 		1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDataNonFiniteTests.swift; sourceTree = "<group>"; };
 		1TEST07900000000000000A /* ForgeAuthClientInitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClientInitTests.swift; sourceTree = "<group>"; };
+		1TEST07B00000000000000A /* LaunchStabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchStabilityGateTests.swift; sourceTree = "<group>"; };
 		1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryFilterTests.swift; sourceTree = "<group>"; };
 		1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthLaunchTests.swift; sourceTree = "<group>"; };
 		1TEST01D00000000000000A /* FakeCyclePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeCyclePackTests.swift; sourceTree = "<group>"; };
@@ -1397,6 +1399,7 @@
 				1TEST07500000000000000A /* OnboardingGateTests.swift */,
 				1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */,
 				1TEST07900000000000000A /* ForgeAuthClientInitTests.swift */,
+				1TEST07B00000000000000A /* LaunchStabilityGateTests.swift */,
 				1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */,
 				1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */,
 				1TEST01D00000000000000A /* FakeCyclePackTests.swift */,
@@ -2057,6 +2060,7 @@
 				1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */,
 				1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */,
 				1TEST07A00000000000000A /* ForgeAuthClientInitTests.swift in Sources */,
+				1TEST07C00000000000000A /* LaunchStabilityGateTests.swift in Sources */,
 				1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */,
 				1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */,
 				1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */,

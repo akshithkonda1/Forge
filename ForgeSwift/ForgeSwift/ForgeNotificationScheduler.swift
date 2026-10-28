@@ -27,12 +27,39 @@ enum ForgeNotificationScheduler {
         static let partnerSupport = "forge.notif.partner.support"
     }
 
+    /// Launch / prep must not show the system permission sheet. A fresh
+    /// simulator install otherwise sits on that alert until the launch
+    /// watchdog fires. Settings toggles pass `promptIfUndetermined: true`.
+    enum AuthorizationIntent: Equatable {
+        case alreadyGranted
+        case denied
+        case prompt
+        case skipPrompt
+    }
+
+    static func authorizationIntent(
+        status: UNAuthorizationStatus,
+        promptIfUndetermined: Bool
+    ) -> AuthorizationIntent {
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            return .alreadyGranted
+        case .denied:
+            return .denied
+        case .notDetermined:
+            return promptIfUndetermined ? .prompt : .skipPrompt
+        @unknown default:
+            return .denied
+        }
+    }
+
     static func sync(
         settings: AppNotificationSettings,
         briefEnabled: Bool,
-        brief: BriefNotificationSettings
+        brief: BriefNotificationSettings,
+        promptIfUndetermined: Bool = false
     ) async {
-        guard await requestAuthorizationIfNeeded() else { return }
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: promptIfUndetermined) else { return }
 
         await removeAllForgeNotifications()
 
@@ -262,7 +289,7 @@ enum ForgeNotificationScheduler {
         center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
         center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
         guard let glance, !glance.isPaused, !glance.isStale else { return }
-        guard await requestAuthorizationIfNeeded() else { return }
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         await scheduleDaily(
             id: ID.partnerSupport,
             hour: 8, minute: 0,
@@ -272,12 +299,20 @@ enum ForgeNotificationScheduler {
         )
     }
 
-    static func requestAuthorizationIfNeeded() async -> Bool {
-        do {
-            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
-        } catch {
-            print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
+    static func requestAuthorizationIfNeeded(promptIfUndetermined: Bool = false) async -> Bool {
+        let status = await center.notificationSettings().authorizationStatus
+        switch authorizationIntent(status: status, promptIfUndetermined: promptIfUndetermined) {
+        case .alreadyGranted:
+            return true
+        case .denied, .skipPrompt:
             return false
+        case .prompt:
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            } catch {
+                print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
+                return false
+            }
         }
     }
 
