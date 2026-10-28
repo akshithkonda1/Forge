@@ -78,6 +78,9 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // MetricKit + crash-free session tracking for the Reliability screen.
+        // Returns at once; file work happens off the launch path.
+        ReliabilityMonitor.start()
         SleepAlarmScheduler.registerCategories()
         Task { @MainActor in _ = ForgeAlarmStore.shared }
         return true

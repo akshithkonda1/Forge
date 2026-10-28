@@ -269,6 +269,8 @@
 		1MEM04000000000000000A /* AriaMemoryControlsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */; };
 		B92E4D3F0C5E8129367FA1B2 /* LifestyleInterviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */; };
 		651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */; };
+		2392A44292C99C1FB26069E7 /* ReliabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78511A8ED69EC5B8C89942E2 /* ReliabilityView.swift */; };
+		53C132A166BFB0B6EA670086 /* ReliabilityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4C1CF6FCBB4167201F27F2C /* ReliabilityMonitor.swift */; };
 		BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */; };
 		1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED01000000000000000A /* MedicationPharmacyCatalog.swift */; };
 		1MED08002F9FF867004091AA /* MedicationContextLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED07002F9FF867004091AA /* MedicationContextLayer.swift */; };
@@ -760,6 +762,8 @@
 		1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsViewModel.swift; sourceTree = "<group>"; };
 		A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleInterviewOverlay.swift; sourceTree = "<group>"; };
 		6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAboutView.swift; sourceTree = "<group>"; };
+		78511A8ED69EC5B8C89942E2 /* ReliabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReliabilityView.swift; sourceTree = "<group>"; };
+		E4C1CF6FCBB4167201F27F2C /* ReliabilityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReliabilityMonitor.swift; sourceTree = "<group>"; };
 		3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClinicalDataNonPHIView.swift; sourceTree = "<group>"; };
 		1MED01000000000000000A /* MedicationPharmacyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationPharmacyCatalog.swift; sourceTree = "<group>"; };
 		1MED07002F9FF867004091AA /* MedicationContextLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationContextLayer.swift; sourceTree = "<group>"; };
@@ -1147,6 +1151,8 @@
 				1MEM01000000000000000A /* AriaMemoryControlsView.swift */,
 				1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */,
 				6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */,
+				78511A8ED69EC5B8C89942E2 /* ReliabilityView.swift */,
+				E4C1CF6FCBB4167201F27F2C /* ReliabilityMonitor.swift */,
 				3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */,
 				1MED01000000000000000A /* MedicationPharmacyCatalog.swift */,
 				1MED07002F9FF867004091AA /* MedicationContextLayer.swift */,
@@ -1940,6 +1946,8 @@
 				1MEM04000000000000000A /* AriaMemoryControlsViewModel.swift in Sources */,
 				B92E4D3F0C5E8129367FA1B2 /* LifestyleInterviewOverlay.swift in Sources */,
 				651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */,
+				2392A44292C99C1FB26069E7 /* ReliabilityView.swift in Sources */,
+				53C132A166BFB0B6EA670086 /* ReliabilityMonitor.swift in Sources */,
 				BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */,
 				1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */,
 				1MED08002F9FF867004091AA /* MedicationContextLayer.swift in Sources */,

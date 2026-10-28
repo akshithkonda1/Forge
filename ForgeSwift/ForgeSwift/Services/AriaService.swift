@@ -1,5 +1,8 @@
 import Foundation
 import ForgeCore
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 /// Layer 1 bridge — talks to ARIA backend with graceful local fallback.
 @MainActor
@@ -64,6 +67,41 @@ final class AriaService: ObservableObject {
         agent: AriaCoachAgent = .aria,
         agents: [String]? = nil
     ) async throws -> AriaResponse {
+        // Every turn is measured here, once, whichever path answers: route,
+        // outcome and latency go to ReliabilityLog (outcome metadata only,
+        // never the message), and the turn is one `ariaTurn` signpost.
+        let trace = AriaTurnTrace(surface: mode == "insight" ? .insight : .chat)
+        let span = ForgePerf.begin("ariaTurn", category: .aria)
+        defer { span.end() }
+        do {
+            let reply = try await respond(
+                to: text,
+                store: store,
+                localGenerator: localGenerator,
+                voiceMode: voiceMode,
+                mode: mode,
+                agent: agent,
+                agents: agents,
+                trace: trace
+            )
+            trace.finish()
+            return reply
+        } catch {
+            trace.finish(throwing: error)
+            throw error
+        }
+    }
+
+    private func respond(
+        to text: String,
+        store: AppStore,
+        localGenerator: TrainerResponseGenerator,
+        voiceMode: Bool,
+        mode: String?,
+        agent: AriaCoachAgent,
+        agents: [String]?,
+        trace: AriaTurnTrace
+    ) async throws -> AriaResponse {
         let isInsight = mode == "insight"
 
         // Safety first, on every path — Dummy, Local testing, Live, and the
@@ -75,6 +113,7 @@ final class AriaService: ObservableObject {
         // case by case. Plain refer-out keeps each path's own wording.
         if !isInsight, let decision = safetyDecision(for: text, store: store) {
             lastRemoteError = nil
+            trace.route = .safety
             return Self.safetyResponse(decision)
         }
 
@@ -85,7 +124,8 @@ final class AriaService: ObservableObject {
             voiceMode: voiceMode,
             mode: mode,
             agent: agent,
-            agents: agents
+            agents: agents,
+            trace: trace
         )
         return isInsight ? reply : Self.withCareLine(reply, for: text)
     }
@@ -118,7 +158,8 @@ final class AriaService: ObservableObject {
         voiceMode: Bool,
         mode: String?,
         agent: AriaCoachAgent,
-        agents: [String]?
+        agents: [String]?,
+        trace: AriaTurnTrace
     ) async throws -> AriaResponse {
         let isInsight = mode == "insight"
 
@@ -138,6 +179,7 @@ final class AriaService: ObservableObject {
         // through AriaDummyOrchestra, which is nil in a production build.
         if Self.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy,
            let dummy = AriaDummyOrchestra.provider {
+            trace.route = .dummy
             await store.refreshMetricsForAriaTurn()
             isTestReady = true
             isLocalFallback = true
@@ -181,6 +223,7 @@ final class AriaService: ObservableObject {
 
         // Chosen local-testing mode (not Dummy). Honest offline badge.
         if AriaOperatingMode.current.isLocalTesting {
+            trace.route = Self.onDeviceModelIsAvailable ? .onDeviceModel : .onDeviceRules
             await store.refreshMetricsForAriaTurn()
             isTestReady = false
             isLocalFallback = true
@@ -193,6 +236,7 @@ final class AriaService: ObservableObject {
             )
         }
         isTestReady = false
+        trace.route = .cloud
 
         // Claude / Grok may run off-device. The HealthKit ledger does not.
         // Wearable samples (Oura, Garmin, Watch, Cycle) were already read on
@@ -264,6 +308,10 @@ final class AriaService: ObservableObject {
                 : nil
         }
 
+        // The person still gets an on-device answer, but the cloud path
+        // failed: the reliability log counts it as a fallback, not a success.
+        trace.fallback = remoteFailure.map { AriaReliabilityClassifier.classify($0) }
+            ?? ReliabilityError(kind: .unknown)
         isLocalFallback = true
         return try await generateLocally(
             text: text,
@@ -622,4 +670,114 @@ extension AriaService {
             ariaResponse: nil
         )
     }
+}
+
+// MARK: - Reliability
+
+extension AriaService {
+
+    /// Whether local testing is answering with Apple's on-device model or the
+    /// rule engine. Same check, same Simulator guard, as
+    /// `LocalTestingOrchestrator`'s own choice of generator.
+    static var onDeviceModelIsAvailable: Bool {
+        #if canImport(FoundationModels) && !targetEnvironment(simulator)
+        return FoundationModelsResponseGenerator().isAvailable
+        #else
+        return false
+        #endif
+    }
+}
+
+/// One ARIA turn's route and outcome, filled in as `AriaService` routes it and
+/// recorded once when the turn ends. Holds no text.
+@MainActor
+final class AriaTurnTrace {
+    let surface: AriaReliabilitySurface
+    let startedAt = ContinuousClock.now
+    var route: AriaReliabilityRoute = .unknown
+    /// Set when the cloud failed and an on-device reply stood in.
+    var fallback: ReliabilityError?
+    private var finished = false
+
+    init(surface: AriaReliabilitySurface) {
+        self.surface = surface
+    }
+
+    func finish(throwing error: Error? = nil) {
+        guard !finished else { return }
+        finished = true
+        let latency = ReliabilityLog.elapsedMs(since: startedAt)
+        if let error {
+            let classified = AriaReliabilityClassifier.classify(error)
+            if classified.kind == .cancelled {
+                ReliabilityLog.recordAria(route: route, surface: surface, outcome: .cancelled, latencyMs: latency, error: classified)
+                return
+            }
+            // A cloud failure whose fallback also failed: the cloud is the cause.
+            ReliabilityLog.recordAria(route: route, surface: surface, outcome: .failure, latencyMs: latency, error: fallback ?? classified)
+            ForgePerf.event("ariaFailure", category: .aria)
+        } else if let fallback {
+            ReliabilityLog.recordAria(route: route, surface: surface, outcome: .fallback, latencyMs: latency, error: fallback)
+            ForgePerf.event("ariaFallback", category: .aria)
+        } else {
+            ReliabilityLog.recordAria(route: route, surface: surface, outcome: .success, latencyMs: latency)
+        }
+    }
+}
+
+/// App-side error types reduced to ForgeCore's `ReliabilityError`: a kind, a
+/// status or code, a system domain. Never a server body or a description.
+enum AriaReliabilityClassifier {
+
+    static func classify(_ error: Error) -> ReliabilityError {
+        if let failure = error as? ForgeAPI.Failure {
+            return classify(failure)
+        }
+        #if canImport(FoundationModels)
+        if let generation = error as? LanguageModelSession.GenerationError {
+            return classify(generation)
+        }
+        #endif
+        let ns = error as NSError
+        if ns.domain == "Forge.FoundationModels" {
+            return ReliabilityError(kind: .onDeviceModelUnavailable, code: ns.code)
+        }
+        return ReliabilityError.classify(error)
+    }
+
+    static func classify(_ failure: ForgeAPI.Failure) -> ReliabilityError {
+        switch failure {
+        case .http(let status, _):
+            if failure.isAriaPaused {
+                return ReliabilityError(kind: .ariaPaused, code: status, domain: "http")
+            }
+            return .http(status: status)
+        case .transport(let error):
+            let classified = ReliabilityError.classify(error)
+            return classified.kind == .unknown
+                ? ReliabilityError(kind: .offline, code: classified.code, domain: classified.domain)
+                : classified
+        case .auth:
+            return ReliabilityError(kind: .unauthorized, domain: "auth")
+        case .notConfigured:
+            return ReliabilityError(kind: .notConfigured)
+        }
+    }
+
+    #if canImport(FoundationModels)
+    static func classify(_ error: LanguageModelSession.GenerationError) -> ReliabilityError {
+        switch error {
+        case .guardrailViolation:
+            return ReliabilityError(kind: .onDeviceGuardrail, domain: "foundation_models")
+        case .exceededContextWindowSize:
+            return ReliabilityError(kind: .onDeviceContextWindow, domain: "foundation_models")
+        case .assetsUnavailable:
+            return ReliabilityError(kind: .onDeviceModelUnavailable, domain: "foundation_models")
+        case .rateLimited:
+            return ReliabilityError(kind: .rateLimited, domain: "foundation_models")
+        default:
+            return ReliabilityError(kind: .onDeviceModel, domain: "foundation_models")
+        }
+    }
+    #endif
 }
