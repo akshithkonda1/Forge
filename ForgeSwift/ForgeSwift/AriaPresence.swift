@@ -193,11 +193,10 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
                 speed: config.speed
             )
             guard generation == kokoroGeneration else { return }
-            if started {
-                return
-            }
             isSpeaking = false
-            AriaVoiceProfileStore.shared.noteBusy(true)
+            if !started {
+                AriaVoiceProfileStore.shared.noteBusy(true)
+            }
             AriaVoiceSession.shared.mouthDidFinish()
         }
     }

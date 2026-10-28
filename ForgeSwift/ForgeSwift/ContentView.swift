@@ -13,6 +13,7 @@ struct ContentView: View {
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
+    @State private var kokoroVoiceGate: AriaKokoroVoiceGate?
     private static var didFinishSplash = false
 
     var body: some View {
@@ -44,15 +45,24 @@ struct ContentView: View {
                 AriaNeuralVoiceSheet(gate: neuralVoiceGate)
             }
         }
+        .sheet(isPresented: kokoroPromptBinding) {
+            if let kokoroVoiceGate {
+                AriaKokoroVoiceSheet(gate: kokoroVoiceGate)
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 neuralVoiceGate?.refreshCatalog()
+                Task { await kokoroVoiceGate?.refresh() }
             }
         }
         .task {
             let gate = AriaNeuralVoiceGate.shared
             neuralVoiceGate = gate
             gate.refreshCatalog()
+            let kokoro = AriaKokoroVoiceGate.shared
+            kokoroVoiceGate = kokoro
+            await kokoro.refresh()
             guard showSplash else { return }
             try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
@@ -66,6 +76,13 @@ struct ContentView: View {
         Binding(
             get: { neuralVoiceGate?.showPrompt ?? false },
             set: { neuralVoiceGate?.showPrompt = $0 }
+        )
+    }
+
+    private var kokoroPromptBinding: Binding<Bool> {
+        Binding(
+            get: { kokoroVoiceGate?.showPrompt ?? false },
+            set: { kokoroVoiceGate?.showPrompt = $0 }
         )
     }
 }

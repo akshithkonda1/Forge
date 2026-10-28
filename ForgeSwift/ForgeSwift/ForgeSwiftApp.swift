@@ -38,6 +38,12 @@ struct ForgeSwiftApp: App {
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }
+                    Task {
+                        await AriaKokoroModelStore.shared.discover()
+                        if AriaKokoroModelStore.shared.hasVerifiedRuntime {
+                            AriaKokoroEngine.noteRuntimeBecameAvailable()
+                        }
+                    }
                 }
                 .onChange(of: store.userProfile.name) { _, name in
                     WatchAriaConfigBridge.sync(

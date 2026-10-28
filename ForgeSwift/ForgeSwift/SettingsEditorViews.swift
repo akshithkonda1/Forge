@@ -547,6 +547,19 @@ struct AriaVoicePickerView: View {
                         .font(HomeType.body)
                         .foregroundStyle(Color.textSecondary)
                 }
+                if !AriaKokoroModelStore.shared.hasVerifiedRuntime {
+                    Button {
+                        AriaKokoroVoiceGate.shared.showPrompt = true
+                    } label: {
+                        Text("Download ARIA's voice (210 MB)")
+                            .font(HomeType.status)
+                            .foregroundStyle(Color.ember)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Download ARIA voice, 210 megabytes")
+                }
             }
             .navigationTitle("ARIA voice")
             .navigationBarTitleDisplayMode(.inline)

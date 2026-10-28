@@ -56,6 +56,8 @@
 		1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */; };
 		1VOICE0112F9FF867004091AA /* AriaCharacterVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */; };
 		1KOKORO012F9FF867004091AA /* AriaKokoroEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1KOKORO0102F9FF867004091AA /* AriaKokoroEngine.swift */; };
+		E8EF8DE98B3E396B4576DEB7 /* AriaKokoroModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 721A80B556742E555A548662 /* AriaKokoroModelStore.swift */; };
+		E35F91B6D5FFB48B54A8962E /* AriaKokoroVoicePrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98BF916CCA77F6FB3AC58249 /* AriaKokoroVoicePrompt.swift */; };
 		1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */; };
 		1XCAT0022F9FF867004091AA /* ExerciseCatalogExpansion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */; };
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
@@ -331,6 +333,7 @@
 		F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */; };
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
+		1KOKOROFW00000000000001 /* KokoroTTS in Frameworks */ = {isa = PBXBuildFile; productRef = 1KOKOROPROD00000000001 /* KokoroTTS */; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
 		F0B100000000000000000034 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000025 /* ForgeWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F0B100000000000000000035 /* SleepSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000026 /* SleepSummaryView.swift */; };
@@ -362,6 +365,7 @@
 		1TEST02600000000000000A /* AriaSigilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02500000000000000A /* AriaSigilTests.swift */; };
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
 		1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03300000000000000A /* AriaVoiceSessionTests.swift */; };
+		902719E075A698237774DFD6 /* AriaKokoroEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8BECAFF6BCE93D1139FC041 /* AriaKokoroEngineTests.swift */; };
 		A69C5E8D6A38B1C55A04BB31 /* AriaSafetyChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */; };
 		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
 		1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04500000000000000A /* ForgeSplashFireTests.swift */; };
@@ -517,6 +521,8 @@
 		1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoice.swift; sourceTree = "<group>"; };
 		1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCharacterVoice.swift; sourceTree = "<group>"; };
 		1KOKORO0102F9FF867004091AA /* AriaKokoroEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroEngine.swift; sourceTree = "<group>"; };
+		721A80B556742E555A548662 /* AriaKokoroModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroModelStore.swift; sourceTree = "<group>"; };
+		98BF916CCA77F6FB3AC58249 /* AriaKokoroVoicePrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroVoicePrompt.swift; sourceTree = "<group>"; };
 		1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSession.swift; sourceTree = "<group>"; };
 		1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogExpansion.swift; sourceTree = "<group>"; };
 		1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundEngine.swift; sourceTree = "<group>"; };
@@ -579,6 +585,7 @@
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST03300000000000000A /* AriaVoiceSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSessionTests.swift; sourceTree = "<group>"; };
+		E8BECAFF6BCE93D1139FC041 /* AriaKokoroEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroEngineTests.swift; sourceTree = "<group>"; };
 		F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSafetyChatTests.swift; sourceTree = "<group>"; };
 		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
 		1TEST04500000000000000A /* ForgeSplashFireTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSplashFireTests.swift; sourceTree = "<group>"; };
@@ -868,6 +875,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0B100000000000000000032 /* ForgeCore in Frameworks */,
+				1KOKOROFW00000000000001 /* KokoroTTS in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1084,6 +1092,8 @@
 				1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */,
 				1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */,
 				1KOKORO0102F9FF867004091AA /* AriaKokoroEngine.swift */,
+				721A80B556742E555A548662 /* AriaKokoroModelStore.swift */,
+				98BF916CCA77F6FB3AC58249 /* AriaKokoroVoicePrompt.swift */,
 				1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */,
 				5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */,
 				946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */,
@@ -1405,6 +1415,7 @@
 				1TEST04500000000000000A /* ForgeSplashFireTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
 				1TEST03300000000000000A /* AriaVoiceSessionTests.swift */,
+				E8BECAFF6BCE93D1139FC041 /* AriaKokoroEngineTests.swift */,
 				F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */,
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
@@ -1488,6 +1499,7 @@
 			name = ForgeSwift;
 			packageProductDependencies = (
 				F0F200000000000000000003 /* ForgeCore */,
+				1KOKOROPROD00000000001 /* KokoroTTS */,
 			);
 			productName = ForgeSwift;
 			productReference = AA000200000000000000000D /* ForgeSwift.app */;
@@ -1611,6 +1623,9 @@
 				Base,
 			);
 			mainGroup = AA0004000000000000000003;
+			packageReferences = (
+				1KOKOROREPO00000000001 /* XCRemoteSwiftPackageReference "kokoro-coreml" */,
+			);
 			productRefGroup = AA0004000000000000000002 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -1851,6 +1866,8 @@
 				1VOICE0042F9FF867004091AA /* AriaSpokenVoice.swift in Sources */,
 				1VOICE0112F9FF867004091AA /* AriaCharacterVoice.swift in Sources */,
 				1KOKORO012F9FF867004091AA /* AriaKokoroEngine.swift in Sources */,
+				E8EF8DE98B3E396B4576DEB7 /* AriaKokoroModelStore.swift in Sources */,
+				E35F91B6D5FFB48B54A8962E /* AriaKokoroVoicePrompt.swift in Sources */,
 				1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */,
 				4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */,
 				6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */,
@@ -2064,6 +2081,7 @@
 				1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
 				1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */,
+				902719E075A698237774DFD6 /* AriaKokoroEngineTests.swift in Sources */,
 				A69C5E8D6A38B1C55A04BB31 /* AriaSafetyChatTests.swift in Sources */,
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
@@ -2747,6 +2765,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		1KOKOROREPO00000000001 /* XCRemoteSwiftPackageReference "kokoro-coreml" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mattmireles/kokoro-coreml";
+			requirement = {
+				kind = revision;
+				revision = e4242c94c0dc5be62258cc3cf15c86c37382c3d5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		AB000F000000000000000001 /* ForgeCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2771,6 +2800,11 @@
 		F0F200000000000000000004 /* ForgeCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ForgeCore;
+		};
+		1KOKOROPROD00000000001 /* KokoroTTS */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1KOKOROREPO00000000001 /* XCRemoteSwiftPackageReference "kokoro-coreml" */;
+			productName = KokoroTTS;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
