@@ -1,6 +1,9 @@
 import Foundation
 import ForgeCore
 import os
+#if canImport(System)
+import System
+#endif
 
 #if canImport(KokoroTTS)
 import KokoroTTS
@@ -174,7 +177,7 @@ final class AriaKokoroModelStore {
                 )
                 try await AssetPackManager.shared.ensureLocalAvailability(of: pack)
                 let manifest = try AssetPackManager.shared.url(
-                    for: AriaKokoroDelivery.manifestFileName
+                    for: FilePath(AriaKokoroDelivery.manifestFileName)
                 )
                 return manifest.deletingLastPathComponent()
             } catch {

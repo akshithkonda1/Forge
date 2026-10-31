@@ -91,15 +91,19 @@ final class AriaKokoroRuntimeSynthesizer {
     }
 
     func prepare() async -> Bool {
-        await path.prepare(modelPresent: modelIsPresent, load: { [self] in
+        var enginePath = path
+        let ready = await enginePath.prepare(modelPresent: modelIsPresent, load: { [self] in
             await self.loadRuntime()
         })
+        path = enginePath
+        return ready
     }
 
     func speak(_ text: String, voiceID: String, speed: Double) async -> Bool {
         speakGeneration += 1
         let generation = speakGeneration
-        let spoken = await path.speak(
+        var enginePath = path
+        let spoken = await enginePath.speak(
             text,
             voiceID: voiceID,
             speed: speed,
@@ -115,6 +119,7 @@ final class AriaKokoroRuntimeSynthesizer {
                 return await self.play(samples: samples, sampleRate: 24_000, generation: generation)
             }
         )
+        path = enginePath
         if !spoken, !path.loadState.isReady {
             Self.logLoadFailure()
         }
