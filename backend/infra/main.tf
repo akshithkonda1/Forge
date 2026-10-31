@@ -99,6 +99,21 @@ data "aws_iam_policy_document" "backend_lambda" {
   }
 
   statement {
+    sid = "UploadsKms"
+
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey",
+    ]
+
+    resources = [
+      aws_kms_key.uploads.arn,
+    ]
+  }
+
+  statement {
     sid = "AriaPauseRead"
 
     actions = [
@@ -451,9 +466,64 @@ resource "aws_s3_bucket_versioning" "uploads" {
   }
 }
 
+data "aws_iam_policy_document" "uploads_kms" {
+  statement {
+    sid    = "EnableRootAccount"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${local.account_id_for_naming}:root"]
+    }
+
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "AllowLambdaUse"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.backend_lambda.arn]
+    }
+
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "AllowS3Use"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["s3.amazonaws.com"]
+    }
+
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey",
+    ]
+
+    resources = ["*"]
+  }
+}
+
 resource "aws_kms_key" "uploads" {
   description             = "SSE-KMS for cycle-report ciphertext. Template only — this PR does not apply."
   deletion_window_in_days = 30
+  enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.uploads_kms.json
   tags                    = local.common_tags
 }
 

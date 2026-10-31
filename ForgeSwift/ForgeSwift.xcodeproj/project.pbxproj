@@ -138,6 +138,7 @@
 		C7C1E1040000000000000001 /* CycleMonthlyDigestFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1030000000000000001 /* CycleMonthlyDigestFactory.swift */; };
 		C7C1E10A0000000000000001 /* AriaCycleTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1090000000000000001 /* AriaCycleTools.swift */; };
 		C7C1E10C0000000000000001 /* AriaOnDeviceHealthPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E10B0000000000000001 /* AriaOnDeviceHealthPolicy.swift */; };
+		DEB0B8F3819B8EC73F693371 /* AriaPersonalPatternStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF26B0445D64F7D447A75980 /* AriaPersonalPatternStore.swift */; };
 		C7C1E1060000000000000001 /* CycleRhythmReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1050000000000000001 /* CycleRhythmReportView.swift */; };
 		C7C1E1080000000000000001 /* CycleVaultAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E1070000000000000001 /* CycleVaultAppTests.swift */; };
 		C7C1E10E0000000000000001 /* IntimacyFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E10D0000000000000001 /* IntimacyFlow.swift */; };
@@ -219,6 +220,7 @@
 		CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */; };
 		DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */; };
 		477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */; };
+		126FCE8C220F442EBC8FD47C /* HomeMorningCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 912D102840AC3623B1745974 /* HomeMorningCard.swift */; };
 		DBFF2D915B5D5EA5398182D2 /* TodaysStoryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4F7BBDFB3F265D1BBB195D /* TodaysStoryCard.swift */; };
 		BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */; };
 		AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0381C148DB04CDCCA8B766 /* HomeCards.swift */; };
@@ -266,6 +268,8 @@
 		F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */; };
 		1KNOW02000000000000000A /* WhatIKnowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1KNOW01000000000000000A /* WhatIKnowView.swift */; };
 		1MEM02000000000000000A /* AriaMemoryControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MEM01000000000000000A /* AriaMemoryControlsView.swift */; };
+		247771E5C45930A5906B99A8 /* AriaPersonalPatternsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCAB45F8145667404038A44 /* AriaPersonalPatternsView.swift */; };
+		F416E83A71DA9F36405CCE8A /* AriaPrivacyLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D97BDDACDEE014AE014467 /* AriaPrivacyLogView.swift */; };
 		1MEM04000000000000000A /* AriaMemoryControlsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */; };
 		B92E4D3F0C5E8129367FA1B2 /* LifestyleInterviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */; };
 		651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */; };
@@ -379,6 +383,7 @@
 		1HOME06400000000000000A /* ForgeProgressChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HOME06300000000000000A /* ForgeProgressChrome.swift */; };
 		62CE64B31B7E57543467B23F /* ForgeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C1B6969F84C56786E87B84 /* ForgeChrome.swift */; };
 		1TEST05200000000000000A /* HomeTodayProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST05100000000000000A /* HomeTodayProgressTests.swift */; };
+		666F4F458697C7BD1B87E3C4 /* AriaMorningPrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9DC708FE3D904C2986AE232 /* AriaMorningPrivacyTests.swift */; };
 		5C953C07E2A3364865863079 /* ForgeChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -593,6 +598,7 @@
 		1HOME06300000000000000A /* ForgeProgressChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeProgressChrome.swift; sourceTree = "<group>"; };
 		82C1B6969F84C56786E87B84 /* ForgeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeChrome.swift; sourceTree = "<group>"; };
 		1TEST05100000000000000A /* HomeTodayProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTodayProgressTests.swift; sourceTree = "<group>"; };
+		B9DC708FE3D904C2986AE232 /* AriaMorningPrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMorningPrivacyTests.swift; sourceTree = "<group>"; };
 		C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeChromeTests.swift; sourceTree = "<group>"; };
 		1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSurfacePresenceTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
@@ -634,6 +640,7 @@
 		C7C1E1030000000000000001 /* CycleMonthlyDigestFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleMonthlyDigestFactory.swift; sourceTree = "<group>"; };
 		C7C1E1090000000000000001 /* AriaCycleTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCycleTools.swift; sourceTree = "<group>"; };
 		C7C1E10B0000000000000001 /* AriaOnDeviceHealthPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOnDeviceHealthPolicy.swift; sourceTree = "<group>"; };
+		EF26B0445D64F7D447A75980 /* AriaPersonalPatternStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPersonalPatternStore.swift; sourceTree = "<group>"; };
 		C7C1E1050000000000000001 /* CycleRhythmReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleRhythmReportView.swift"; sourceTree = "<group>"; };
 		C7C1E1070000000000000001 /* CycleVaultAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleVaultAppTests.swift; sourceTree = "<group>"; };
 		C7C1E10D0000000000000001 /* IntimacyFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntimacyFlow.swift; sourceTree = "<group>"; };
@@ -710,6 +717,7 @@
 		E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
 		A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeroCards.swift; sourceTree = "<group>"; };
 		220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeARIABriefingCard.swift; sourceTree = "<group>"; };
+		912D102840AC3623B1745974 /* HomeMorningCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMorningCard.swift; sourceTree = "<group>"; };
 		9B4F7BBDFB3F265D1BBB195D /* TodaysStoryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodaysStoryCard.swift; sourceTree = "<group>"; };
 		5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCycleModule.swift; sourceTree = "<group>"; };
 		7A0381C148DB04CDCCA8B766 /* HomeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCards.swift; sourceTree = "<group>"; };
@@ -757,6 +765,8 @@
 		3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageView.swift; sourceTree = "<group>"; };
 		1KNOW01000000000000000A /* WhatIKnowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatIKnowView.swift; sourceTree = "<group>"; };
 		1MEM01000000000000000A /* AriaMemoryControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsView.swift; sourceTree = "<group>"; };
+		9BCAB45F8145667404038A44 /* AriaPersonalPatternsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPersonalPatternsView.swift; sourceTree = "<group>"; };
+		07D97BDDACDEE014AE014467 /* AriaPrivacyLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPrivacyLogView.swift; sourceTree = "<group>"; };
 		1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsViewModel.swift; sourceTree = "<group>"; };
 		A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleInterviewOverlay.swift; sourceTree = "<group>"; };
 		6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAboutView.swift; sourceTree = "<group>"; };
@@ -1025,6 +1035,7 @@
 				C7C1E1030000000000000001 /* CycleMonthlyDigestFactory.swift */,
 				C7C1E1090000000000000001 /* AriaCycleTools.swift */,
 				C7C1E10B0000000000000001 /* AriaOnDeviceHealthPolicy.swift */,
+				EF26B0445D64F7D447A75980 /* AriaPersonalPatternStore.swift */,
 				C7C1E10D0000000000000001 /* IntimacyFlow.swift */,
 				C7C1E1110000000000000001 /* CycleReportPDF.swift */,
 				C7C1E1130000000000000001 /* CycleReportUploadClient.swift */,
@@ -1091,6 +1102,7 @@
 				E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */,
 				A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */,
 				220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */,
+				912D102840AC3623B1745974 /* HomeMorningCard.swift */,
 				9B4F7BBDFB3F265D1BBB195D /* TodaysStoryCard.swift */,
 				5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */,
 				7A0381C148DB04CDCCA8B766 /* HomeCards.swift */,
@@ -1145,6 +1157,8 @@
 				3DBF3F5B4E943D90A01FB398 /* SettingsPageView.swift */,
 				1KNOW01000000000000000A /* WhatIKnowView.swift */,
 				1MEM01000000000000000A /* AriaMemoryControlsView.swift */,
+				9BCAB45F8145667404038A44 /* AriaPersonalPatternsView.swift */,
+				07D97BDDACDEE014AE014467 /* AriaPrivacyLogView.swift */,
 				1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */,
 				6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */,
 				3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */,
@@ -1418,6 +1432,7 @@
 				1TEST04900000000000000A /* WorkoutHistoryWindowTests.swift */,
 				1TEST04B00000000000000A /* TrainingHabitsTests.swift */,
 				1TEST05100000000000000A /* HomeTodayProgressTests.swift */,
+				B9DC708FE3D904C2986AE232 /* AriaMorningPrivacyTests.swift */,
 				C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
@@ -1789,6 +1804,7 @@
 				C7C1E1040000000000000001 /* CycleMonthlyDigestFactory.swift in Sources */,
 				C7C1E10A0000000000000001 /* AriaCycleTools.swift in Sources */,
 				C7C1E10C0000000000000001 /* AriaOnDeviceHealthPolicy.swift in Sources */,
+				DEB0B8F3819B8EC73F693371 /* AriaPersonalPatternStore.swift in Sources */,
 				C7C1E10E0000000000000001 /* IntimacyFlow.swift in Sources */,
 				C7C1E1100000000000000001 /* DifficultyConceivingGuideView.swift in Sources */,
 				C7C1E1120000000000000001 /* CycleReportPDF.swift in Sources */,
@@ -1879,6 +1895,7 @@
 				CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */,
 				DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */,
 				477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */,
+				126FCE8C220F442EBC8FD47C /* HomeMorningCard.swift in Sources */,
 				DBFF2D915B5D5EA5398182D2 /* TodaysStoryCard.swift in Sources */,
 				BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */,
 				AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */,
@@ -1937,6 +1954,8 @@
 				F75B54F9794C1DECC9240724 /* SettingsPageView.swift in Sources */,
 				1KNOW02000000000000000A /* WhatIKnowView.swift in Sources */,
 				1MEM02000000000000000A /* AriaMemoryControlsView.swift in Sources */,
+				247771E5C45930A5906B99A8 /* AriaPersonalPatternsView.swift in Sources */,
+				F416E83A71DA9F36405CCE8A /* AriaPrivacyLogView.swift in Sources */,
 				1MEM04000000000000000A /* AriaMemoryControlsViewModel.swift in Sources */,
 				B92E4D3F0C5E8129367FA1B2 /* LifestyleInterviewOverlay.swift in Sources */,
 				651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */,
@@ -2077,6 +2096,7 @@
 				1TEST04A00000000000000A /* WorkoutHistoryWindowTests.swift in Sources */,
 				1TEST04C00000000000000A /* TrainingHabitsTests.swift in Sources */,
 				1TEST05200000000000000A /* HomeTodayProgressTests.swift in Sources */,
+				666F4F458697C7BD1B87E3C4 /* AriaMorningPrivacyTests.swift in Sources */,
 				5C953C07E2A3364865863079 /* ForgeChromeTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
