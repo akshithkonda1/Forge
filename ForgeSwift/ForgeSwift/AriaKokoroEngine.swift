@@ -7,17 +7,24 @@ import os
 import KokoroTTS
 #endif
 
-/// Lazy on-device Kokoro mouth. The only synthesizer ARIA uses.
+/// Lazy on-device Kokoro mouth. The only registered `AriaVoiceEngine`.
 ///
 /// Package: `mattmireles/kokoro-coreml` v2.0 / `KokoroTTS` (Apache-2.0),
 /// G2P MisakiSwift (Apache-2.0, no eSpeak), weights `hexgrad/Kokoro-82M`.
 /// Linked on the iOS app target only — watchOS cannot build MisakiSwift/MLX.
 /// Speak never opens a socket. Missing or failed load stays silent with the
-/// text on screen. Apple TTS is not a fallback.
+/// text on screen. There is no speak-time fallback to another engine.
 @MainActor
 enum AriaKokoroEngine {
     static func resetForTests() {
         AriaKokoroRuntimeSynthesizer.shared.resetForTests()
+        AriaVoiceEngineRegistry.shared.resetForTests()
+        registerDefaultEngine()
+    }
+
+    static func registerDefaultEngine() {
+        AriaVoiceEngineRegistry.shared.register(AriaKokoroVoiceEngine.shared)
+        AriaVoiceEngineRegistry.shared.select(AriaVoiceEngineID.kokoro)
     }
 
     static func speak(
@@ -28,7 +35,8 @@ enum AriaKokoroEngine {
         let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !line.isEmpty else { return false }
         guard !AriaKokoroVoice.allowsNetworkAtSpeakTime else { return false }
-        return await AriaKokoroRuntimeSynthesizer.shared.speak(
+        registerDefaultEngine()
+        return await AriaVoiceEngineRegistry.shared.speak(
             line,
             voiceID: AriaKokoroVoice.sanitizePreset(voiceID),
             speed: speed
@@ -36,11 +44,32 @@ enum AriaKokoroEngine {
     }
 
     static func stop() {
-        AriaKokoroRuntimeSynthesizer.shared.stop()
+        AriaVoiceEngineRegistry.shared.stop()
     }
 
     static func noteRuntimeBecameAvailable() {
         AriaKokoroRuntimeSynthesizer.shared.allowRetryAfterLoad()
+    }
+}
+
+/// Kokoro's registry entry. Call sites go through `AriaVoiceEngineRegistry`.
+@MainActor
+final class AriaKokoroVoiceEngine: AriaVoiceEngine {
+    static let shared = AriaKokoroVoiceEngine()
+    let id = AriaVoiceEngineID.kokoro
+
+    private init() {}
+
+    func speak(_ text: String, voiceID: String, speed: Double) async -> Bool {
+        await AriaKokoroRuntimeSynthesizer.shared.speak(
+            text,
+            voiceID: voiceID,
+            speed: speed
+        )
+    }
+
+    func stop() {
+        AriaKokoroRuntimeSynthesizer.shared.stop()
     }
 }
 
