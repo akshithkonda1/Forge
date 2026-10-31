@@ -35,8 +35,20 @@ struct ForgeSwiftApp: App {
                     // Do not retry on a 1.5 / 4 / 8s ladder from here.
                     Task {
                         HealthDeviceCatalogSync.shared.loadCached()
+                        // HealthKit source enumeration waits on healthd. Do
+                        // not pin a resume-into-prep launch behind that.
+                        guard !store.needsForgePrep else { return }
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
+                    }
+                    Task {
+                        // After first paint. Background Assets / speech
+                        // catalog work on appear pinned kill_relaunch samples.
+                        try? await Task.sleep(for: .seconds(2))
+                        await AriaKokoroModelStore.shared.discover()
+                        if AriaKokoroModelStore.shared.hasVerifiedRuntime {
+                            AriaKokoroEngine.noteRuntimeBecameAvailable()
+                        }
                     }
                 }
                 .onChange(of: store.userProfile.name) { _, name in
@@ -56,6 +68,7 @@ struct ForgeSwiftApp: App {
                         await store.flushPendingWidgetWater(openHydrationOnSuccess: true)
                         store.publishHomeWidgets()
                         await MenstrualHealthStore.shared.syncSharedPeriodFinished()
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
                         await AriaHealthRiskBridge.evaluateFromHealthKit(quietMode: store.quietMode)
                     }
                 }

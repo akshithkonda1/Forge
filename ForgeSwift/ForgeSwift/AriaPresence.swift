@@ -124,13 +124,23 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     @ObservationIgnored
-    private let synthesizer = AVSpeechSynthesizer()
+    private var synthesizerStorage: AVSpeechSynthesizer?
     @ObservationIgnored
     private var kokoroGeneration = 0
 
     private override init() {
         super.init()
-        synthesizer.delegate = self
+    }
+
+    /// Creating `AVSpeechSynthesizer` on first `ContentView` body evaluation
+    /// pinned kill_relaunch main-thread samples at ~3s of a 3s window.
+    /// Build it only when something actually speaks.
+    private var synthesizer: AVSpeechSynthesizer {
+        if let synthesizerStorage { return synthesizerStorage }
+        let created = AVSpeechSynthesizer()
+        created.delegate = self
+        synthesizerStorage = created
+        return created
     }
 
     func setListening(_ on: Bool) { isListening = on }
@@ -193,11 +203,10 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
                 speed: config.speed
             )
             guard generation == kokoroGeneration else { return }
-            if started {
-                return
-            }
             isSpeaking = false
-            AriaVoiceProfileStore.shared.noteBusy(true)
+            if !started {
+                AriaVoiceProfileStore.shared.noteBusy(true)
+            }
             AriaVoiceSession.shared.mouthDidFinish()
         }
     }
