@@ -42,8 +42,12 @@ def load_thresholds():
 T = load_thresholds()
 
 
-def sh(*args, check=True, timeout=120):
-    r = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+def sh(*args, check=True, timeout=120, extra_env=None):
+    env = None
+    if extra_env:
+        env = os.environ.copy()
+        env.update(extra_env)
+    r = subprocess.run(args, capture_output=True, text=True, timeout=timeout, env=env)
     if check and r.returncode != 0:
         raise RuntimeError(f"{' '.join(args)} -> {r.returncode}: {r.stderr.strip()}")
     return r
@@ -299,12 +303,12 @@ def fresh_install(udid, app):
 
 
 def launch(udid, env=None):
-    args = ["launch"]
+    # simctl launch has no --env flag (that token is parsed as the device
+    # UDID). Child process variables must be prefixed SIMCTL_CHILD_.
+    extra_env = None
     if env:
-        for key, value in env.items():
-            args.extend(["--env", f"{key}={value}"])
-    args.extend([udid, BUNDLE])
-    out = simctl(*args).stdout
+        extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in env.items()}
+    out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
     if not m:
         raise RuntimeError(f"no pid from simctl launch: {out!r}")
