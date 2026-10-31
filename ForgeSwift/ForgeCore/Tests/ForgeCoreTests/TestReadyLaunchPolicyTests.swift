@@ -9,6 +9,8 @@ final class TestReadyLaunchPolicyTests: XCTestCase {
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForMedicationCatalog)
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForRemoteDashboard)
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries)
+        XCTAssertFalse(TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(isSimulator: true))
+        XCTAssertTrue(TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(isSimulator: false))
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitAuthorizationSheet)
         XCTAssertFalse(TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor)
         XCTAssertFalse(TestReadyLaunchPolicy.writesEventKitYearOnSimulator)

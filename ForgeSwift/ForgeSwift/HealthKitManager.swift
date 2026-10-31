@@ -411,6 +411,11 @@ class HealthKitManager: ObservableObject {
     func hasReadableHealthEvidence() async -> Bool {
         if HealthKitLiveEvidence.dailyStatsHaveSamples(todayStats) { return true }
         guard isHealthDataAvailable() else { return false }
+        guard TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        ) else {
+            return false
+        }
         let snap = await fetchRecentSnapshot(requireAuthorization: false)
         return snap?.hasData == true
     }

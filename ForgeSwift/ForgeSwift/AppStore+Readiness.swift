@@ -33,7 +33,10 @@ extension AppStore {
         let authorized = await hk.checkAuthorizationStatus()
         healthKitLive = authorized
 
-        if authorized {
+        let probeSamples = TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        )
+        if authorized, probeSamples {
             await hk.refreshHydration()
             readinessHealthContext = await ForgeHealthQueries.readinessContext(store: hk.healthStore)
             if let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {
@@ -66,7 +69,7 @@ extension AppStore {
         }
 
         if !seeded || !hasMeaningfulLifeSignal {
-            installFakeHealthPackIfNeeded()
+            await installFakeHealthPackIfNeeded()
         } else {
             usingTestReadyHealthPack = true
         }
@@ -413,7 +416,7 @@ extension AppStore {
         return tags
     }
 
-    func installFakeHealthPackIfNeeded() {
+    func installFakeHealthPackIfNeeded() async {
         let testReady = AriaService.shouldUseTestReadyDummy
         guard FakeHealthPack.shouldInstall(
             debugBuild: ForgeAuthPolicy.isDebugBuild,
@@ -422,7 +425,11 @@ extension AppStore {
         ) else {
             return
         }
-        apply(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
+        let seed = Self.testReadySessionSeed
+        let pack = await Task.detached(priority: .utility) {
+            FakeHealthPack.generate(seed: seed)
+        }.value
+        apply(pack)
     }
 
     func apply(_ pack: FakeHealthPack) {

@@ -32,6 +32,17 @@
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.</string>
 
+	<!-- Non-blank system launch screen so the launch gate can see a frame
+	     before SwiftUI paints. Generated solid-color launch screens count
+	     as blank (dominant share ≥ 0.995) and miss FIRST_FRAME_MAX_S=8. -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIImageName</key>
+		<string>ForgeMark</string>
+		<key>UIImageRespectsSafeAreaInsets</key>
+		<true/>
+	</dict>
+
 	<key>CKSharingSupported</key>
 	<true/>
 

@@ -373,7 +373,10 @@ final class AppStore: ObservableObject {
             // Let the first frame (and splash dismiss) land before HealthKit
             // work. Test-Ready pack rewrites wait until after Home is loaded.
             // Simulator never writes EventKit.
-            try? await Task.sleep(for: .milliseconds(450))
+            let delay = TestReadyLaunchPolicy.isRunningOnSimulator
+                ? TestReadyLaunchPolicy.simulatorBackgroundIngestDelaySeconds
+                : 0.45
+            try? await Task.sleep(for: .seconds(delay))
             await self.refreshDailyData()
             await self.resyncNotifications()
         }

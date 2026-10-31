@@ -274,6 +274,19 @@ extension AriaForgePrep {
     static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
         await store.refreshDailyData()
 
+        // Simulator Home does not wait on HealthKit backfill or catalog
+        // XPC. Doing that work here is what left AriaForgePrep wedged past
+        // PREP_WATCHDOG_S on the launch gate.
+        if TestReadyLaunchPolicy.isRunningOnSimulator,
+           !TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(isSimulator: true) {
+            store.learnFromFirstHealthConnectIfNeeded()
+            WatchAriaConfigBridge.sync(
+                firstName: store.userProfile.name.split(separator: " ").first.map(String.init)
+            )
+            AriaContextStore.shared.addInsight("Onboarding interview complete.")
+            return
+        }
+
         if store.healthKitLive {
             await HealthKitManager.shared.fetchTodayStats(force: true)
             await HealthKitManager.shared.fetchWeeklyTrends()
