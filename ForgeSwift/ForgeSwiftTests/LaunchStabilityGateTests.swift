@@ -158,5 +158,15 @@ final class LaunchStabilityGateTests: XCTestCase {
             ),
             "Real devices keep the 45s–180s hold"
         )
+        XCTAssertTrue(
+            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: true,
+                isTestHost: false,
+                isAuthenticated: false,
+                isInterviewComplete: false,
+                launchPrepWedge: true
+            ),
+            "prep_wedge env must finish even when UserDefaults is invisible"
+        )
     }
 }
