@@ -282,7 +282,7 @@ extension AriaForgePrep {
             // the 60s launch watchdog — local pack + profile is enough for
             // the shell to open.
             if !store.hasMeaningfulLifeSignal {
-                store.installFakeHealthPackIfNeeded()
+                await store.installFakeHealthPackIfNeeded()
             }
             store.learnFromFirstHealthConnectIfNeeded()
             WatchAriaConfigBridge.sync(

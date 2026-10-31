@@ -116,6 +116,14 @@ def shot(udid, path, timeout=30):
     return small, done
 
 
+def ensure_booted(udid):
+    """The sim can shut down under a long xcodebuild or a hung screenshot."""
+    b = simctl("boot", udid, check=False)
+    if b.returncode != 0 and "Booted" not in (b.stderr or "") and "Booted" not in (b.stdout or ""):
+        raise RuntimeError(f"simctl boot failed: {(b.stderr or b.stdout).strip()}")
+    simctl("bootstatus", udid, "-b", timeout=300)
+
+
 def warmup_screenshot_io(udid):
     """First `simctl io screenshot` after a long xcodebuild is often 10–30s
     or times out, which blows the 8s first_frame window (2 consecutive
@@ -125,6 +133,7 @@ def warmup_screenshot_io(udid):
     successes, last_err = 0, None
     for attempt in range(1, 6):
         try:
+            ensure_booted(udid)
             t0 = time.monotonic()
             simctl("io", udid, "screenshot", "--type=png", path, timeout=45)
             dt = time.monotonic() - t0
@@ -249,9 +258,16 @@ def main_thread_busy_s(pid, window, tag, timeout):
 
 # ---------- scenario ----------
 def fresh_install(udid, app):
+    ensure_booted(udid)
     simctl("terminate", udid, BUNDLE, check=False)
     simctl("uninstall", udid, BUNDLE, check=False)
-    simctl("install", udid, app)
+    try:
+        simctl("install", udid, app)
+    except RuntimeError as e:
+        if "Shutdown" not in str(e) and "Current state" not in str(e):
+            raise
+        ensure_booted(udid)
+        simctl("install", udid, app)
 
 
 def launch(udid):
@@ -368,10 +384,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     # The sim can be shut down under us during the long build; boot here.
     # "already booted" is the only boot error tolerated; bootstatus must pass.
-    b = simctl("boot", udid, check=False)
-    if b.returncode != 0 and "Booted" not in b.stderr:
-        raise SystemExit(f"::error::simctl boot failed: {b.stderr.strip()}")
-    simctl("bootstatus", udid, "-b", timeout=300)
+    ensure_booted(udid)
     warmup_screenshot_io(udid)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
