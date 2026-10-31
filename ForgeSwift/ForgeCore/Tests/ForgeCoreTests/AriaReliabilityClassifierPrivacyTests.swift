@@ -194,7 +194,10 @@ final class AriaReliabilityClassifierPrivacyTests: XCTestCase {
             )
         )
         let result = ReliabilityCloudExport.send(report)
-        XCTAssertEqual(result, .failure(.notConfigured))
+        guard case .failure(let error) = result else {
+            return XCTFail("TODO(aws) export sent a report while the endpoint is unset")
+        }
+        XCTAssertEqual(error, .notConfigured)
 
         let source = try String(contentsOf: reliabilitySource("ReliabilityCloudExport.swift"), encoding: .utf8)
         XCTAssertTrue(source.contains("TODO(aws)"))
