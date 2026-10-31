@@ -516,17 +516,18 @@ final class AppStore: ObservableObject {
         UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
         UserDefaults.standard.removeObject(forKey: AriaForgePrepHandoff.interviewCompleteKey)
         UserDefaults.standard.synchronize()
+        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
         CFPreferencesSetAppValue(
             Self.onboardedDefaultsKey as CFString,
             kCFBooleanTrue,
-            kCFPreferencesCurrentApplication
+            app
         )
         CFPreferencesSetAppValue(
             AriaForgePrepHandoff.interviewCompleteKey as CFString,
             nil,
-            kCFPreferencesCurrentApplication
+            app
         )
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        CFPreferencesAppSynchronize(app)
         refreshTutorialOpeningFromProfile()
     }
 
