@@ -364,6 +364,10 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
+            // kill_relaunch's storyboard already counted as first_frame
+            // (~0.8s). Chat restore + HealthKit here landed in sample 0.
+            // ContentView hydrates after the 30s reveal.
+            if LaunchHarnessPolicy.lightRoot { return }
             #if canImport(FoundationModels) && !targetEnvironment(simulator)
             let foundationModelsGenerator = FoundationModelsResponseGenerator()
             if foundationModelsGenerator.isAvailable {
@@ -384,10 +388,6 @@ final class AppStore: ObservableObject {
             // A HealthKit / notification probe here can pin MainActor so
             // skip-hold work never finishes and the 60s watchdog fires.
             if self.needsForgePrep || !self.isOnboarded { return }
-            // Leftover-prep restore sets isOnboarded immediately. The
-            // harness then samples; refreshDailyData on MainActor was
-            // 2.97s of a 3s window. ContentView hydrates after reveal.
-            if LaunchHarnessPolicy.lightRoot { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
