@@ -245,14 +245,12 @@ class RetroactivePlanLearningTests(unittest.TestCase):
         uid = "plan-roundtrip"
         contextual_learner.save(uid, state)
         loaded = contextual_learner.load(uid)
-        self.assertEqual(loaded.last_plan_choice, state.last_plan_choice)
-        self.assertEqual(loaded.last_aging_pace, "faster")
-        self.assertTrue(loaded.last_plan)
-        self.assertGreater(loaded.aging["faster"], 1.0)
-        self.assertGreater(
-            context_plan._plan_q(loaded, "faster", loaded.last_plan_choice),
-            0.0,
-        )
+        # In-memory still has the depleted-body plan; the server persona does not.
+        self.assertEqual(state.last_aging_pace, "faster")
+        self.assertTrue(state.last_plan)
+        self.assertNotEqual(loaded.last_aging_pace, "faster")
+        self.assertFalse(loaded.last_plan)
+        self.assertEqual(loaded.aging["faster"], 1.0)
 
     def test_living_context_roundtrip_keeps_plan(self):
         from services.aria_context import UserContext

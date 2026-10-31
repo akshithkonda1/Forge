@@ -72,8 +72,16 @@ class HealthLeakGateTests(unittest.TestCase):
         audits = dynamodb.query_prefix(health_leak_guard.AUDIT_PK, "EVENT#")
         self.assertTrue(audits)
         self.assertIsNone(audits[0].get("values"))
-        blob = json.dumps(audits[0])
-        self.assertNotIn("188", blob)
+        # Scan the leak payload, not the audit SK timestamp (microseconds
+        # can contain the canary digits by chance).
+        leak_blob = json.dumps(
+            {
+                "reason": audits[0].get("reason"),
+                "field_paths": audits[0].get("field_paths"),
+                "values": audits[0].get("values"),
+            }
+        )
+        self.assertNotIn("188", leak_blob)
 
     def test_destroy_in_test_mode_deletes_local_only_when_flagged(self):
         os.environ["FORGE_HEALTH_LEAK_DESTROY"] = "1"

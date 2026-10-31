@@ -14,6 +14,7 @@ from typing import Any
 from responses import RouteError, ok
 from aria_core import aria_engine
 from aria_core import fusion as fusion_mod
+from aria_core import health_privacy
 from services.aria_context import CoachContextEngine
 
 _context = CoachContextEngine()
@@ -86,7 +87,9 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
             ),
         },
         "snapshot": {},
-        "aria_context": _context_payload(context),
+        "aria_context": _context_payload(
+            health_privacy.without_health_for_persona(context) or context
+        ),
         "restricted_domains": fused.restricted or permissions.restricted(),
         "fusion": {**fused.fusion_sidecar(), "health_persisted": False},
         "daily_story": None,
@@ -98,24 +101,22 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     from aria_core import contextual_learner
 
     persona = fused.persona
-    if fused.persona_status != "load_failed" and persona is not None:
+    if fused.persona_status != "load_failed" and persona is not None and message:
         try:
-            if message:
-                contextual_learner.observe_turn(
-                    persona,
-                    message=message,
-                    tags=list(context.lifestyle.tags or []),
-                    ctx=context,
-                )
-            else:
-                from aria_core import context_plan
-
-                context_plan.evaluate_and_store(persona, "", context)
-                contextual_learner.save(uid, persona)
+            # This-turn adapt may still see body numbers. Persistence strips
+            # health-derived plans/stance in save(); the response never echoes
+            # a health-derived supervision_plan.
+            contextual_learner.observe_turn(
+                persona,
+                message=message,
+                tags=list(context.lifestyle.tags or []),
+                ctx=context,
+            )
         except fusion_mod.PERSONA_IO_ERRORS as exc:
             fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
-        if isinstance(getattr(persona, "last_plan", None), dict):
-            payload["supervision_plan"] = dict(persona.last_plan)
+        plan = getattr(persona, "last_plan", None)
+        if isinstance(plan, dict) and not health_privacy.plan_has_health_conclusions(plan):
+            payload["supervision_plan"] = dict(plan)
 
     if message:
         # /ai/chat stamps companion memory (last_insights/current_goals/
@@ -158,7 +159,7 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
                     stance_p=float((brief.get("stance_probs") or {}).get(stance, 0.0) or 0.0),
                     sources=brief.get("sources") or (),
                 )
-                contextual_learner.save(uid, persona)
+                contextual_learner.save(uid, persona, ctx=context)
             except fusion_mod.PERSONA_IO_ERRORS as exc:
                 payload["fusion"]["persona_error"] = f"commit:{exc.__class__.__name__}: {exc}"
         payload["aria_response"] = response
