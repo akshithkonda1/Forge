@@ -211,6 +211,7 @@ final class ForgeAuthTests: XCTestCase {
             "FORGECognitoUserPoolId": "",
             "FORGEEnvironment": "dummy",
         ])
+        XCTAssertFalse(config.awsLiveEnabled, "TODO(aws): unset FORGEAWSLive fails closed")
         XCTAssertFalse(config.cognitoConfigured, "empty Cognito must not look like live auth")
         XCTAssertFalse(config.isProductionLike)
         XCTAssertEqual(config.environment, "dummy")
@@ -260,8 +261,19 @@ final class ForgeAuthTests: XCTestCase {
     /// so a Release build ended at "Sign-up isn't configured for this build."
     /// Reads the real Info-Add.plist so blanking the ids again cannot
     /// quietly bring the dead end back.
+    func testAwsLiveStaysOffUntilExplicitlyEnabled() {
+        XCTAssertFalse(ForgeAuthConfig.fromInfoDictionary([:]).awsLiveEnabled)
+        XCTAssertFalse(ForgeAuthConfig.fromInfoDictionary(["FORGEAWSLive": ""]).awsLiveEnabled)
+        XCTAssertFalse(ForgeAuthConfig.fromInfoDictionary(["FORGEAWSLive": "false"]).awsLiveEnabled)
+        XCTAssertTrue(ForgeAuthConfig.fromInfoDictionary(["FORGEAWSLive": "true"]).awsLiveEnabled)
+        XCTAssertTrue(ForgeAuthConfig.fromInfoDictionary(["FORGEAWSLive": "ON"]).awsLiveEnabled)
+        let defaulted = ForgeAuthConfig(apiBaseURL: ForgeAuthConfig.dummyOfflineAPI)
+        XCTAssertFalse(defaulted.awsLiveEnabled)
+    }
+
     func testShippedPlistInReleaseAlwaysOffersAWayIn() throws {
         let config = ForgeAuthConfig.fromInfoDictionary(try Self.shippedInfoAdditions())
+        XCTAssertFalse(config.awsLiveEnabled, "TODO(aws): shipped Dummy-offline must fail closed")
         let tester = ForgeAuthPolicy.devOverrideAllowed(userEnabled: true, config: config, debugBuild: false)
         XCTAssertFalse(tester, "The tester account must stay out of Release.")
         XCTAssertTrue(

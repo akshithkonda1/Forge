@@ -121,6 +121,8 @@ final class ForgeAuthClient: ObservableObject {
     }
 
     func signUp(email: String, password: String, displayName: String) async throws -> CognitoPasswordAuth.SignUpResult {
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else { throw ForgeAuthError.cognitoNotConfigured }
         let request = try CognitoPasswordAuth.signUpRequest(
             region: config.cognitoRegion,
             clientId: config.cognitoClientId,
@@ -139,6 +141,8 @@ final class ForgeAuthClient: ObservableObject {
     }
 
     func confirmSignUp(email: String, code: String) async throws {
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else { throw ForgeAuthError.cognitoNotConfigured }
         let request = try CognitoPasswordAuth.confirmSignUpRequest(
             region: config.cognitoRegion,
             clientId: config.cognitoClientId,
@@ -156,6 +160,8 @@ final class ForgeAuthClient: ObservableObject {
     }
 
     func signIn(email: String, password: String) async throws -> ForgeAuthSession {
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else { throw ForgeAuthError.cognitoNotConfigured }
         let request = try CognitoPasswordAuth.initiateAuthRequest(
             region: config.cognitoRegion,
             clientId: config.cognitoClientId,
@@ -201,6 +207,11 @@ final class ForgeAuthClient: ObservableObject {
         // Tester and device-only sessions have no Cognito behind them; renewing
         // is a no-op rather than an error.
         guard current.mode == .cognito else { return current }
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else {
+            signOut()
+            throw ForgeAuthError.cognitoNotConfigured
+        }
         guard let refreshToken = current.refreshToken, !refreshToken.isEmpty else {
             signOut()
             throw ForgeAuthError.signedOut

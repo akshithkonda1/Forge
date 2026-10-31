@@ -295,6 +295,28 @@ class RoadmapFlagAndSecretHygieneTests(unittest.TestCase):
         problems = mod.hygiene_problems(parsed, _base(), source="Info-Add.plist")
         self.assertTrue(any("FORGEProviderRoutingEnabled" in p for p in problems))
 
+    def test_dummy_keeps_aws_live_unset_or_off(self):
+        parsed = dict(_base())
+        self.assertEqual(
+            mod.aws_live_problems(parsed, dummy=True, source="Info-Add.plist"),
+            [],
+        )
+        parsed["FORGEAWSLive"] = ""
+        self.assertEqual(
+            mod.aws_live_problems(parsed, dummy=True, source="Info-Add.plist"),
+            [],
+        )
+        parsed["FORGEAWSLive"] = "true"
+        problems = mod.aws_live_problems(parsed, dummy=True, source="Info-Add.plist")
+        self.assertTrue(any("FORGEAWSLive" in p and "TODO(aws)" in p for p in problems))
+
+    def test_live_env_may_set_aws_live(self):
+        parsed = {"FORGEEnvironment": "prod", "FORGEAWSLive": "true"}
+        self.assertEqual(
+            mod.aws_live_problems(parsed, dummy=False, source="Info-Add.plist"),
+            [],
+        )
+
 
 class TerraformAllowListTests(unittest.TestCase):
     def test_does_not_copy_secret_arn_identity_pool_or_web_client(self):

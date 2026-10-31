@@ -23,19 +23,25 @@ public struct ForgeAuthConfig: Equatable, Sendable {
     /// `dummy` / `dev` / `test` / `local` / `ci` may use the tester account.
     /// Anything production-like must not, even in a debug binary pointed at prod.
     public var environment: String
+    /// TODO(aws): live Cognito / API Gateway / Bedrock stay off until this is
+    /// explicitly set in Info.plist (`FORGEAWSLive`). Missing, empty, or any
+    /// value other than a truthy flag fails closed — no AWS call is made.
+    public var awsLiveEnabled: Bool
 
     public init(
         apiBaseURL: URL,
         cognitoRegion: String = "",
         cognitoClientId: String = "",
         cognitoUserPoolId: String = "",
-        environment: String = "dev"
+        environment: String = "dev",
+        awsLiveEnabled: Bool = false
     ) {
         self.apiBaseURL = apiBaseURL
         self.cognitoRegion = cognitoRegion
         self.cognitoClientId = cognitoClientId
         self.cognitoUserPoolId = cognitoUserPoolId
         self.environment = environment
+        self.awsLiveEnabled = awsLiveEnabled
     }
 
     public var cognitoConfigured: Bool {
@@ -96,12 +102,19 @@ public struct ForgeAuthConfig: Equatable, Sendable {
         } else {
             apiBaseURL = fallbackAPI(environment: environment)
         }
+        // TODO(aws): unset on purpose. Flip FORGEAWSLive only after a real
+        // stack apply fills Cognito / API ids. Anything else fails closed.
+        let awsRaw = (info["FORGEAWSLive"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+        let awsLiveEnabled = ["1", "true", "yes", "on"].contains(awsRaw)
         return ForgeAuthConfig(
             apiBaseURL: apiBaseURL,
             cognitoRegion: region ?? "",
             cognitoClientId: client ?? "",
             cognitoUserPoolId: pool ?? "",
-            environment: environment
+            environment: environment,
+            awsLiveEnabled: awsLiveEnabled
         )
     }
 }

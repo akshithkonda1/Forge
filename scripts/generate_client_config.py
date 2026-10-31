@@ -355,7 +355,26 @@ def hygiene_problems(parsed: dict, values: dict[str, str], *, source: str) -> li
     return (
         secret_leak_problems(parsed, source=source)
         + roadmap_flag_problems(parsed, dummy=dummy)
+        + aws_live_problems(parsed, dummy=dummy, source=source)
     )
+
+
+def aws_live_problems(parsed: dict, *, dummy: bool, source: str) -> list[str]:
+    """TODO(aws): FORGEAWSLive stays unset / off until a real stack apply.
+
+    Missing or empty is the fail-closed default. Dummy-offline must not flip it
+    on — that would send Cognito / API Gateway calls with no credentials.
+    """
+    if "FORGEAWSLive" not in parsed:
+        return []
+    raw = parsed["FORGEAWSLive"]
+    text = str(raw).strip().lower() if raw is not None else ""
+    if dummy and text in TRUTHY_FLAGS:
+        return [
+            f"{source}: Dummy-offline must keep FORGEAWSLive unset or off "
+            "(TODO(aws); live Cognito / API / Bedrock fail closed)."
+        ]
+    return []
 
 
 def audit_committed_plists() -> list[str]:
