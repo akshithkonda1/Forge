@@ -18,7 +18,7 @@ Checks (thresholds in thresholds.env only):
 
 Any failed check, or any measurement that cannot be taken, fails the gate.
 """
-import json, os, re, struct, subprocess, sys, time, zlib
+import json, os, plistlib, re, struct, subprocess, sys, time, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUNDLE = "com.forge.ForgeSwift"
@@ -252,11 +252,20 @@ def run_sample(pid, window, path, timeout):
 
 def main_thread_busy_s(pid, window, tag, timeout):
     path = f"{OUT}/sample-{tag}.txt"
-    text = run_sample(pid, window, path, timeout)
-    # Main thread block runs until the next top-level "Thread_" line.
-    m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
-    if not m:
-        raise RuntimeError("main thread not found in sample output")
+    last_err = "main thread not found in sample output"
+    text = ""
+    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
+        text = run_sample(pid, window, f"{path}.{attempt}", timeout)
+        # Main thread block runs until the next top-level "Thread_" line.
+        m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
+        if m:
+            break
+        last_err = "main thread not found in sample output"
+        print(f"    sample parse attempt {attempt} failed ({last_err})", flush=True)
+        if not pid_alive(pid):
+            raise RuntimeError(last_err)
+    else:
+        raise RuntimeError(last_err)
     total = int(m.group(2))
     rest = text[m.end():]
     nxt = re.search(r"^\s*\d+ Thread_\d+", rest, re.M)
@@ -327,20 +336,36 @@ def prefs_plist(udid):
     return os.path.join(app_data_container(udid), "Library", "Preferences", f"{BUNDLE}.plist")
 
 
+def _load_prefs(path):
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "rb") as fh:
+            data = plistlib.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 def plist_write_bool(udid, key, value):
+    # Dotted UserDefaults keys are literal key names. plutil -replace
+    # treats dots as a key path and fails with "Key path not found".
     path = prefs_plist(udid)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    if not os.path.isfile(path):
-        sh("plutil", "-create", "xml1", path)
-    sh("plutil", "-replace", key, "-bool", "YES" if value else "NO", path)
+    data = _load_prefs(path)
+    data[key] = bool(value)
+    with open(path, "wb") as fh:
+        plistlib.dump(data, fh)
 
 
 def plist_read(udid, key):
-    path = prefs_plist(udid)
-    if not os.path.isfile(path):
+    data = _load_prefs(prefs_plist(udid))
+    if key not in data:
         return None
-    r = sh("plutil", "-extract", key, "raw", "-o", "-", path, check=False)
-    return r.stdout.strip() if r.returncode == 0 else None
+    val = data[key]
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    return str(val)
 
 
 def pref_is_true(value):
