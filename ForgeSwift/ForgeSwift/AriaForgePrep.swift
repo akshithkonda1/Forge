@@ -200,10 +200,12 @@ enum AriaForgePrepHandoff {
 
     static func markInterviewComplete() {
         UserDefaults.standard.set(true, forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     static func clearInterviewComplete() {
         UserDefaults.standard.removeObject(forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
