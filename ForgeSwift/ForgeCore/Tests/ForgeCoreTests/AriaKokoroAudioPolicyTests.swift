@@ -104,22 +104,26 @@ final class AriaKokoroAudioPolicyTests: XCTestCase {
             return false
         }
 
-        XCTAssertFalse(await path.prepare(modelPresent: true, load: failLoad))
+        let firstPrepare = await path.prepare(modelPresent: true, load: failLoad)
+        XCTAssertFalse(firstPrepare)
         XCTAssertEqual(loads, 1)
         XCTAssertTrue(path.loadState.hardFailure)
+        let blockedPrepare = await path.prepare(modelPresent: true, load: failLoad)
         XCTAssertFalse(
-            await path.prepare(modelPresent: true, load: failLoad),
+            blockedPrepare,
             "a hard failure must not reload by itself"
         )
         XCTAssertEqual(loads, 1)
 
         path.allowRetryAfterLoad()
-        XCTAssertFalse(await path.prepare(modelPresent: true, load: failLoad))
+        let retryPrepare = await path.prepare(modelPresent: true, load: failLoad)
+        XCTAssertFalse(retryPrepare)
         XCTAssertEqual(loads, 2, "load retries exactly once after the runtime lands")
         XCTAssertEqual(path.loadState.retriesUsed, AriaKokoroLoadState.retryLimit)
 
         path.allowRetryAfterLoad()
-        XCTAssertFalse(await path.prepare(modelPresent: true, load: failLoad))
+        let secondGrant = await path.prepare(modelPresent: true, load: failLoad)
+        XCTAssertFalse(secondGrant)
         XCTAssertEqual(loads, 2, "a second grant must not load again")
 
         var renders = 0

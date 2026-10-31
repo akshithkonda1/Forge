@@ -81,17 +81,21 @@ final class AriaKokoroEngineTests: XCTestCase {
                 }
             )
         )
-        XCTAssertFalse(await AriaKokoroEngine.speak("Hello from ARIA."))
+        let firstSpeak = await AriaKokoroEngine.speak("Hello from ARIA.")
+        XCTAssertFalse(firstSpeak)
         XCTAssertEqual(loads, 1)
-        XCTAssertFalse(await AriaKokoroEngine.speak("Hello from ARIA."))
+        let blockedSpeak = await AriaKokoroEngine.speak("Hello from ARIA.")
+        XCTAssertFalse(blockedSpeak)
         XCTAssertEqual(loads, 1, "hard failure must not reload by itself")
 
         AriaKokoroEngine.noteRuntimeBecameAvailable()
-        XCTAssertFalse(await AriaKokoroEngine.speak("Hello from ARIA."))
+        let retrySpeak = await AriaKokoroEngine.speak("Hello from ARIA.")
+        XCTAssertFalse(retrySpeak)
         XCTAssertEqual(loads, 2, "load retries exactly once after the runtime lands")
 
         AriaKokoroEngine.noteRuntimeBecameAvailable()
-        XCTAssertFalse(await AriaKokoroEngine.speak("Hello from ARIA."))
+        let secondGrant = await AriaKokoroEngine.speak("Hello from ARIA.")
+        XCTAssertFalse(secondGrant)
         XCTAssertEqual(loads, 2, "a second grant must not load again")
 
         var renders = 0
@@ -107,7 +111,8 @@ final class AriaKokoroEngineTests: XCTestCase {
                 play: { _ in false }
             )
         )
-        XCTAssertFalse(await AriaKokoroEngine.speak("Hello from ARIA."))
+        let emptySpeak = await AriaKokoroEngine.speak("Hello from ARIA.")
+        XCTAssertFalse(emptySpeak)
         XCTAssertEqual(renders, 1 + AriaKokoroAudioPolicy.synthesisRetryLimit)
     }
 
