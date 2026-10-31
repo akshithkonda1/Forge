@@ -116,6 +116,26 @@ final class AriaKokoroEngineTests: XCTestCase {
         XCTAssertEqual(renders, 1 + AriaKokoroAudioPolicy.synthesisRetryLimit)
     }
 
+    func testSpeakFailsClosedWhenTheRuntimeIsMissing() async {
+        AriaKokoroRuntimeSynthesizer.shared.installTestBackend(
+            AriaKokoroEngineTestBackend(
+                modelPresent: false,
+                load: { true },
+                render: { _, _, _ in
+                    XCTFail("missing runtime must not synthesize")
+                    return [0.1]
+                },
+                play: { _ in
+                    XCTFail("missing runtime must not play")
+                    return true
+                }
+            )
+        )
+        let ok = await AriaKokoroEngine.speak("Hello from ARIA.")
+        XCTAssertFalse(ok)
+        XCTAssertNil(AriaKokoroHostedOrigin.currentURL)
+    }
+
     func testDownloadConsentPolicyMatchesReviewRule() {
         XCTAssertTrue(
             AriaKokoroVoicePromptPolicy.shouldPresent(

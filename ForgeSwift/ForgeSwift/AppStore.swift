@@ -337,6 +337,16 @@ final class AppStore: ObservableObject {
         // can trap or stall launch; probe it after paint, never in init.
         self.responseGenerator = RuleBasedResponseGenerator()
         self.aiModelAvailable = false
+
+        // Harness: restore after the sample windows so kill_relaunch
+        // sample 0 is not a 3s MainActor configure/restore.
+        if LaunchHarnessPolicy.lightRoot {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(LaunchHarnessPolicy.revealDelaySeconds))
+                self?.configureAfterHarnessSamples()
+            }
+            return
+        }
         
         AriaContextStore.shared.configure()
         AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
@@ -391,6 +401,13 @@ final class AppStore: ObservableObject {
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
+    }
+
+    func configureAfterHarnessSamples() {
+        AriaContextStore.shared.configure()
+        AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
+        restoreOnboardingState()
+        restoreTrainingHabits()
     }
 
     // MARK: - Chat Persistence & Momentum

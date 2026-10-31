@@ -547,7 +547,12 @@ struct AriaVoicePickerView: View {
                         .font(HomeType.body)
                         .foregroundStyle(Color.textSecondary)
                 }
-                if !AriaKokoroModelStore.shared.hasVerifiedRuntime {
+                if !AriaKokoroModelStore.shared.hasVerifiedRuntime,
+                   AriaKokoroDelivery.shouldAskToDownload(
+                    hasLocalModel: false,
+                    alreadyConsented: false,
+                    declined: false
+                   ) {
                     Button {
                         AriaKokoroVoiceGate.shared.showPrompt = true
                     } label: {

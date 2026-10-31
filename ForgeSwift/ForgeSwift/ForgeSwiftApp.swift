@@ -11,6 +11,9 @@ struct ForgeSwiftApp: App {
     @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
 
     init() {
+        // Harness: SecureStore + WCSession on first SwiftUI commit pinned
+        // kill_relaunch sample 0 at 3.00s of a 3s window.
+        guard !LaunchHarnessPolicy.lightRoot else { return }
         // One launch interval for the synchronous start work; AppStore's
         // init carries its own span. Durations only — see ForgePerf.
         ForgePerf.measure("appInit", category: .launch) {
@@ -24,6 +27,12 @@ struct ForgeSwiftApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if LaunchHarnessPolicy.lightRoot {
+                // Storyboard already supplied first_frame. Keep MainActor
+                // idle through the sample windows.
+                Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                    .ignoresSafeArea()
+            } else {
             ContentView()
                 .environmentObject(store)
                 .environment(AriaPresence.shared)
@@ -94,6 +103,7 @@ struct ForgeSwiftApp: App {
                         store.handleDeepLink(url)
                     }
                 }
+            }
         }
     }
 }

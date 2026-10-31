@@ -116,6 +116,16 @@ final class AriaKokoroModelStore {
     }
 
     private func performDownload() async -> Bool {
+        // TODO(aws): when AriaKokoroHostedOrigin.currentURL is set, hydrate
+        // from that HTTPS origin and verify the pinned SHA-256. No AWS SDK
+        // and no credentials in this binary.
+        if let origin = AriaKokoroHostedOrigin.currentURL {
+            return await hydrateFromHostedOrigin(origin)
+        }
+        guard AriaKokoroHostedOrigin.allowsConsentedHuggingFaceHydrate else {
+            lastError = AriaKokoroVoice.loadFailedMessage
+            return false
+        }
         #if canImport(KokoroTTS)
         guard AriaKokoroDelivery.isPinnedRevision(AriaKokoroVoice.hostedRevision) else {
             lastError = "Unpinned hosted revision."
@@ -146,6 +156,14 @@ final class AriaKokoroModelStore {
         lastError = "KokoroTTS is not linked."
         return false
         #endif
+    }
+
+    /// TODO(aws): GET `origin`, verify checksum, write Application Support.
+    private func hydrateFromHostedOrigin(_ origin: URL) async -> Bool {
+        _ = origin
+        lastError = AriaKokoroVoice.loadFailedMessage
+        Self.logger.error("Kokoro hosted origin is stubbed until AWS infra exists.")
+        return false
     }
 
     private func verifyHostedManifestChecksum() -> Bool {

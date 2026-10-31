@@ -24,6 +24,13 @@ stays off.
 
 ## Mouth
 
+Call sites speak through `AriaVoiceEngineRegistry`. Kokoro is the only
+registered engine (`AriaVoiceEngineID.kokoro`). A later engine plugs in
+by registering under its own id; speak call sites do not change. If the
+selected engine is missing or returns false, ARIA stays silent and the
+text stays on screen — there is no automatic fallback to another voice.
+Removing a non-default engine restores Kokoro as the selection.
+
 `services/voice_provider.py` always returns `kokoro`. Cloud flags are
 ignored.
 
@@ -68,12 +75,17 @@ Do **not** commit the weights. Search order:
 3. Application Support `Kokoro82M`, hydrated once after the 4.2.3(ii)
    consent prompt names the 210 MB size.
 
-Hosted source: Hugging Face `mattmireles/kokoro-coreml` revision
-`034f7741bf938fd6b4b9c75c22bc72cd795f908a`. SHA-256 of
+Production remote origin is `AriaKokoroHostedOrigin` (`ARIA_KOKORO_HOSTED_ORIGIN`
+in Info.plist). It is unset. TODO(aws): point that key at the CloudFront / S3
+HTTPS URL. Until then App Store Release fails closed (silent + text). Debug
+and TestFlight keep the consented Hugging Face hydrate. No AWS resources,
+credentials, or Terraform in this PR. Hugging Face is never contacted at
+speak time and is not fetched from Release.
+
+Hosted source (dev / TestFlight only): Hugging Face `mattmireles/kokoro-coreml`
+revision `034f7741bf938fd6b4b9c75c22bc72cd795f908a`. SHA-256 of
 `HostedManifest.json`:
 `f3abd5811585b8c89f1c15e647409311731b4262da4315242c69f88675bced9d`.
-Hugging Face is never contacted at speak time. Until the runtime is
-present and verified, ARIA is text-only.
 
 ## Featured presets
 

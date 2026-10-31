@@ -169,4 +169,31 @@ final class AriaKokoroAudioPolicyTests: XCTestCase {
         XCTAssertTrue(ok, "the single synthesis retry may recover")
         XCTAssertEqual(recoveredRenders, 2)
     }
+
+    func testUnsetHostedOriginLeavesARIASilentWithTextShown() async {
+        XCTAssertNil(AriaKokoroHostedOrigin.currentURL)
+        var playCount = 0
+        var path = AriaKokoroEnginePath()
+        let ok = await path.speak(
+            "Hello from ARIA.",
+            voiceID: AriaKokoroVoice.ariaPreset,
+            speed: 1.0,
+            modelPresent: false,
+            load: { true },
+            render: { _, _, _ in
+                XCTFail("synthesis must not run without a local runtime")
+                return [0.1]
+            },
+            play: { _ in
+                playCount += 1
+                return true
+            }
+        )
+        XCTAssertFalse(ok, "unset origin and no local model is a silent failure")
+        XCTAssertEqual(playCount, 0)
+        XCTAssertEqual(
+            AriaKokoroVoice.loadFailedMessage,
+            "Voice could not load. The text reply is shown."
+        )
+    }
 }

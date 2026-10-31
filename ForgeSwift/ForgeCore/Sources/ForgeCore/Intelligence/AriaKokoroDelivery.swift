@@ -21,19 +21,34 @@ public enum AriaKokoroDelivery: Sendable {
     public static let promptLaterTitle = "Not now"
 
     /// Guideline 4.2.3(ii): if the model is not already on device, tell them
-    /// the size and ask before any download.
+    /// the size and ask before any download. App Store Release (no HF
+    /// channel, no hosted origin) never prompts — fail closed.
     public static func shouldAskToDownload(
         hasLocalModel: Bool,
         alreadyConsented: Bool,
-        declined: Bool
+        declined: Bool,
+        allowsConsentedHuggingFaceHydrate: Bool = AriaKokoroHostedOrigin.allowsConsentedHuggingFaceHydrate,
+        hostedOriginConfigured: Bool = AriaKokoroHostedOrigin.isConfigured()
     ) -> Bool {
-        !hasLocalModel && !alreadyConsented && !declined
+        if hasLocalModel { return false }
+        if hostedOriginConfigured { return !alreadyConsented && !declined }
+        guard allowsConsentedHuggingFaceHydrate else { return false }
+        return !alreadyConsented && !declined
     }
 
-    /// Prefetch is allowed only after they said yes, or when a pack/bundle is
-    /// already present. Speak still refuses to hit the network.
-    public static func allowsPrefetch(hasLocalModel: Bool, consented: Bool) -> Bool {
-        hasLocalModel || consented
+    /// Prefetch is allowed only after they said yes, when a pack/bundle is
+    /// already present, or when a hosted origin is configured.
+    /// TODO(aws): hosted-origin prefetch is still a stub until the URL is set.
+    /// Speak still refuses to hit the network.
+    public static func allowsPrefetch(
+        hasLocalModel: Bool,
+        consented: Bool,
+        hostedOriginConfigured: Bool = AriaKokoroHostedOrigin.isConfigured(),
+        allowsConsentedHuggingFaceHydrate: Bool = AriaKokoroHostedOrigin.allowsConsentedHuggingFaceHydrate
+    ) -> Bool {
+        if hasLocalModel { return true }
+        if hostedOriginConfigured { return true }
+        return allowsConsentedHuggingFaceHydrate && consented
     }
 
     public static func hostedManifestURL(

@@ -178,4 +178,16 @@ final class LaunchStabilityGateTests: XCTestCase {
         // stay off or its first commit is sample 0 (run 41239722577, 2.97s).
         XCTAssertEqual(LaunchHarnessPolicy.showsSplash, !LaunchHarnessPolicy.lightRoot)
     }
+
+    func testUnsetKokoroOriginFailsClosed() {
+        XCTAssertNil(AriaKokoroHostedOrigin.currentURL)
+        XCTAssertFalse(
+            AriaKokoroDelivery.allowsPrefetch(
+                hasLocalModel: false,
+                consented: true,
+                hostedOriginConfigured: false,
+                allowsConsentedHuggingFaceHydrate: false
+            )
+        )
+    }
 }

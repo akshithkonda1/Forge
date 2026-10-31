@@ -51,6 +51,50 @@ final class AriaKokoroDeliveryTests: XCTestCase {
         XCTAssertTrue(AriaKokoroDelivery.allowsPrefetch(hasLocalModel: false, consented: true))
     }
 
+    func testUnsetHostedOriginFailsClosedOnAppStoreRelease() {
+        XCTAssertNil(AriaKokoroHostedOrigin.url(infoDictionary: [:]))
+        XCTAssertFalse(AriaKokoroHostedOrigin.isConfigured(infoDictionary: [:]))
+        XCTAssertNil(
+            AriaKokoroHostedOrigin.url(infoDictionary: [
+                AriaKokoroHostedOrigin.infoDictionaryKey: "http://insecure.example/kokoro",
+            ])
+        )
+        XCTAssertEqual(
+            AriaKokoroHostedOrigin.url(infoDictionary: [
+                AriaKokoroHostedOrigin.infoDictionaryKey: "https://cdn.example/kokoro",
+            ])?.host,
+            "cdn.example"
+        )
+        XCTAssertFalse(
+            AriaKokoroDelivery.shouldAskToDownload(
+                hasLocalModel: false,
+                alreadyConsented: false,
+                declined: false,
+                allowsConsentedHuggingFaceHydrate: false,
+                hostedOriginConfigured: false
+            ),
+            "Release with no AWS origin must not offer a Hugging Face download"
+        )
+        XCTAssertFalse(
+            AriaKokoroDelivery.allowsPrefetch(
+                hasLocalModel: false,
+                consented: true,
+                hostedOriginConfigured: false,
+                allowsConsentedHuggingFaceHydrate: false
+            ),
+            "Release must not hydrate from Hugging Face"
+        )
+        XCTAssertTrue(
+            AriaKokoroDelivery.allowsPrefetch(
+                hasLocalModel: false,
+                consented: false,
+                hostedOriginConfigured: true,
+                allowsConsentedHuggingFaceHydrate: false
+            ),
+            "a configured hosted origin is the future AWS path"
+        )
+    }
+
     func testLocatorPrefersTheFirstRootThatHasAManifest() {
         let missing = URL(fileURLWithPath: "/tmp/aria-kokoro-missing")
         let present = URL(fileURLWithPath: "/tmp/aria-kokoro-present")
