@@ -200,10 +200,12 @@ enum AriaForgePrepHandoff {
 
     static func markInterviewComplete() {
         UserDefaults.standard.set(true, forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     static func clearInterviewComplete() {
         UserDefaults.standard.removeObject(forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
@@ -218,6 +220,21 @@ enum AriaForgePrepHandoff {
         if isOnboarded || !isAuthenticated {
             clearInterviewComplete()
         }
+    }
+
+    /// DEBUG simulator skip-hold must clear a leftover handoff at restore so
+    /// the 60s watchdog does not wait on OnboardingView / UserDefaults flush.
+    /// XCTest keeps the flag so resume-prep cases can still observe it.
+    static func shouldFinishLeftoverPrepOnRestore(
+        isDebugSimulator: Bool,
+        isTestHost: Bool,
+        isAuthenticated: Bool,
+        isInterviewComplete: Bool,
+        launchPrepWedge: Bool = false
+    ) -> Bool {
+        if isTestHost { return false }
+        if launchPrepWedge && isDebugSimulator { return true }
+        return isDebugSimulator && isAuthenticated && isInterviewComplete
     }
 }
 
@@ -271,7 +288,20 @@ extension AriaForgePrep {
     }
 
     @MainActor
-    static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
+    static func loadUserData(
+        into store: AppStore,
+        trainingTheme: AriaTrainingTheme,
+        skipHeavyIngest: Bool = false
+    ) async {
+        if skipHeavyIngest {
+            // DEBUG Simulator skips the 45s–180s hold. Do not generate the
+            // 30-day FakeHealthPack or touch HealthKit / notifications —
+            // that work is what pinned skip-hold past the 60s watchdog.
+            WatchAriaConfigBridge.sync(
+                firstName: store.userProfile.name.split(separator: " ").first.map(String.init)
+            )
+            return
+        }
         await store.refreshDailyData()
 
         if store.healthKitLive {
