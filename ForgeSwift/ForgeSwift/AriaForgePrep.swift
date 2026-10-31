@@ -271,7 +271,25 @@ extension AriaForgePrep {
     }
 
     @MainActor
-    static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
+    static func loadUserData(
+        into store: AppStore,
+        trainingTheme: AriaTrainingTheme,
+        skipHeavyIngest: Bool = false
+    ) async {
+        if skipHeavyIngest {
+            // DEBUG Simulator skips the 45s–180s hold. HealthKit queries and
+            // the notification permission sheet must not pin that path past
+            // the 60s launch watchdog — local pack + profile is enough for
+            // the shell to open.
+            if !store.hasMeaningfulLifeSignal {
+                await store.installFakeHealthPackIfNeeded()
+            }
+            store.learnFromFirstHealthConnectIfNeeded()
+            WatchAriaConfigBridge.sync(
+                firstName: store.userProfile.name.split(separator: " ").first.map(String.init)
+            )
+            return
+        }
         await store.refreshDailyData()
 
         if store.healthKitLive {

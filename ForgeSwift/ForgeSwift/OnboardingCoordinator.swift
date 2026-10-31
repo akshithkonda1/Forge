@@ -1125,7 +1125,11 @@ final class OnboardingCoordinator {
                     await override()
                     return
                 }
-                await AriaForgePrep.loadUserData(into: store, trainingTheme: theme)
+                await AriaForgePrep.loadUserData(
+                    into: store,
+                    trainingTheme: theme,
+                    skipHeavyIngest: self?.skipPrepHold == true
+                )
             }
         )
 
