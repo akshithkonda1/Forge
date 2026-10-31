@@ -129,6 +129,13 @@ final class AriaKokoroEngineTests: XCTestCase {
         XCTAssertFalse(AriaKokoroVoice.allowsNetworkAtSpeakTime)
     }
 
+    func testDiscoverDoesNotCrashWhenBackgroundAssetsGroupIsInaccessible() async {
+        // Unsigned simulator builds declare BAAppGroupID but cannot open the
+        // group. discover() must return without touching AssetPackManager.
+        await AriaKokoroModelStore.shared.discover()
+        XCTAssertNil(AriaKokoroModelStore.shared.lastError)
+    }
+
     func testSynthesisProducesNonEmptyAudioWhenModelIsPresent() async throws {
         #if canImport(KokoroTTS)
         await AriaKokoroModelStore.shared.discover()

@@ -171,7 +171,17 @@ final class AriaKokoroModelStore {
     private func backgroundAssetRoot() async -> URL? {
         #if canImport(BackgroundAssets)
         if #available(iOS 26.0, *) {
-            guard Bundle.main.object(forInfoDictionaryKey: "BAAppGroupID") as? String != nil else {
+            // AssetPackManager.shared fatalErrors when the declared app
+            // group is missing from the signed entitlements (unsigned CI
+            // simulator builds, or a plist key without a usable container).
+            // Never touch the singleton unless the group is actually there.
+            #if targetEnvironment(simulator)
+            return nil
+            #else
+            guard let groupID = Bundle.main.object(forInfoDictionaryKey: "BAAppGroupID") as? String,
+                  !groupID.isEmpty,
+                  FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) != nil
+            else {
                 return nil
             }
             do {
@@ -186,6 +196,7 @@ final class AriaKokoroModelStore {
             } catch {
                 return nil
             }
+            #endif
         }
         #endif
         return nil
