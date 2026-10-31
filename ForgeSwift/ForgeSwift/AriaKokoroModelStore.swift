@@ -171,6 +171,9 @@ final class AriaKokoroModelStore {
     private func backgroundAssetRoot() async -> URL? {
         #if canImport(BackgroundAssets)
         if #available(iOS 26.0, *) {
+            guard Bundle.main.object(forInfoDictionaryKey: "BAAppGroupID") as? String != nil else {
+                return nil
+            }
             do {
                 let pack = try await AssetPackManager.shared.assetPack(
                     withID: AriaKokoroDelivery.assetPackID
