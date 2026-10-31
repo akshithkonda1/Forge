@@ -32,7 +32,27 @@ enum ForgeNotificationScheduler {
         briefEnabled: Bool,
         brief: BriefNotificationSettings
     ) async {
-        guard await requestAuthorizationIfNeeded() else { return }
+        let status = await center.notificationSettings().authorizationStatus
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            break
+        case .denied:
+            return
+        case .notDetermined:
+            // Do not await the system alert. First-boot / AriaForgePrep and
+            // AppStore.init would sit here until a tap, past PREP_WATCHDOG_S.
+            Task {
+                guard await requestAuthorizationIfNeeded() else { return }
+                await sync(
+                    settings: settings,
+                    briefEnabled: briefEnabled,
+                    brief: brief
+                )
+            }
+            return
+        @unknown default:
+            return
+        }
 
         await removeAllForgeNotifications()
 

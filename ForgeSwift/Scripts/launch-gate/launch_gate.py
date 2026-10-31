@@ -241,6 +241,36 @@ def defaults_read(udid, key):
     return r.stdout.strip() if r.returncode == 0 else None
 
 
+def prime_app_container(udid):
+    """Create the app's data container so later `defaults write` is visible
+    to UserDefaults.standard. Kill once the process is up; this launch is
+    not measured."""
+    pid, _ = launch(udid)
+    deadline = time.monotonic() + 8
+    while time.monotonic() < deadline and pid_alive(pid):
+        time.sleep(0.25)
+    if pid_alive(pid):
+        subprocess.run(["kill", "-9", str(pid)])
+    time.sleep(1)
+    simctl("terminate", udid, BUNDLE, check=False)
+
+
+def seed_prep_wedge_defaults(udid):
+    writes = (
+        ("forge.onboarding.interviewComplete", "YES"),
+        ("forge.onboarding.completed", "NO"),
+        ("forge.auth.session.v1", "YES"),
+    )
+    for key, flag in writes:
+        simctl("spawn", udid, "defaults", "write", BUNDLE, key, "-bool", flag)
+    ic = defaults_read(udid, "forge.onboarding.interviewComplete")
+    ob = defaults_read(udid, "forge.onboarding.completed")
+    auth = defaults_read(udid, "forge.auth.session.v1")
+    print(f"  seeded prep_wedge defaults interviewComplete={ic} completed={ob} session={auth}", flush=True)
+    if ic != "1":
+        raise RuntimeError(f"prep_wedge seed failed: interviewComplete={ic!r}")
+
+
 def run_scenario(name, udid, app):
     res = {"scenario": name, "checks": []}
 
@@ -255,9 +285,12 @@ def run_scenario(name, udid, app):
         subprocess.run(["kill", "-9", str(pid)])
         time.sleep(2)
     if name == "prep_wedge":
-        simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.interviewComplete", "-bool", "YES")
-        simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.completed", "-bool", "NO")
-        simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
+        # `defaults write $BUNDLE` before the first launch lands in the
+        # simulator device domain. UserDefaults.standard reads the app
+        # container, so interviewComplete stayed 1 forever and prep never
+        # started. Prime the container, then seed the handoff keys there.
+        prime_app_container(udid)
+        seed_prep_wedge_defaults(udid)
 
     # Baseline: the screen with the app NOT running (terminate + settle), so a
     # leftover image from a previous/killed launch can't count as the frame.

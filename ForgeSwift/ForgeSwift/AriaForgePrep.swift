@@ -282,6 +282,20 @@ extension AriaForgePrep {
         !(simulator || testReady || usingPack)
     }
 
+    /// Notification permission is a system alert. Simulator / Test-Ready
+    /// prep must not await it or the interviewComplete handoff never clears.
+    static func shouldAwaitNotificationSync(
+        simulator: Bool,
+        testReady: Bool,
+        usingPack: Bool
+    ) -> Bool {
+        shouldRunHeavyHealthIngest(
+            simulator: simulator,
+            testReady: testReady,
+            usingPack: usingPack
+        )
+    }
+
     @MainActor
     static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
         await store.refreshDailyData()
@@ -321,7 +335,18 @@ extension AriaForgePrep {
         )
         let sources = skipHeavy ? [] : await HealthKitManager.shared.knownHealthSources()
         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
-        await store.resyncNotifications()
+        // Notification permission shows a system alert. Awaiting it here
+        // wedges AriaForgePrep until someone taps Allow — the launch-stability
+        // prep_watchdog then fails with the interviewComplete flag still set.
+        if shouldAwaitNotificationSync(
+            simulator: TestReadyLaunchPolicy.isRunningOnSimulator,
+            testReady: AriaService.shouldUseTestReadyDummy,
+            usingPack: store.usingTestReadyHealthPack
+        ) {
+            await store.resyncNotifications()
+        } else {
+            Task { await store.resyncNotifications() }
+        }
         AriaContextStore.shared.addInsight("Onboarding interview complete.")
     }
 

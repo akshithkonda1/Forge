@@ -39,6 +39,12 @@ final class OnboardingGateTests: XCTestCase {
     func testFloorAndCapStayFortyFiveAndOneEighty() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
         XCTAssertEqual(AriaForgePrep.cap, 180)
+        XCTAssertFalse(TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(isSimulator: true))
+        XCTAssertFalse(
+            AriaForgePrep.shouldAwaitNotificationSync(
+                simulator: true, testReady: true, usingPack: false
+            )
+        )
     }
 
     func testStaleInterviewFlagClearsWhenUnauthenticated() {

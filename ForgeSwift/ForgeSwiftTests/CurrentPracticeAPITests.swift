@@ -203,6 +203,8 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForRemoteDashboard)
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries)
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitAuthorizationSheet)
+        XCTAssertFalse(TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(isSimulator: true))
+        XCTAssertTrue(TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(isSimulator: false))
         XCTAssertFalse(TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor)
         XCTAssertFalse(TestReadyLaunchPolicy.writesEventKitYearOnSimulator)
         XCTAssertFalse(TestReadyLaunchPolicy.shouldWriteEventKitYear(isSimulator: true))

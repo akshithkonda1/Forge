@@ -224,5 +224,20 @@ final class AriaForgePrepTests: XCTestCase {
                 simulator: false, testReady: false, usingPack: false
             )
         )
+        XCTAssertFalse(
+            AriaForgePrep.shouldAwaitNotificationSync(
+                simulator: true, testReady: false, usingPack: false
+            )
+        )
+        XCTAssertFalse(
+            AriaForgePrep.shouldAwaitNotificationSync(
+                simulator: false, testReady: true, usingPack: false
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldAwaitNotificationSync(
+                simulator: false, testReady: false, usingPack: false
+            )
+        )
     }
 }

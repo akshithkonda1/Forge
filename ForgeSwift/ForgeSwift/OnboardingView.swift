@@ -32,6 +32,11 @@ struct OnboardingView: View {
         .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.showAgeBlocked)
         .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.isPrepping)
         .onAppear { coordinator.startIfNeeded(in: store) }
+        .onChange(of: store.needsForgePrep) { _, needs in
+            if needs {
+                coordinator.startIfNeeded(in: store)
+            }
+        }
         .onDisappear { coordinator.stopInterviewVoice() }
     }
 }

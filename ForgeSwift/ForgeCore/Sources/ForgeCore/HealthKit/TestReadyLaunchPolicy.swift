@@ -25,6 +25,13 @@ public enum TestReadyLaunchPolicy: Sendable {
     public static let homeWaitsForRemoteDashboard = false
     public static let homeWaitsForThirtyDayHealthQueries = false
     public static let homeWaitsForHealthKitAuthorizationSheet = false
+    /// Simulator HealthKit sample probes (HKSampleQuery / HKStatisticsQuery)
+    /// can sit forever on a fresh container. Launch and AriaForgePrep decide
+    /// live status from write-sharing or the onboarding-connected flag, then
+    /// query after the shell is up.
+    public static func shouldProbeHealthKitEvidence(isSimulator: Bool) -> Bool {
+        !isSimulator
+    }
     /// EventKit year writes must not run on MainActor. The old path committed
     /// ~120 events on the UI thread and froze Home for minutes.
     public static let calendarYearWriteRunsOnMainActor = false
