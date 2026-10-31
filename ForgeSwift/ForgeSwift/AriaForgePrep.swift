@@ -270,11 +270,28 @@ extension AriaForgePrep {
         }
     }
 
+    /// Clinical records and a 90-day HealthKit backfill can pin the main
+    /// actor past the launch-stability prep watchdog. Simulator / Test-Ready
+    /// already has the in-memory pack; those queries wait until the shell is
+    /// up (see `TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries`).
+    static func shouldRunHeavyHealthIngest(
+        simulator: Bool,
+        testReady: Bool,
+        usingPack: Bool
+    ) -> Bool {
+        !(simulator || testReady || usingPack)
+    }
+
     @MainActor
     static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
         await store.refreshDailyData()
 
-        if store.healthKitLive {
+        let skipHeavy = !shouldRunHeavyHealthIngest(
+            simulator: TestReadyLaunchPolicy.isRunningOnSimulator,
+            testReady: AriaService.shouldUseTestReadyDummy,
+            usingPack: store.usingTestReadyHealthPack
+        )
+        if store.healthKitLive, !skipHeavy {
             await HealthKitManager.shared.fetchTodayStats(force: true)
             await HealthKitManager.shared.fetchWeeklyTrends()
             _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
@@ -302,7 +319,7 @@ extension AriaForgePrep {
         WatchAriaConfigBridge.sync(
             firstName: store.userProfile.name.split(separator: " ").first.map(String.init)
         )
-        let sources = await HealthKitManager.shared.knownHealthSources()
+        let sources = skipHeavy ? [] : await HealthKitManager.shared.knownHealthSources()
         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
         await store.resyncNotifications()
         AriaContextStore.shared.addInsight("Onboarding interview complete.")

@@ -33,7 +33,11 @@ extension AppStore {
         let authorized = await hk.checkAuthorizationStatus()
         healthKitLive = authorized
 
-        if authorized {
+        // Simulator Test-Ready already applied the pack in memory. Live
+        // HealthKit queries on the main actor are what pushed kill-relaunch
+        // past MAIN_THREAD_BLOCK_MAX_S; Home does not wait on them.
+        let skipLiveHealthQueries = seeded && TestReadyLaunchPolicy.isRunningOnSimulator
+        if authorized, !skipLiveHealthQueries {
             await hk.refreshHydration()
             readinessHealthContext = await ForgeHealthQueries.readinessContext(store: hk.healthStore)
             if let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {

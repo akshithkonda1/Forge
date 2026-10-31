@@ -202,4 +202,27 @@ final class AriaForgePrepTests: XCTestCase {
         AriaForgePrepHandoff.clearInterviewComplete()
         XCTAssertFalse(AriaForgePrepHandoff.needsPrep(isOnboarded: false))
     }
+
+    func testHeavyHealthIngestStaysOffOnSimulatorAndTestReady() {
+        XCTAssertFalse(
+            AriaForgePrep.shouldRunHeavyHealthIngest(
+                simulator: true, testReady: false, usingPack: false
+            )
+        )
+        XCTAssertFalse(
+            AriaForgePrep.shouldRunHeavyHealthIngest(
+                simulator: false, testReady: true, usingPack: false
+            )
+        )
+        XCTAssertFalse(
+            AriaForgePrep.shouldRunHeavyHealthIngest(
+                simulator: false, testReady: false, usingPack: true
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldRunHeavyHealthIngest(
+                simulator: false, testReady: false, usingPack: false
+            )
+        )
+    }
 }
