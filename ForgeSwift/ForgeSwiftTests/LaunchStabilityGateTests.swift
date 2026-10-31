@@ -85,4 +85,40 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
         XCTAssertFalse(store.needsForgePrep)
     }
+
+    func testSkipHoldFinishesEvenWhenWorkNeverReturns() async {
+        let previousFlag = UserDefaults.standard.object(
+            forKey: AriaForgePrepHandoff.interviewCompleteKey
+        )
+        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
+        defer {
+            if let previousFlag {
+                UserDefaults.standard.set(previousFlag, forKey: AriaForgePrepHandoff.interviewCompleteKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AriaForgePrepHandoff.interviewCompleteKey)
+            }
+            if let previousOnboarded {
+                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
+            }
+        }
+
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+
+        let coordinator = OnboardingCoordinator()
+        coordinator.skipPrepHold = true
+        coordinator.resumePrep(in: store)
+        let deadline = Date().addingTimeInterval(2)
+        while coordinator.isPrepping && Date() < deadline {
+            await Task.yield()
+        }
+        XCTAssertFalse(coordinator.isPrepping)
+        XCTAssertTrue(store.isOnboarded)
+        XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
+        XCTAssertFalse(store.needsForgePrep)
+    }
 }

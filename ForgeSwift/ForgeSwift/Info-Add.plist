@@ -35,6 +35,11 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
+	<!-- Distinct from SpringBoard and not a solid generated field — the
+	     launch-stability first_frame check rejects a uniform screenshot. -->
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+
 	<!-- Sleep soundscapes and the wake tone keep playing when the screen locks. -->
 	<key>UIBackgroundModes</key>
 	<array>
