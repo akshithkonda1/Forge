@@ -81,6 +81,17 @@ class CommittedPlistShipGateTests(unittest.TestCase):
         self.assertEqual(parsed["FORGEEnvironment"], "dummy")
         self.assertEqual(parsed["FORGEAPIBaseURL"], "")
 
+    def test_committed_plist_ships_a_non_generated_launch_screen(self):
+        parsed = mod.parse_plist(PLIST.read_text(encoding="utf-8"))
+        launch = parsed.get("UILaunchScreen")
+        self.assertIsInstance(launch, dict)
+        self.assertEqual(launch.get("UIImageName"), "LaunchScreen")
+        image = (
+            ROOT / "ForgeSwift" / "ForgeSwift" / "Assets.xcassets"
+            / "LaunchScreen.imageset" / "LaunchScreen.png"
+        )
+        self.assertTrue(image.is_file(), image)
+
 
 class ValidateDummyOfflineTests(unittest.TestCase):
     def test_dummy_offline_empty_config_is_ok(self):
