@@ -73,10 +73,12 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
-    @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
-    @State private var textOffset: CGFloat = 16
+    // Visible on the first commit. Starting at opacity 0 made the splash a
+    // uniform black frame, which the launch gate counts as blank.
+    @State private var logoScale: CGFloat = 1
+    @State private var logoOpacity: Double = 1
+    @State private var glowIntensity: Double = 1
+    @State private var textOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
