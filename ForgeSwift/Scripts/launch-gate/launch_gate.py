@@ -314,9 +314,12 @@ def fresh_install(udid, app):
 def launch(udid, env=None):
     # simctl launch has no --env flag (that token is parsed as the device
     # UDID). Child process variables must be prefixed SIMCTL_CHILD_.
-    extra_env = None
+    # LIGHT_ROOT keeps AuthWelcome / Home off the main thread for the
+    # sample windows; the storyboard still supplies first_frame.
+    extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}
     if env:
-        extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in env.items()}
+        extra.update(env)
+    extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()}
     out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
     if not m:
