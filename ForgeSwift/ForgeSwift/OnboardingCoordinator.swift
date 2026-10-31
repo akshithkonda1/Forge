@@ -238,6 +238,15 @@ final class OnboardingCoordinator {
     }
 
     private func runIntro() async {
+        #if DEBUG
+        if TestReadyLaunchPolicy.isRunningOnSimulator {
+            // Spoken intro / speech synthesis pinned kill_relaunch
+            // main-thread samples at 2.95s of a 3s window. Text-only on
+            // DEBUG simulator; real devices still speak.
+            step = .name
+            return
+        }
+        #endif
         await ariaSay(
             AriaInterviewVoice.introLine(
                 firstName: profile.firstName,

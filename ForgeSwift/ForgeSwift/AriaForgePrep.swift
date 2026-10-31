@@ -229,9 +229,12 @@ enum AriaForgePrepHandoff {
         isDebugSimulator: Bool,
         isTestHost: Bool,
         isAuthenticated: Bool,
-        isInterviewComplete: Bool
+        isInterviewComplete: Bool,
+        launchPrepWedge: Bool = false
     ) -> Bool {
-        isDebugSimulator && !isTestHost && isAuthenticated && isInterviewComplete
+        if isTestHost { return false }
+        if launchPrepWedge && isDebugSimulator { return true }
+        return isDebugSimulator && isAuthenticated && isInterviewComplete
     }
 }
 
