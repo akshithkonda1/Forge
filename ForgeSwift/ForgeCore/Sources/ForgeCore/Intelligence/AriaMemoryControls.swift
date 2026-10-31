@@ -103,6 +103,16 @@ public struct AriaCompanionPreferences: Codable, Equatable, Sendable {
         self.serverVoiceEnabled = serverVoiceEnabled
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case memoryEnabled
+        case disabledCategories
+        case personaEnabled
+        case tone
+        case checkInCadence
+        case talkativeness
+        case serverVoiceEnabled
+    }
+
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         memoryEnabled = try c.decodeIfPresent(Bool.self, forKey: .memoryEnabled) ?? true
