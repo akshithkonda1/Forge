@@ -14,20 +14,23 @@ struct ContentView: View {
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
     @State private var kokoroVoiceGate: AriaKokoroVoiceGate?
-    /// `prep_wedge` finishes leftover prep during AppStore.init, which would
-    /// build MainTabView under the storyboard and pin a 3s main-thread sample.
-    /// Reveal Home after the gate's sample windows; cold / kill stay immediate.
-    @State private var revealHome = ProcessInfo.processInfo.environment["FORGE_LAUNCH_PREP_WEDGE"] != "1"
+    /// Harness launches set FORGE_LAUNCH_LIGHT_ROOT so AuthWelcome / Home
+    /// are not built during first_frame sample windows. Real launches
+    /// reveal immediately.
+    @State private var revealRoot = ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] != "1"
     private static var didFinishSplash = false
 
     var body: some View {
         ZStack {
             Group {
-                if !store.isAuthenticated {
+                if !revealRoot {
+                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                        .ignoresSafeArea()
+                } else if !store.isAuthenticated {
                     AuthWelcomeView()
                 } else if !store.isOnboarded {
                     OnboardingView()
-                } else if revealHome && !showSplash {
+                } else if !showSplash {
                     MainTabView()
                 } else {
                     Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
@@ -64,9 +67,9 @@ struct ContentView: View {
             }
         }
         .task {
-            if !revealHome {
+            if !revealRoot {
                 try? await Task.sleep(for: .seconds(14))
-                revealHome = true
+                revealRoot = true
             }
             guard showSplash else {
                 let gate = AriaNeuralVoiceGate.shared
