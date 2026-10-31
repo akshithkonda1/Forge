@@ -383,7 +383,7 @@ final class AppStore: ObservableObject {
             // AriaForgePrep owns ingest while the handoff flag is set.
             // A HealthKit / notification probe here can pin MainActor so
             // skip-hold work never finishes and the 60s watchdog fires.
-            if self.needsForgePrep { return }
+            if self.needsForgePrep || !self.isOnboarded { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
@@ -513,6 +513,20 @@ final class AppStore: ObservableObject {
     func finishForgePrep() {
         isOnboarded = true
         AriaForgePrepHandoff.clearInterviewComplete()
+        UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: AriaForgePrepHandoff.interviewCompleteKey)
+        UserDefaults.standard.synchronize()
+        CFPreferencesSetAppValue(
+            Self.onboardedDefaultsKey as CFString,
+            kCFBooleanTrue,
+            kCFPreferencesCurrentApplication
+        )
+        CFPreferencesSetAppValue(
+            AriaForgePrepHandoff.interviewCompleteKey as CFString,
+            nil,
+            kCFPreferencesCurrentApplication
+        )
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         refreshTutorialOpeningFromProfile()
     }
 

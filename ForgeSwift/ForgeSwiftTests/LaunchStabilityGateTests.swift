@@ -130,4 +130,33 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
         XCTAssertFalse(store.needsForgePrep)
     }
+
+    func testRestoreFinishesLeftoverPrepOutsideTheTestHost() {
+        XCTAssertTrue(
+            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: true,
+                isTestHost: false,
+                isAuthenticated: true,
+                isInterviewComplete: true
+            )
+        )
+        XCTAssertFalse(
+            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: true,
+                isTestHost: true,
+                isAuthenticated: true,
+                isInterviewComplete: true
+            ),
+            "XCTest must still observe the handoff flag"
+        )
+        XCTAssertFalse(
+            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: false,
+                isTestHost: false,
+                isAuthenticated: true,
+                isInterviewComplete: true
+            ),
+            "Real devices keep the 45s–180s hold"
+        )
+    }
 }

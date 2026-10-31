@@ -38,6 +38,14 @@ extension AppStore {
             if AriaForgePrepHandoff.isInterviewComplete {
                 restoreUserProfileForCurrentUser()
             }
+            if AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: TestReadyLaunchPolicy.isRunningOnSimulator,
+                isTestHost: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
+                isAuthenticated: isAuthenticated,
+                isInterviewComplete: AriaForgePrepHandoff.isInterviewComplete
+            ) {
+                finishForgePrep()
+            }
             return
         }
         restoreUserProfileForCurrentUser()
