@@ -169,4 +169,10 @@ final class LaunchStabilityGateTests: XCTestCase {
             "prep_wedge env must finish even when UserDefaults is invisible"
         )
     }
+
+    func testLightRootRevealWaitsOutSampleWindows() {
+        // 4 × 3s `sample` windows plus tool overhead is ~25s after first_frame.
+        // 14s revealed MainTabView during sample 3 on run 41236747489.
+        XCTAssertGreaterThanOrEqual(LaunchHarnessPolicy.revealDelaySeconds, 30)
+    }
 }

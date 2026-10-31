@@ -384,6 +384,10 @@ final class AppStore: ObservableObject {
             // A HealthKit / notification probe here can pin MainActor so
             // skip-hold work never finishes and the 60s watchdog fires.
             if self.needsForgePrep || !self.isOnboarded { return }
+            // Leftover-prep restore sets isOnboarded immediately. The
+            // harness then samples; refreshDailyData on MainActor was
+            // 2.97s of a 3s window. ContentView hydrates after reveal.
+            if LaunchHarnessPolicy.lightRoot { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }

@@ -17,7 +17,7 @@ struct ContentView: View {
     /// Harness launches set FORGE_LAUNCH_LIGHT_ROOT so AuthWelcome / Home
     /// are not built during first_frame sample windows. Real launches
     /// reveal immediately.
-    @State private var revealRoot = ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] != "1"
+    @State private var revealRoot = !LaunchHarnessPolicy.lightRoot
     private static var didFinishSplash = false
 
     var body: some View {
@@ -68,8 +68,14 @@ struct ContentView: View {
         }
         .task {
             if !revealRoot {
-                try? await Task.sleep(for: .seconds(14))
+                // `sample` of 4×3s windows plus tool overhead is ~25s after
+                // first_frame. 14s revealed MainTabView during sample 3
+                // (2.84s busy). Wait out the harness, then hydrate.
+                try? await Task.sleep(for: .seconds(LaunchHarnessPolicy.revealDelaySeconds))
                 revealRoot = true
+                if store.isOnboarded {
+                    await store.refreshDailyData()
+                }
             }
             guard showSplash else {
                 let gate = AriaNeuralVoiceGate.shared
@@ -108,6 +114,18 @@ struct ContentView: View {
             set: { kokoroVoiceGate?.showPrompt = $0 }
         )
     }
+}
+
+/// Launch-stability only. `FORGE_LAUNCH_LIGHT_ROOT=1` keeps the heavy
+/// SwiftUI tree off MainActor while `sample` runs. Real users never set it.
+enum LaunchHarnessPolicy {
+    static var lightRoot: Bool {
+        ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
+    }
+
+    /// Must exceed first_frame plus four `sample` windows and their
+    /// overhead. 14s was too short — sample 3 still caught MainTabView.
+    static let revealDelaySeconds: Double = 30
 }
 
 // MARK: - Splash Screen
