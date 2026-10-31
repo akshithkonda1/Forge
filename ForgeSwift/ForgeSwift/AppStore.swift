@@ -12,7 +12,13 @@ final class AppStore: ObservableObject {
     
     // Onboarding
     @Published var isOnboarded: Bool = false {
-        didSet { UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey) }
+        didSet {
+            UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey)
+            // simctl `defaults read` sees the on-disk plist. Without a
+            // flush the launch-stability prep watchdog keeps reading the
+            // pre-launch handoff flags for tens of seconds.
+            UserDefaults.standard.synchronize()
+        }
     }
     @Published var onboardingStep: Int = 0
 
@@ -144,13 +150,13 @@ final class AppStore: ObservableObject {
     @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadNotificationSettings() {
         didSet {
             ForgePersistence.saveNotificationSettings(notificationSettings)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfUndetermined: true) }
         }
     }
     @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationsEnabled() {
         didSet {
             ForgePersistence.saveBriefNotificationsEnabled(briefNotificationsEnabled)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfUndetermined: true) }
         }
     }
     @Published var nutritionPreferences: NutritionPreferences = ForgePersistence.loadNutritionPreferences() {
@@ -358,6 +364,10 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
+            // kill_relaunch's storyboard already counted as first_frame
+            // (~0.8s). Chat restore + HealthKit here landed in sample 0.
+            // ContentView hydrates after the 30s reveal.
+            if LaunchHarnessPolicy.lightRoot { return }
             #if canImport(FoundationModels) && !targetEnvironment(simulator)
             let foundationModelsGenerator = FoundationModelsResponseGenerator()
             if foundationModelsGenerator.isAvailable {
@@ -374,6 +384,10 @@ final class AppStore: ObservableObject {
             // work. Test-Ready pack rewrites wait until after Home is loaded.
             // Simulator never writes EventKit.
             try? await Task.sleep(for: .milliseconds(450))
+            // AriaForgePrep owns ingest while the handoff flag is set.
+            // A HealthKit / notification probe here can pin MainActor so
+            // skip-hold work never finishes and the 60s watchdog fires.
+            if self.needsForgePrep || !self.isOnboarded { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
@@ -503,6 +517,21 @@ final class AppStore: ObservableObject {
     func finishForgePrep() {
         isOnboarded = true
         AriaForgePrepHandoff.clearInterviewComplete()
+        UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: AriaForgePrepHandoff.interviewCompleteKey)
+        UserDefaults.standard.synchronize()
+        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
+        CFPreferencesSetAppValue(
+            Self.onboardedDefaultsKey as CFString,
+            kCFBooleanTrue,
+            app
+        )
+        CFPreferencesSetAppValue(
+            AriaForgePrepHandoff.interviewCompleteKey as CFString,
+            nil,
+            app
+        )
+        CFPreferencesAppSynchronize(app)
         refreshTutorialOpeningFromProfile()
     }
 

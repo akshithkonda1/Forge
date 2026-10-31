@@ -88,6 +88,18 @@ public enum HealthKitOnboardingAuthorization: Sendable {
         canWrite || hasReadableSamples || onboardingConnected
     }
 
+    /// Fresh install has no write grant, no onboarding READ persist, and no
+    /// cached samples. Probing HealthKit then waits on `healthd` and can
+    /// deadlock a continuation — which pins AriaForgePrep past the launch
+    /// watchdog. Skip the store probe until a cheap signal exists.
+    public static func shouldProbeStoreForLiveStatus(
+        canWrite: Bool,
+        onboardingConnected: Bool,
+        cachedReadableSamples: Bool
+    ) -> Bool {
+        canWrite || onboardingConnected || cachedReadableSamples
+    }
+
     /// Sleep fields for widgets. Only last night (same start-of-day as
     /// `HomeTrendSeries.lastNight` / `nightKey`) is published; older nights
     /// return nil so Home/Watch show empty copy.

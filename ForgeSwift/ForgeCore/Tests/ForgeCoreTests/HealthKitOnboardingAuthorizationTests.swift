@@ -107,6 +107,37 @@ final class HealthKitOnboardingAuthorizationTests: XCTestCase {
         )
     }
 
+    func testFreshInstallDoesNotProbeHealthStore() {
+        XCTAssertFalse(
+            HealthKitOnboardingAuthorization.shouldProbeStoreForLiveStatus(
+                canWrite: false,
+                onboardingConnected: false,
+                cachedReadableSamples: false
+            )
+        )
+        XCTAssertTrue(
+            HealthKitOnboardingAuthorization.shouldProbeStoreForLiveStatus(
+                canWrite: true,
+                onboardingConnected: false,
+                cachedReadableSamples: false
+            )
+        )
+        XCTAssertTrue(
+            HealthKitOnboardingAuthorization.shouldProbeStoreForLiveStatus(
+                canWrite: false,
+                onboardingConnected: true,
+                cachedReadableSamples: false
+            )
+        )
+        XCTAssertTrue(
+            HealthKitOnboardingAuthorization.shouldProbeStoreForLiveStatus(
+                canWrite: false,
+                onboardingConnected: false,
+                cachedReadableSamples: true
+            )
+        )
+    }
+
     func testWeekOldNightIsNotPublishedAndLastNightIs() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/Chicago")!
