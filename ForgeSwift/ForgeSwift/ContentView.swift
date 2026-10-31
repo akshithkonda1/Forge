@@ -9,7 +9,7 @@ struct ContentView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Once per process — recreating this view must not put the splash back
     /// on top of Home and eat taps.
-    @State private var showSplash = !Self.didFinishSplash
+    @State private var showSplash = LaunchHarnessPolicy.showsSplash && !Self.didFinishSplash
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
@@ -126,6 +126,12 @@ enum LaunchHarnessPolicy {
     /// Must exceed first_frame plus four `sample` windows and their
     /// overhead. 14s was too short — sample 3 still caught MainTabView.
     static let revealDelaySeconds: Double = 30
+
+    /// Splash (PremiumAtmosphere + AuroraOrb) is a ~3s MainActor first
+    /// commit. kill_relaunch's storyboard already counted as first_frame,
+    /// so that commit landed in sample 0 (2.97s). Real users never set
+    /// LIGHT_ROOT, so they still see splash.
+    static var showsSplash: Bool { !lightRoot }
 }
 
 // MARK: - Splash Screen
