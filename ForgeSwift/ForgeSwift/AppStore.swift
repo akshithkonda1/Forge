@@ -144,13 +144,13 @@ final class AppStore: ObservableObject {
     @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadNotificationSettings() {
         didSet {
             ForgePersistence.saveNotificationSettings(notificationSettings)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfUndetermined: true) }
         }
     }
     @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationsEnabled() {
         didSet {
             ForgePersistence.saveBriefNotificationsEnabled(briefNotificationsEnabled)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfUndetermined: true) }
         }
     }
     @Published var nutritionPreferences: NutritionPreferences = ForgePersistence.loadNutritionPreferences() {
@@ -374,6 +374,10 @@ final class AppStore: ObservableObject {
             // work. Test-Ready pack rewrites wait until after Home is loaded.
             // Simulator never writes EventKit.
             try? await Task.sleep(for: .milliseconds(450))
+            // AriaForgePrep owns ingest while the handoff flag is set.
+            // A HealthKit / notification probe here can pin MainActor so
+            // skip-hold work never finishes and the 60s watchdog fires.
+            if self.needsForgePrep { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
