@@ -27,6 +27,14 @@ OUT = os.environ.get("LAUNCH_GATE_OUT", "/tmp/launch-gate")
 # sit above the trap in the same stack and would double-count idle.
 IDLE_FRAMES = ("mach_msg2_trap", "mach_msg_trap")
 RUNLOOP_WAIT = ("__CFRunLoopServiceMachPort", "CFRunLoopRun", "__CFRunLoopRun")
+# `sample` attaches as a debugger. If that happens while dyld is still
+# registering images, the main thread blocks in this notify until the
+# sampler accepts the list. That wait is the measurement, not Forge.
+SAMPLER_STALL = (
+    "notifyDebuggerLoad",
+    "blockOnSynchronousEvent",
+    "notifyMonitorOfImageListChangesSim",
+)
 
 
 def load_thresholds():
@@ -286,8 +294,11 @@ def main_thread_busy_s(pid, window, tag, timeout):
             stack.pop()
         stack.append((ind, txt))
         leaf = i + 1 >= len(rows) or rows[i + 1][0] <= ind
-        if leaf and any(f in txt for f in IDLE_FRAMES) and \
-                any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1]):
+        if not leaf or not any(f in txt for f in IDLE_FRAMES):
+            continue
+        runloop = any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1])
+        sampler = any(any(s in t for s in SAMPLER_STALL) for _, t in stack)
+        if runloop or sampler:
             idle += n
     if total <= 0:
         raise RuntimeError("main thread total sample count is 0")
