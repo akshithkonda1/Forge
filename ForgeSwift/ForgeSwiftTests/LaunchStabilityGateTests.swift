@@ -174,5 +174,8 @@ final class LaunchStabilityGateTests: XCTestCase {
         // 4 × 3s `sample` windows plus tool overhead is ~25s after first_frame.
         // 14s revealed MainTabView during sample 3 on run 41236747489.
         XCTAssertGreaterThanOrEqual(LaunchHarnessPolicy.revealDelaySeconds, 30)
+        // kill_relaunch first_frame is the storyboard at ~0.8s. Splash must
+        // stay off or its first commit is sample 0 (run 41239722577, 2.97s).
+        XCTAssertEqual(LaunchHarnessPolicy.showsSplash, !LaunchHarnessPolicy.lightRoot)
     }
 }
