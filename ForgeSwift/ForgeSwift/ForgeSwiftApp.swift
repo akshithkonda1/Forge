@@ -42,6 +42,9 @@ struct ForgeSwiftApp: App {
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }
                     Task {
+                        // After first paint. Background Assets / speech
+                        // catalog work on appear pinned kill_relaunch samples.
+                        try? await Task.sleep(for: .seconds(2))
                         await AriaKokoroModelStore.shared.discover()
                         if AriaKokoroModelStore.shared.hasVerifiedRuntime {
                             AriaKokoroEngine.noteRuntimeBecameAvailable()

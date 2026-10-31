@@ -57,18 +57,27 @@ struct ContentView: View {
             }
         }
         .task {
+            guard showSplash else {
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                let kokoro = AriaKokoroVoiceGate.shared
+                kokoroVoiceGate = kokoro
+                await kokoro.refresh()
+                return
+            }
+            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
+            Self.didFinishSplash = true
+            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
+                showSplash = false
+            }
+            // Voice-catalog XPC after splash so kill_relaunch samples stay idle.
             let gate = AriaNeuralVoiceGate.shared
             neuralVoiceGate = gate
             gate.refreshCatalog()
             let kokoro = AriaKokoroVoiceGate.shared
             kokoroVoiceGate = kokoro
             await kokoro.refresh()
-            guard showSplash else { return }
-            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
-            Self.didFinishSplash = true
-            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
-                showSplash = false
-            }
         }
     }
 
