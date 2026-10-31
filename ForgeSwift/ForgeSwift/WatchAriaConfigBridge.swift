@@ -86,6 +86,12 @@ enum WatchAriaConfigBridge {
         // Hard no-op when the phone should not talk to Watch.
         #if os(iOS)
         guard WCSession.isSupported() else { return }
+        #if targetEnvironment(simulator)
+        // Unpaired simulator: touching WCSession.default.isPaired can stall
+        // MainActor during skip-hold prep. Companion launch is explicit.
+        let companion = ProcessInfo.processInfo.environment["FORGE_LAUNCH_WATCH_COMPANION"] == "1"
+        guard companion else { return }
+        #endif
         let session = WCSession.default
         let mayTalk = PhoneDependency.phoneMayTalkToWatch(
             isActivated: session.activationState == .activated,

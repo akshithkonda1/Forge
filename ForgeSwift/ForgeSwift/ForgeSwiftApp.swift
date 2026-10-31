@@ -65,7 +65,7 @@ struct ForgeSwiftApp: App {
                         await store.flushPendingWidgetWater(openHydrationOnSuccess: true)
                         store.publishHomeWidgets()
                         await MenstrualHealthStore.shared.syncSharedPeriodFinished()
-                        guard !store.needsForgePrep else { return }
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
                         await AriaHealthRiskBridge.evaluateFromHealthKit(quietMode: store.quietMode)
                     }
                 }
