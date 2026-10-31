@@ -18,11 +18,6 @@
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="forge-launch-edge">
                                 <rect key="frame" x="127" y="368" width="160" height="160"/>
                                 <color key="backgroundColor" red="1" green="1" blue="1" alpha="0.16" colorSpace="custom" customColorSpace="sRGB"/>
-                                <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
-                                        <real key="value" value="44"/>
-                                    </userDefinedRuntimeAttribute>
-                                </userDefinedRuntimeAttributes>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="160" id="forge-launch-edge-w"/>
                                     <constraint firstAttribute="height" constant="160" id="forge-launch-edge-h"/>
@@ -31,11 +26,6 @@
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="forge-launch-mark">
                                 <rect key="frame" x="135" y="376" width="144" height="144"/>
                                 <color key="backgroundColor" red="1" green="0.30196078431372547" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
-                                        <real key="value" value="40"/>
-                                    </userDefinedRuntimeAttribute>
-                                </userDefinedRuntimeAttributes>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="144" id="forge-launch-mark-w"/>
                                     <constraint firstAttribute="height" constant="144" id="forge-launch-mark-h"/>

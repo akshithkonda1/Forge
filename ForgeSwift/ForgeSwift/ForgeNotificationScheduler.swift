@@ -30,14 +30,16 @@ enum ForgeNotificationScheduler {
     /// Launch / prep must not show the system permission sheet. A fresh
     /// simulator install otherwise sits on that alert until the launch
     /// first-frame window expires. Settings toggles pass `promptIfUndetermined: true`.
-    enum AuthorizationIntent: Equatable {
+    nonisolated enum AuthorizationIntent: Equatable {
         case alreadyGranted
         case denied
         case prompt
         case skipPrompt
     }
 
-    static func authorizationIntent(
+    /// Pure status mapping. SleepAlarmScheduler.arm is not on MainActor,
+    /// so this cannot inherit the enum's actor isolation.
+    nonisolated static func authorizationIntent(
         status: UNAuthorizationStatus,
         promptIfUndetermined: Bool
     ) -> AuthorizationIntent {
