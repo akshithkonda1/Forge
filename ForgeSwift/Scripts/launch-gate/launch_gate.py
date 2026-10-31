@@ -298,8 +298,13 @@ def fresh_install(udid, app):
         simctl("install", udid, app)
 
 
-def launch(udid):
-    out = simctl("launch", udid, BUNDLE).stdout
+def launch(udid, env=None):
+    args = ["launch"]
+    if env:
+        for key, value in env.items():
+            args.extend(["--env", f"{key}={value}"])
+    args.extend([udid, BUNDLE])
+    out = simctl(*args).stdout
     m = re.search(r":\s*(\d+)", out)
     if not m:
         raise RuntimeError(f"no pid from simctl launch: {out!r}")
@@ -337,7 +342,11 @@ def run_scenario(name, udid, app):
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
-    pid, t0 = launch(udid)
+    # simctl `defaults write` is not always visible to UserDefaults on a
+    # fresh container. Pass an explicit env so DEBUG simulator restore can
+    # leave AriaForgePrep without waiting on that plist.
+    launch_env = {"FORGE_LAUNCH_PREP_WEDGE": "1"} if name == "prep_wedge" else None
+    pid, t0 = launch(udid, env=launch_env)
     el = lambda: time.monotonic() - t0
 
     # first frame: FIRST_FRAME_CONSECUTIVE consecutive captures that are
