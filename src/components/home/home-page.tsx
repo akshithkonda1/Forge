@@ -38,7 +38,7 @@ export function HomePage() {
           <AiGreeting />
         </PremiumEntrance>
         <PremiumEntrance index={1}>
-          <ReadinessSection />
+          <ReadinessSection showBreakdown={false} />
         </PremiumEntrance>
         <PremiumEntrance index={2}>
           <MorningCardView card={morning} />

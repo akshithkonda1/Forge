@@ -24,6 +24,14 @@ import { AriaCompanionControls } from "@/components/settings/aria-companion-cont
 import { AriaVoicePicker, defaultVoiceSelection } from "@/components/settings/aria-voice-picker";
 import type { AriaVoiceSelection } from "@/lib/aria-voice";
 import type { FitnessGoal, WorkoutType } from "@/types";
+import {
+  loadEgressLog,
+  loadMemoryNotes,
+  saveMemoryNotes,
+  visiblePatterns,
+  type EgressEvent,
+  type MemoryNote,
+} from "@/lib/on-device-privacy";
 
 const fitnessGoalLabels: Record<FitnessGoal, string> = {
   "build-muscle": "Build Muscle",
@@ -219,6 +227,9 @@ type SettingsSheet =
   | "devices"
   | "schedule"
   | "privacy"
+  | "patterns"
+  | "egress"
+  | "memory"
   | "subscription"
   | "help"
   | "about"
@@ -238,6 +249,9 @@ export default function SettingsPage() {
   const [lastVoiceSpeak, setLastVoiceSpeak] = useState<Record<string, unknown> | null>(
     null
   );
+  const [memoryNotes, setMemoryNotes] = useState<MemoryNote[]>(() => loadMemoryNotes());
+  const [draftMemory, setDraftMemory] = useState("");
+  const [egressLog] = useState<EgressEvent[]>(() => loadEgressLog());
 
   const handleToggle = (key: keyof typeof notificationPrefs) => {
     setNotificationPref(key, !notificationPrefs[key]);
@@ -462,6 +476,27 @@ export default function SettingsPage() {
         <SettingsRow
           icon={<Shield size={18} />}
           iconColor="text-text-secondary"
+          label="Your patterns"
+          showChevron
+          onClick={() => setSheet("patterns")}
+        />
+        <SettingsRow
+          icon={<Shield size={18} />}
+          iconColor="text-text-secondary"
+          label="What left your phone today"
+          showChevron
+          onClick={() => setSheet("egress")}
+        />
+        <SettingsRow
+          icon={<Shield size={18} />}
+          iconColor="text-text-secondary"
+          label="User Memory"
+          showChevron
+          onClick={() => setSheet("memory")}
+        />
+        <SettingsRow
+          icon={<Shield size={18} />}
+          iconColor="text-text-secondary"
           label="Data & Privacy"
           showChevron
           onClick={() => setSheet("privacy")}
@@ -587,6 +622,101 @@ export default function SettingsPage() {
               </button>
             );
           })}
+        </div>
+      </Sheet>
+
+      <Sheet open={sheet === "patterns"} onClose={() => setSheet(null)} title="Your patterns">
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-text-secondary">
+          <p>
+            Patterns stay on this device. A pattern only shows after five samples
+            and 0.62 confidence. Confirm, correct, or expire here — remote models
+            get <span className="font-mono text-xs">pattern:kind:slug</span>, never samples.
+          </p>
+          {visiblePatterns().length === 0 ? (
+            <p className="rounded-xl bg-surface-elevated px-3 py-3 text-text-tertiary">
+              None yet. Sleep, training, and calendar on this device have not
+              crossed the bar.
+            </p>
+          ) : null}
+        </div>
+      </Sheet>
+
+      <Sheet open={sheet === "egress"} onClose={() => setSheet(null)} title="What left your phone">
+        <div className="flex flex-col gap-3 text-sm leading-relaxed text-text-secondary">
+          <p>
+            Health, patterns, and memory stay here. Models get computed bands and
+            change flags only. Server voice stays off until you turn it on.
+          </p>
+          {egressLog.length === 0 ? (
+            <p className="rounded-xl bg-surface-elevated px-3 py-3 text-text-tertiary">
+              Nothing left this browser today unless you opened chat.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {egressLog.map((event) => (
+                <li key={event.id} className="rounded-xl bg-surface-elevated px-3 py-2">
+                  <p className="text-xs text-text-tertiary">{event.at}</p>
+                  <p>{event.what}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Sheet>
+
+      <Sheet open={sheet === "memory"} onClose={() => setSheet(null)} title="User Memory">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-text-secondary">
+            Editable on this device. Nothing here is written to a server persona.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={draftMemory}
+              onChange={(event) => setDraftMemory(event.target.value)}
+              placeholder="Add a note ARIA can use"
+              className="min-h-[var(--tap-min)] flex-1 rounded-xl bg-surface-elevated px-3 text-sm text-text-primary"
+            />
+            <button
+              type="button"
+              className="rounded-xl bg-ember px-3 text-sm font-semibold text-text-primary"
+              onClick={() => {
+                const text = draftMemory.trim();
+                if (!text) return;
+                const next = [{ id: `m-${Date.now()}`, text }, ...memoryNotes];
+                setMemoryNotes(next);
+                saveMemoryNotes(next);
+                setDraftMemory("");
+              }}
+            >
+              Add
+            </button>
+          </div>
+          {memoryNotes.length === 0 ? (
+            <p className="text-sm text-text-tertiary">No notes yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {memoryNotes.map((note) => (
+                <li
+                  key={note.id}
+                  className="flex items-start justify-between gap-2 rounded-xl bg-surface-elevated px-3 py-2"
+                >
+                  <p className="text-sm text-text-primary">{note.text}</p>
+                  <button
+                    type="button"
+                    className="text-xs text-text-tertiary"
+                    onClick={() => {
+                      const next = memoryNotes.filter((row) => row.id !== note.id);
+                      setMemoryNotes(next);
+                      saveMemoryNotes(next);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </Sheet>
 

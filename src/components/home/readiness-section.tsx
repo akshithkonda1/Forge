@@ -43,15 +43,17 @@ function BreakdownCard({ item, index }: { item: BreakdownItem; index: number }) 
   );
 }
 
-export function ReadinessSection() {
+export function ReadinessSection({ showBreakdown = true }: { showBreakdown?: boolean }) {
   const readiness = useAppStore((s) => s.readiness);
 
-  const breakdownItems: BreakdownItem[] = [
-    { label: "Sleep Quality", value: readiness.sleepQuality },
-    { label: "Overnight", value: readiness.recoveryScore },
-    { label: "Stress", value: readiness.stressLevel, inverted: true },
-    { label: "Energy Bank", value: readiness.energyBank },
-  ];
+  const breakdownItems: BreakdownItem[] = showBreakdown
+    ? [
+        { label: "Sleep Quality", value: readiness.sleepQuality },
+        { label: "Overnight", value: readiness.recoveryScore },
+        { label: "Stress", value: readiness.stressLevel, inverted: true },
+        { label: "Energy Bank", value: readiness.energyBank },
+      ]
+    : [];
 
   return (
     <motion.div
@@ -70,12 +72,13 @@ export function ReadinessSection() {
         <ReadinessRing score={readiness.overall} size={180} strokeWidth={14} showLabel />
       </div>
 
-      {/* Breakdown grid */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {breakdownItems.map((item, index) => (
-          <BreakdownCard key={item.label} item={item} index={index} />
-        ))}
-      </div>
+      {showBreakdown ? (
+        <div className="grid grid-cols-2 gap-2.5">
+          {breakdownItems.map((item, index) => (
+            <BreakdownCard key={item.label} item={item} index={index} />
+          ))}
+        </div>
+      ) : null}
     </motion.div>
   );
 }
