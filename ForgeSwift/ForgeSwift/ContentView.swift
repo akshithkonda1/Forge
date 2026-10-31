@@ -14,6 +14,10 @@ struct ContentView: View {
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
     @State private var kokoroVoiceGate: AriaKokoroVoiceGate?
+    /// `prep_wedge` finishes leftover prep during AppStore.init, which would
+    /// build MainTabView under the storyboard and pin a 3s main-thread sample.
+    /// Reveal Home after the gate's sample windows; cold / kill stay immediate.
+    @State private var revealHome = ProcessInfo.processInfo.environment["FORGE_LAUNCH_PREP_WEDGE"] != "1"
     private static var didFinishSplash = false
 
     var body: some View {
@@ -23,8 +27,11 @@ struct ContentView: View {
                     AuthWelcomeView()
                 } else if !store.isOnboarded {
                     OnboardingView()
-                } else {
+                } else if revealHome && !showSplash {
                     MainTabView()
+                } else {
+                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                        .ignoresSafeArea()
                 }
             }
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
@@ -57,6 +64,10 @@ struct ContentView: View {
             }
         }
         .task {
+            if !revealHome {
+                try? await Task.sleep(for: .seconds(14))
+                revealHome = true
+            }
             guard showSplash else {
                 let gate = AriaNeuralVoiceGate.shared
                 neuralVoiceGate = gate
