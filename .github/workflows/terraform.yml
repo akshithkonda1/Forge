@@ -131,6 +131,10 @@ jobs:
 
       - name: TFLint
         if: needs.changes.outputs.relevant == 'true'
+        env:
+          # Authenticated GitHub API so tflint-ruleset-aws install is not
+          # rate-limited into a red required check. No AWS credentials.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tflint --init
           tflint --format compact

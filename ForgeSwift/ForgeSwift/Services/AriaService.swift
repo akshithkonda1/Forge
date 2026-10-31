@@ -725,15 +725,20 @@ final class AriaTurnTrace {
     }
 }
 
-/// App-side `ForgeAPI.Failure` reduced through ForgeCore's classifier.
-/// The HTTP body is discarded (`_`) so a server echo of a message or a
-/// health value cannot reach the ledger.
+/// App-side `ForgeAPI.Failure` and on-device model errors reduced through
+/// ForgeCore's classifier. The HTTP body is discarded (`_`) so a server
+/// echo of a message or a health value cannot reach the ledger.
 extension AriaReliabilityClassifier {
 
     static func classifyApp(_ error: Error) -> ReliabilityError {
         if let failure = error as? ForgeAPI.Failure {
             return classify(failure)
         }
+        #if canImport(FoundationModels)
+        if let generation = error as? LanguageModelSession.GenerationError {
+            return classify(generation)
+        }
+        #endif
         return classify(error)
     }
 
@@ -749,4 +754,21 @@ extension AriaReliabilityClassifier {
             return classifyNotConfigured()
         }
     }
+
+    #if canImport(FoundationModels)
+    static func classify(_ error: LanguageModelSession.GenerationError) -> ReliabilityError {
+        switch error {
+        case .guardrailViolation:
+            return ReliabilityError(kind: .onDeviceGuardrail, domain: "foundation_models")
+        case .exceededContextWindowSize:
+            return ReliabilityError(kind: .onDeviceContextWindow, domain: "foundation_models")
+        case .assetsUnavailable:
+            return ReliabilityError(kind: .onDeviceModelUnavailable, domain: "foundation_models")
+        case .rateLimited:
+            return ReliabilityError(kind: .rateLimited, domain: "foundation_models")
+        default:
+            return ReliabilityError(kind: .onDeviceModel, domain: "foundation_models")
+        }
+    }
+    #endif
 }
