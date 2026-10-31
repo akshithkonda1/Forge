@@ -151,6 +151,34 @@ def warmup_screenshot_io(udid):
     raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
 
 
+def warmup_app_launch(udid, app):
+    """First process start after xcodebuild is often 10s+ of dyld, which
+    burns the 8s first_frame window on the timed cold scenario. Page the
+    binary in once, then uninstall so each scenario is still a fresh
+    install. Thresholds stay unchanged."""
+    ensure_booted(udid)
+    fresh_install(udid, app)
+    try:
+        pid, t0 = launch(udid)
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline:
+            if not pid_alive(pid):
+                print("  warmup app: process exited", flush=True)
+                break
+            try:
+                small, _ = shot(udid, f"{OUT}/warmup-app.png", timeout=20)
+                share = dominant_share(small)
+                print(f"  warmup app frame dominant={share:.3f} at {time.monotonic() - t0:.1f}s", flush=True)
+                if share < T["BLANK_DOMINANT_SHARE"]:
+                    break
+            except Exception as e:
+                print(f"  warmup app shot failed: {e}", flush=True)
+            time.sleep(1)
+    finally:
+        simctl("terminate", udid, BUNDLE, check=False)
+        simctl("uninstall", udid, BUNDLE, check=False)
+
+
 def summarize(path, label):
     """Text summary of a screenshot for the job log: dominant RGB + share and
     an 8x8 grid of average colours (rows top->bottom)."""
@@ -386,6 +414,7 @@ def main():
     # "already booted" is the only boot error tolerated; bootstatus must pass.
     ensure_booted(udid)
     warmup_screenshot_io(udid)
+    warmup_app_launch(udid, app)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)

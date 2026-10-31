@@ -39,6 +39,15 @@ final class LaunchStabilityGateTests: XCTestCase {
             ),
             .denied
         )
+        // SleepAlarmScheduler.arm and AriaHealthRiskBridge use this same
+        // intent. Launch must skip the sheet when status is notDetermined.
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
+                status: .provisional,
+                promptIfUndetermined: false
+            ),
+            .alreadyGranted
+        )
     }
 
     func testSkipHoldPrepLeavesAriaForgePrepWithoutHeavyIngest() async {

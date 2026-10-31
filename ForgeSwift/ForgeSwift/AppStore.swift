@@ -12,7 +12,13 @@ final class AppStore: ObservableObject {
     
     // Onboarding
     @Published var isOnboarded: Bool = false {
-        didSet { UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey) }
+        didSet {
+            UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey)
+            // simctl `defaults read` sees the on-disk plist. Without a
+            // flush the launch-stability prep watchdog keeps reading the
+            // pre-launch handoff flags for tens of seconds.
+            UserDefaults.standard.synchronize()
+        }
     }
     @Published var onboardingStep: Int = 0
 
