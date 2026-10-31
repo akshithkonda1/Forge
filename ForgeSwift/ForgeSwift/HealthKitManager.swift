@@ -402,11 +402,7 @@ class HealthKitManager: ObservableObject {
         ) {
             // `|| await` is illegal: `||` is an autoclosure. Probe only
             // when the cheap cache is empty.
-            if cachedReadable {
-                readable = true
-            } else {
-                readable = await hasReadableHealthEvidence()
-            }
+            readable = cachedReadable ? true : await hasReadableHealthEvidence()
         } else {
             readable = false
         }
