@@ -50,7 +50,10 @@ final class ForgeAlarmStore: ObservableObject {
             routine = RoutineItem.defaults
         }
         SleepAlarmScheduler.registerCategories()
-        Task { await SleepAlarmScheduler.sync(alarms) }
+        // Launch must not present the system permission sheet. A default
+        // enabled weekday alarm used to call requestAuthorization from
+        // AppDelegate and pin first_frame / AriaForgePrep on CI.
+        Task { await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: false) }
     }
 
     func upsert(_ alarm: ForgeAlarm) {
@@ -106,7 +109,7 @@ final class ForgeAlarmStore: ObservableObject {
         if let data = try? JSONEncoder().encode(alarms) {
             defaults.set(data, forKey: alarmsKey)
         }
-        Task { await SleepAlarmScheduler.sync(alarms) }
+        Task { await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: true) }
     }
 }
 
@@ -133,16 +136,25 @@ enum SleepAlarmScheduler {
         center.setNotificationCategories([category])
     }
 
-    static func sync(_ alarms: [ForgeAlarm]) async {
-        let health = await arm(alarms)
+    static func sync(_ alarms: [ForgeAlarm], promptIfUndetermined: Bool = false) async {
+        let health = await arm(alarms, promptIfUndetermined: promptIfUndetermined)
         await MainActor.run { ForgeAlarmStore.shared.delivery = health }
     }
 
     /// Schedules every enabled alarm, then fail-closes if iPhone cannot deliver.
-    private static func arm(_ alarms: [ForgeAlarm]) async -> SleepAlarmDelivery {
+    /// Launch / prep pass `promptIfUndetermined: false` so a fresh install
+    /// does not sit on the system permission sheet.
+    private static func arm(
+        _ alarms: [ForgeAlarm],
+        promptIfUndetermined: Bool
+    ) async -> SleepAlarmDelivery {
         var authError: String?
         var authorization = await center.notificationSettings().authorizationStatus
-        if authorization == .notDetermined || authorization == .provisional {
+        switch ForgeNotificationScheduler.authorizationIntent(
+            status: authorization,
+            promptIfUndetermined: promptIfUndetermined
+        ) {
+        case .prompt:
             do {
                 _ = try await center.requestAuthorization(
                     options: SleepAlarmAppleAPI.authorizationOptions
@@ -151,6 +163,8 @@ enum SleepAlarmScheduler {
                 authError = error.localizedDescription
                 print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
             }
+        case .alreadyGranted, .denied, .skipPrompt:
+            break
         }
 
         let afterAsk = await center.notificationSettings()
@@ -518,7 +532,7 @@ struct AlarmTab: View {
             .forgeScreenInsets(top: ForgeLayout.screenTop)
         }
         .onAppear {
-            Task { await SleepAlarmScheduler.sync(store.alarms) }
+            Task { await SleepAlarmScheduler.sync(store.alarms, promptIfUndetermined: true) }
         }
         .sheet(isPresented: $showEditor) {
             if let alarm = editingAlarm {

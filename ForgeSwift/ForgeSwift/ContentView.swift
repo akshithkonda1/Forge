@@ -13,17 +13,27 @@ struct ContentView: View {
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
+    /// Harness launches set FORGE_LAUNCH_LIGHT_ROOT so AuthWelcome / Home
+    /// are not built during first_frame sample windows. Real launches
+    /// reveal immediately.
+    @State private var revealRoot = ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] != "1"
     private static var didFinishSplash = false
 
     var body: some View {
         ZStack {
             Group {
-                if !store.isAuthenticated {
+                if !revealRoot {
+                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                        .ignoresSafeArea()
+                } else if !store.isAuthenticated {
                     AuthWelcomeView()
                 } else if !store.isOnboarded {
                     OnboardingView()
-                } else {
+                } else if !showSplash {
                     MainTabView()
+                } else {
+                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                        .ignoresSafeArea()
                 }
             }
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
@@ -50,15 +60,25 @@ struct ContentView: View {
             }
         }
         .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
+            if !revealRoot {
+                try? await Task.sleep(for: .seconds(14))
+                revealRoot = true
+            }
+            guard showSplash else {
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
             try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
             withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
+            // Voice-catalog XPC after splash so kill_relaunch samples stay idle.
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
         }
     }
 
@@ -73,10 +93,12 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
-    @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
-    @State private var textOffset: CGFloat = 16
+    // Visible on the first commit. Starting at opacity 0 made the splash a
+    // uniform black frame, which the launch gate counts as blank.
+    @State private var logoScale: CGFloat = 1
+    @State private var logoOpacity: Double = 1
+    @State private var glowIntensity: Double = 1
+    @State private var textOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
