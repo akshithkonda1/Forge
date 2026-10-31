@@ -708,7 +708,7 @@ final class AriaTurnTrace {
         finished = true
         let latency = ReliabilityLog.elapsedMs(since: startedAt)
         if let error {
-            let classified = AriaReliabilityClassifier.classify(error)
+            let classified = AriaReliabilityClassifier.classifyApp(error)
             if classified.kind == .cancelled {
                 ReliabilityLog.recordAria(route: route, surface: surface, outcome: .cancelled, latencyMs: latency, error: classified)
                 return
@@ -725,59 +725,28 @@ final class AriaTurnTrace {
     }
 }
 
-/// App-side error types reduced to ForgeCore's `ReliabilityError`: a kind, a
-/// status or code, a system domain. Never a server body or a description.
-enum AriaReliabilityClassifier {
+/// App-side `ForgeAPI.Failure` reduced through ForgeCore's classifier.
+/// The HTTP body is discarded (`_`) so a server echo of a message or a
+/// health value cannot reach the ledger.
+extension AriaReliabilityClassifier {
 
-    static func classify(_ error: Error) -> ReliabilityError {
+    static func classifyApp(_ error: Error) -> ReliabilityError {
         if let failure = error as? ForgeAPI.Failure {
             return classify(failure)
         }
-        #if canImport(FoundationModels)
-        if let generation = error as? LanguageModelSession.GenerationError {
-            return classify(generation)
-        }
-        #endif
-        let ns = error as NSError
-        if ns.domain == "Forge.FoundationModels" {
-            return ReliabilityError(kind: .onDeviceModelUnavailable, code: ns.code)
-        }
-        return ReliabilityError.classify(error)
+        return classify(error)
     }
 
     static func classify(_ failure: ForgeAPI.Failure) -> ReliabilityError {
         switch failure {
         case .http(let status, _):
-            if failure.isAriaPaused {
-                return ReliabilityError(kind: .ariaPaused, code: status, domain: "http")
-            }
-            return .http(status: status)
+            return classifyHTTP(status: status, isAriaPaused: failure.isAriaPaused)
         case .transport(let error):
-            let classified = ReliabilityError.classify(error)
-            return classified.kind == .unknown
-                ? ReliabilityError(kind: .offline, code: classified.code, domain: classified.domain)
-                : classified
+            return classifyTransport(error)
         case .auth:
-            return ReliabilityError(kind: .unauthorized, domain: "auth")
+            return classifyAuth()
         case .notConfigured:
-            return ReliabilityError(kind: .notConfigured)
+            return classifyNotConfigured()
         }
     }
-
-    #if canImport(FoundationModels)
-    static func classify(_ error: LanguageModelSession.GenerationError) -> ReliabilityError {
-        switch error {
-        case .guardrailViolation:
-            return ReliabilityError(kind: .onDeviceGuardrail, domain: "foundation_models")
-        case .exceededContextWindowSize:
-            return ReliabilityError(kind: .onDeviceContextWindow, domain: "foundation_models")
-        case .assetsUnavailable:
-            return ReliabilityError(kind: .onDeviceModelUnavailable, domain: "foundation_models")
-        case .rateLimited:
-            return ReliabilityError(kind: .rateLimited, domain: "foundation_models")
-        default:
-            return ReliabilityError(kind: .onDeviceModel, domain: "foundation_models")
-        }
-    }
-    #endif
 }
