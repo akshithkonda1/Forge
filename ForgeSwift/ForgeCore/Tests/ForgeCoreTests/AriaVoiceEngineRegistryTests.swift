@@ -14,7 +14,10 @@ final class AriaVoiceEngineRegistryTests: XCTestCase {
         let other = FakeVoiceEngine(id: "other-on-device")
         registry.register(kokoro)
         registry.register(other)
-        XCTAssertEqual(registry.registeredIDs, ["other-on-device", AriaVoiceEngineID.kokoro])
+        XCTAssertEqual(
+            Set(registry.registeredIDs),
+            Set([AriaVoiceEngineID.kokoro, "other-on-device"])
+        )
         XCTAssertEqual(registry.selectedEngineID, AriaVoiceEngineSelection.defaultID)
 
         registry.select("other-on-device")

@@ -53,8 +53,10 @@ enum AriaKokoroEngine {
 }
 
 /// Kokoro's registry entry. Call sites go through `AriaVoiceEngineRegistry`.
+/// Qualify the protocol — the app already has `enum AriaVoiceEngine` for
+/// speech composition, which would otherwise shadow this conformance.
 @MainActor
-final class AriaKokoroVoiceEngine: AriaVoiceEngine {
+final class AriaKokoroVoiceEngine: ForgeCore.AriaVoiceEngine {
     static let shared = AriaKokoroVoiceEngine()
     let id = AriaVoiceEngineID.kokoro
 
