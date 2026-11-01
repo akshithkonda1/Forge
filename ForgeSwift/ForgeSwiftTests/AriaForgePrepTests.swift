@@ -98,9 +98,10 @@ final class AriaForgePrepTests: XCTestCase {
     }
 
     func testShouldFinishWaitsForWorkUntilTheCap() {
+        // leftoverWatchdog (50) opens the shell before PREP_WATCHDOG_S=60.
         XCTAssertFalse(
             AriaForgePrep.shouldFinish(
-                elapsed: 90,
+                elapsed: 49,
                 duration: 90,
                 workFinished: false,
                 skipHold: false
@@ -108,10 +109,29 @@ final class AriaForgePrepTests: XCTestCase {
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: 180,
+                elapsed: AriaForgePrep.leftoverWatchdog,
                 duration: 90,
                 workFinished: false,
                 skipHold: false
+            )
+        )
+        // Visual cap still applies when leftoverWatchdog is raised.
+        XCTAssertFalse(
+            AriaForgePrep.shouldFinish(
+                elapsed: 90,
+                duration: 90,
+                workFinished: false,
+                skipHold: false,
+                leftoverWatchdog: AriaForgePrep.cap
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldFinish(
+                elapsed: 180,
+                duration: 90,
+                workFinished: false,
+                skipHold: false,
+                leftoverWatchdog: AriaForgePrep.cap
             )
         )
     }
