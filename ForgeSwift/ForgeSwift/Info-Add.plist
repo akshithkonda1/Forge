@@ -32,17 +32,6 @@
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.</string>
 
-	<!-- Full-bleed varied launch image. A generated solid color or a small
-	     centered mark is blank to the launch gate (dominant share ≥ 0.995)
-	     and misses FIRST_FRAME_MAX_S=8 on a cold dyld. -->
-	<key>UILaunchScreen</key>
-	<dict>
-		<key>UIImageName</key>
-		<string>LaunchBackdrop</string>
-		<key>UIImageRespectsSafeAreaInsets</key>
-		<false/>
-	</dict>
-
 	<key>CKSharingSupported</key>
 	<true/>
 
