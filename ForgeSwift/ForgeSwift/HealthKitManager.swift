@@ -652,6 +652,9 @@ class HealthKitManager: ObservableObject {
     /// ARIA reads those samples on this iPhone. Forge does not scrape vendor accounts.
     func knownHealthSources() async -> [String] {
         guard isHealthDataAvailable() else { return [] }
+        guard TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        ) else { return [] }
 
         let types: [HKSampleType] = [
             HKQuantityType(.heartRate),

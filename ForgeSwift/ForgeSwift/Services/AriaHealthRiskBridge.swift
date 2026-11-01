@@ -59,6 +59,9 @@ enum AriaHealthRiskBridge {
 
     @MainActor
     static func evaluateFromHealthKit(quietMode: Bool) async {
+        guard TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        ) else { return }
         let store = HealthKitManager.shared.healthStore
         async let body = ForgeHealthQueries.latestBodyTemperatureFahrenheit(store: store)
         async let wrist = ForgeHealthQueries.latestSleepingWristTemperatureDeviationCelsius(store: store)

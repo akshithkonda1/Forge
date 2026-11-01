@@ -75,9 +75,16 @@ extension AppStore {
         }
         learnFromFirstHealthConnectIfNeeded()
 
-        await ingestTestReadyCalendarIfNeeded()
-        // Reminders workload: counts only, memory only, never prompts.
-        await RemindersManager.shared.ingestIfAuthorized()
+        // Simulator launch must not wait on a year of calendar events or
+        // EventKit reminders. Those are what wedged AriaForgePrep past
+        // PREP_WATCHDOG_S and kept the main thread busy for 3s after
+        // kill-relaunch.
+        if TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        ) {
+            await ingestTestReadyCalendarIfNeeded()
+            await RemindersManager.shared.ingestIfAuthorized()
+        }
 
         lastMetricsRefresh = Date()
         invalidatePredictiveCoachPicture()
