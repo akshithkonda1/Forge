@@ -332,6 +332,7 @@ final class AppStore: ObservableObject {
     // MARK: - Initialization
     
     init() {
+        AriaForgePrep.noteProcessStart()
         // First frame always gets the rule-based generator. Evaluating
         // `SystemLanguageModel.default` in FoundationModelsResponseGenerator
         // can trap or stall launch; probe it after paint, never in init.

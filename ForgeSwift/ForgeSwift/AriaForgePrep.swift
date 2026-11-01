@@ -216,6 +216,13 @@ enum AriaForgePrepHandoff {
         // key keeps the pre-launch YES the harness wrote.
         UserDefaults.standard.set(false, forKey: interviewCompleteKey)
         UserDefaults.standard.synchronize()
+        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
+        CFPreferencesSetAppValue(
+            interviewCompleteKey as CFString,
+            kCFBooleanFalse,
+            app
+        )
+        CFPreferencesAppSynchronize(app)
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
@@ -235,14 +242,24 @@ enum AriaForgePrepHandoff {
 
 extension AriaForgePrep {
     /// One leftover-prep session per process. The timeout is wall-clock
-    /// from this arm — not from when OnboardingView happens to appear —
-    /// so a late root still leaves AriaForgePrep before `watchdog`.
+    /// from process start — not from when OnboardingView happens to appear
+    /// or when this arm is reached — so a late root still leaves
+    /// AriaForgePrep before `watchdog`.
     @MainActor
     private static var leftoverTimeoutArmed = false
     @MainActor
     private static var leftoverTimeoutTask: Task<Void, Never>?
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
+    @MainActor
+    private static var leftoverClockOrigin: Date?
+
+    @MainActor
+    static func noteProcessStart() {
+        if leftoverClockOrigin == nil {
+            leftoverClockOrigin = Date()
+        }
+    }
 
     @MainActor
     static func resetLeftoverSessionForTests() {
@@ -251,10 +268,13 @@ extension AriaForgePrep {
         leftoverTimeoutTask = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
+        leftoverClockOrigin = nil
     }
 
-    /// Fail-open: if the hold or ingest is still pending at `cap`, open
-    /// the shell and flush the handoff the launch gate reads.
+    /// Fail-open: if the hold or ingest is still pending at `cap` from
+    /// process start, open the shell and flush the handoff the launch
+    /// gate reads. Sleep is off the main actor so leftover ingest cannot
+    /// push the write past `watchdog`.
     @MainActor
     static func armLeftoverTimeout(
         store: AppStore,
@@ -262,12 +282,18 @@ extension AriaForgePrep {
     ) {
         guard store.needsForgePrep, !leftoverTimeoutArmed else { return }
         leftoverTimeoutArmed = true
-        leftoverTimeoutTask = Task { [store] in
-            let ns = UInt64((max(0, seconds) * 1_000_000_000).rounded())
-            try? await Task.sleep(nanoseconds: ns)
+        noteProcessStart()
+        let origin = leftoverClockOrigin ?? Date()
+        let remaining = max(0, seconds - Date().timeIntervalSince(origin))
+        leftoverTimeoutTask = Task.detached { [store] in
+            let ns = UInt64((remaining * 1_000_000_000).rounded())
+            if ns > 0 {
+                try? await Task.sleep(nanoseconds: ns)
+            }
             guard !Task.isCancelled else { return }
+            AriaForgePrepHandoff.clearInterviewComplete()
             await MainActor.run {
-                guard store.needsForgePrep || AriaForgePrepHandoff.isInterviewComplete else { return }
+                guard !store.isOnboarded else { return }
                 store.finishForgePrep()
             }
         }

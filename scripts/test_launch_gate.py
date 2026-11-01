@@ -87,6 +87,8 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
     def test_prep_has_a_wall_clock_fail_open(self):
         src = PREP.read_text(encoding="utf-8")
         self.assertIn("static func armLeftoverTimeout", src)
+        self.assertIn("static func noteProcessStart", src)
+        self.assertIn("Task.detached", src)
         self.assertIn("static let cap: TimeInterval = 55", src)
         self.assertIn("static let watchdog: TimeInterval = 60", src)
         self.assertIn(
