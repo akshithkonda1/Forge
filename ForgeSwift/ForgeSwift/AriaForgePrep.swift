@@ -211,7 +211,10 @@ enum AriaForgePrepHandoff {
     }
 
     static func clearInterviewComplete() {
-        UserDefaults.standard.removeObject(forKey: interviewCompleteKey)
+        // Write false, do not tombstone. The launch gate reads the
+        // container plist and falls back to `simctl defaults`; a missing
+        // key keeps the pre-launch YES the harness wrote.
+        UserDefaults.standard.set(false, forKey: interviewCompleteKey)
         UserDefaults.standard.synchronize()
     }
 
@@ -259,12 +262,12 @@ extension AriaForgePrep {
     ) {
         guard store.needsForgePrep, !leftoverTimeoutArmed else { return }
         leftoverTimeoutArmed = true
-        leftoverTimeoutTask = Task { [weak store] in
+        leftoverTimeoutTask = Task { [store] in
             let ns = UInt64((max(0, seconds) * 1_000_000_000).rounded())
             try? await Task.sleep(nanoseconds: ns)
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                guard let store, store.needsForgePrep else { return }
+                guard store.needsForgePrep || AriaForgePrepHandoff.isInterviewComplete else { return }
                 store.finishForgePrep()
             }
         }

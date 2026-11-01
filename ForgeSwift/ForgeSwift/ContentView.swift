@@ -59,6 +59,9 @@ struct ContentView: View {
         .task {
             await LaunchFirstFrame.afterPaint()
             revealRoot = true
+            if store.needsForgePrep {
+                AriaForgePrep.armLeftoverTimeout(store: store)
+            }
             guard showSplash else {
                 let gate = AriaNeuralVoiceGate.shared
                 neuralVoiceGate = gate

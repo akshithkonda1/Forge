@@ -90,6 +90,14 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertIn("static func armLeftoverTimeout", src)
         self.assertIn("static let cap: TimeInterval = 55", src)
         self.assertIn("static let watchdog: TimeInterval = 60", src)
+        self.assertIn(
+            "UserDefaults.standard.set(false, forKey: interviewCompleteKey)",
+            src,
+        )
+        self.assertNotIn(
+            "UserDefaults.standard.removeObject(forKey: interviewCompleteKey)",
+            src,
+        )
 
 
 class IdleClassifier(unittest.TestCase):
