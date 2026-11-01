@@ -18,7 +18,7 @@ Checks (thresholds in thresholds.env only):
 
 Any failed check, or any measurement that cannot be taken, fails the gate.
 """
-import json, os, re, struct, subprocess, sys, time, zlib
+import json, os, plistlib, re, struct, subprocess, sys, time, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUNDLE = "com.forge.ForgeSwift"
@@ -222,19 +222,7 @@ def main_thread_busy_s(pid, window, tag, timeout):
 
 
 # ---------- scenario ----------
-def ensure_booted(udid):
-    """The sim can die under `sample` / a permission sheet. Boot it back
-    before the next scenario so a cold harness failure does not skip
-    kill_relaunch and prep_wedge. Already-booted is fine."""
-    b = simctl("boot", udid, check=False)
-    err = (b.stderr or "") + (b.stdout or "")
-    if b.returncode != 0 and "Booted" not in err and "already" not in err.lower():
-        raise RuntimeError(f"simctl boot failed: {b.stderr.strip()}")
-    simctl("bootstatus", udid, "-b", timeout=300)
-
-
 def fresh_install(udid, app):
-    ensure_booted(udid)
     simctl("terminate", udid, BUNDLE, check=False)
     simctl("uninstall", udid, BUNDLE, check=False)
     simctl("install", udid, app)
@@ -248,45 +236,87 @@ def launch(udid):
     return int(m.group(1)), time.monotonic()
 
 
+def app_data_container(udid):
+    r = simctl("get_app_container", udid, BUNDLE, "data")
+    path = r.stdout.strip()
+    if not path:
+        raise RuntimeError("get_app_container returned empty path")
+    return path
+
+
+def prefs_plist(udid):
+    return os.path.join(app_data_container(udid), "Library", "Preferences", f"{BUNDLE}.plist")
+
+
+def _load_prefs(path):
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "rb") as fh:
+            data = plistlib.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def plist_write_bool(udid, key, value):
+    # True harness bug: `defaults write $BUNDLE` before first launch lands
+    # in the device domain. UserDefaults.standard reads the app-container
+    # plist. Dotted keys are literal names — plutil -replace treats dots
+    # as a key path. Thresholds and checks stay unchanged.
+    path = prefs_plist(udid)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    data = _load_prefs(path)
+    data[key] = bool(value)
+    with open(path, "wb") as fh:
+        plistlib.dump(data, fh)
+
+
+def plist_read(udid, key):
+    try:
+        data = _load_prefs(prefs_plist(udid))
+    except Exception:
+        return None
+    if key not in data:
+        return None
+    val = data[key]
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    return str(val)
+
+
+def pref_is_true(value):
+    return (value or "").strip().lower() in ("1", "true", "yes")
+
+
 def defaults_read(udid, key):
+    boxed = plist_read(udid, key)
+    if boxed is not None:
+        return boxed
     r = simctl("spawn", udid, "defaults", "read", BUNDLE, key, check=False)
     return r.stdout.strip() if r.returncode == 0 else None
 
 
-def prime_app_container(udid):
-    """Create the app's data container so later `defaults write` is visible
-    to UserDefaults.standard. Kill as soon as the process is up; this
-    launch is not measured."""
-    pid, _ = launch(udid)
-    deadline = time.monotonic() + 2
-    while time.monotonic() < deadline and pid_alive(pid):
-        time.sleep(0.2)
-    if pid_alive(pid):
-        subprocess.run(["kill", "-9", str(pid)])
-    time.sleep(0.5)
-    simctl("terminate", udid, BUNDLE, check=False)
-
-
-def prep_flag_pending(udid):
-    ic = defaults_read(udid, "forge.onboarding.interviewComplete")
-    ob = defaults_read(udid, "forge.onboarding.completed")
-    return ic == "1" and ob != "1"
-
-
-def seed_prep_wedge_defaults(udid):
-    writes = (
-        ("forge.onboarding.interviewComplete", "YES"),
-        ("forge.onboarding.completed", "NO"),
-        ("forge.auth.session.v1", "YES"),
-    )
-    for key, flag in writes:
-        simctl("spawn", udid, "defaults", "write", BUNDLE, key, "-bool", flag)
-    ic = defaults_read(udid, "forge.onboarding.interviewComplete")
-    ob = defaults_read(udid, "forge.onboarding.completed")
-    auth = defaults_read(udid, "forge.auth.session.v1")
-    print(f"  seeded prep_wedge defaults interviewComplete={ic} completed={ob} session={auth}", flush=True)
-    if ic != "1":
-        raise RuntimeError(f"prep_wedge seed failed: interviewComplete={ic!r}")
+def write_prep_wedge_flags(udid):
+    try:
+        plist_write_bool(udid, "forge.onboarding.interviewComplete", True)
+        plist_write_bool(udid, "forge.onboarding.completed", False)
+        plist_write_bool(udid, "forge.auth.session.v1", True)
+    except Exception as e:
+        print(f"  prep_wedge container plist write failed ({e}); creating data container", flush=True)
+        pid, _ = launch(udid)
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline and pid_alive(pid):
+            time.sleep(0.2)
+        if pid_alive(pid):
+            subprocess.run(["kill", "-9", str(pid)])
+        simctl("terminate", udid, BUNDLE, check=False)
+        plist_write_bool(udid, "forge.onboarding.interviewComplete", True)
+        plist_write_bool(udid, "forge.onboarding.completed", False)
+        plist_write_bool(udid, "forge.auth.session.v1", True)
+    simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.interviewComplete", "-bool", "YES")
+    simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.completed", "-bool", "NO")
+    simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
 
 
 def run_scenario(name, udid, app):
@@ -303,12 +333,7 @@ def run_scenario(name, udid, app):
         subprocess.run(["kill", "-9", str(pid)])
         time.sleep(2)
     if name == "prep_wedge":
-        # `defaults write $BUNDLE` before the first launch lands in the
-        # simulator device domain. UserDefaults.standard reads the app
-        # container, so interviewComplete stayed 1 forever and prep never
-        # started. Prime the container, then seed the handoff keys there.
-        prime_app_container(udid)
-        seed_prep_wedge_defaults(udid)
+        write_prep_wedge_flags(udid)
 
     # Baseline: the screen with the app NOT running (terminate + settle), so a
     # leftover image from a previous/killed launch can't count as the frame.
@@ -362,8 +387,6 @@ def run_scenario(name, udid, app):
           f"<= {T['MAIN_THREAD_BLOCK_MAX_S']}s")
 
     while el() < T["MEMORY_STEADY_AT_S"] and pid_alive(pid):
-        if name == "prep_wedge" and not prep_flag_pending(udid):
-            break
         time.sleep(1)
     check("alive@steady", pid_alive(pid), f"{el():.0f}s", "alive")
     if pid_alive(pid):
@@ -374,11 +397,14 @@ def run_scenario(name, udid, app):
               f"{early:.0f}->{steady:.0f}MB", f"<= +{T['MEMORY_GROWTH_MAX_MB']:.0f}MB")
 
     if name == "prep_wedge":
-        pending = prep_flag_pending(udid)
-        while pending and el() < T["PREP_WATCHDOG_S"]:
+        pending = True
+        while el() < T["PREP_WATCHDOG_S"]:
+            ic = defaults_read(udid, "forge.onboarding.interviewComplete")
+            ob = defaults_read(udid, "forge.onboarding.completed")
+            pending = pref_is_true(ic) and not pref_is_true(ob)
+            if not pending:
+                break
             time.sleep(2)
-            pending = prep_flag_pending(udid)
-        pending = prep_flag_pending(udid)
         check("prep_watchdog", not pending and pid_alive(pid),
               f"{'still in AriaForgePrep' if pending else 'left prep'} at {el():.0f}s, alive={pid_alive(pid)}",
               f"left prep by {T['PREP_WATCHDOG_S']:.0f}s")
