@@ -21,14 +21,10 @@ final class OnboardingCoordinator {
     /// Tests and DEBUG skip-wait inject these. Production uses the system clock
     /// and real Health / cloud loads.
     var prepClock: AriaForgePrepClock = AriaForgePrepSystemClock()
-    /// DEBUG Simulator skips the 45s–180s console hold so a kill/relaunch
-    /// into prep does not freeze on a dark screen. Real devices keep the
-    /// floor and cap exactly as `AriaForgePrep` defines them.
-    #if DEBUG
-    var skipPrepHold = TestReadyLaunchPolicy.isRunningOnSimulator
-    #else
+    /// Launch never skips the hold. DEBUG "Skip wait" is the only setter;
+    /// every build, including the simulator, runs the real hold and leaves
+    /// at `AriaForgePrep.cap`.
     var skipPrepHold = false
-    #endif
     var prepWorkOverride: (() async -> Void)?
     var showAgeBlocked = false
     /// After the age block, the composer shows the birthday field. `.details`
@@ -1081,6 +1077,14 @@ final class OnboardingCoordinator {
     }
 
     private func runPrep(in store: AppStore) async {
+        // DEBUG "Skip wait" only. Launch never sets skipPrepHold.
+        if skipPrepHold {
+            await finishPrepWithoutHold(in: store)
+            return
+        }
+
+        AriaForgePrep.armLeftoverTimeout(store: store)
+
         let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
         prepHealthConnected = healthConnected
         let cycleTracking = profile.biologicalSex?.cycleAutoEnabled == true
@@ -1125,9 +1129,15 @@ final class OnboardingCoordinator {
                     await override()
                     return
                 }
-                await AriaForgePrep.loadUserData(into: store, trainingTheme: theme)
+                AriaForgePrep.startLeftoverIngest(into: store, trainingTheme: theme)
+                await AriaForgePrep.awaitLeftoverIngest()
             }
         )
+
+        // Flush the handoff before welcome-chat work so the 60s watchdog
+        // sees onboarded even if seeding is slow.
+        store.finishForgePrep()
+        isPrepping = false
 
         store.activeTab = .chat
         // Interview → chat opener. On Dummy / Test-Ready, skip First Bond so
@@ -1149,8 +1159,41 @@ final class OnboardingCoordinator {
             store.completeAriaFirstBond()
             AriaOperatingMode.refresh()
         }
+    }
+
+    /// DEBUG "Skip wait" only. Clears the handoff so the developer is not
+    /// stuck on the console. Launch never calls this.
+    private func finishPrepWithoutHold(in store: AppStore) async {
+        prepStage = .ready
+        prepProgress = 1
+        ariaOrbState = .idle
+        store.activeTab = .chat
         store.finishForgePrep()
         isPrepping = false
+
+        if let override = prepWorkOverride {
+            await override()
+            return
+        }
+
+        let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
+        prepHealthConnected = healthConnected
+        let welcome = AriaOnboardingGuide.welcomeChatMessage(
+            profile: profile,
+            healthConnected: prepHealthConnected
+        )
+        store.seedAriaWelcomeFromOnboarding(
+            message: welcome,
+            suggestedActions: [
+                "How did I sleep?",
+                "What should I train?",
+                "How do I show up?",
+            ]
+        )
+        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy {
+            store.completeAriaFirstBond()
+            AriaOperatingMode.refresh()
+        }
     }
 
     /// "Review birthday" — closes the block and swaps the composer to the

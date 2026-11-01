@@ -78,6 +78,10 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // MetricKit + crash-free session tracking. Off the launch main
+        // thread — sysctl / MetricKit subscribe / ledger I/O must not sit
+        // in first_frame or kill_relaunch samples.
+        ReliabilityMonitor.scheduleStart()
         SleepAlarmScheduler.registerCategories()
         Task { @MainActor in _ = ForgeAlarmStore.shared }
         return true

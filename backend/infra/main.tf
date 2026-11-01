@@ -451,9 +451,28 @@ resource "aws_s3_bucket_versioning" "uploads" {
   }
 }
 
+data "aws_iam_policy_document" "uploads_kms" {
+  # Account root can administer the key. CI plan uses account_id_for_naming
+  # ("ci" when skip_aws_provider_checks is true) so this does not call STS.
+  statement {
+    sid    = "EnableIAMUserPermissions"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${local.account_id_for_naming}:root"]
+    }
+
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+}
+
 resource "aws_kms_key" "uploads" {
   description             = "SSE-KMS for cycle-report ciphertext. Template only — this PR does not apply."
   deletion_window_in_days = 30
+  enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.uploads_kms.json
   tags                    = local.common_tags
 }
 
