@@ -13,6 +13,16 @@ from services import health_leak_guard
 from storage import dynamodb, keys
 
 
+def _contains_int(obj, needle):
+    if obj == needle:
+        return True
+    if isinstance(obj, dict):
+        return any(_contains_int(value, needle) for value in obj.values())
+    if isinstance(obj, list):
+        return any(_contains_int(value, needle) for value in obj)
+    return False
+
+
 def _event(method, path, body, user="leak-user"):
     return {
         "requestContext": {
@@ -72,8 +82,9 @@ class HealthLeakGateTests(unittest.TestCase):
         audits = dynamodb.query_prefix(health_leak_guard.AUDIT_PK, "EVENT#")
         self.assertTrue(audits)
         self.assertIsNone(audits[0].get("values"))
-        blob = json.dumps(audits[0])
-        self.assertNotIn("188", blob)
+        # Walk JSON values, not the serialized blob. A timestamp like
+        # ...04.233188+00:00 used to trip assertNotIn("188", blob).
+        self.assertFalse(_contains_int(audits[0], 188))
 
     def test_destroy_in_test_mode_deletes_local_only_when_flagged(self):
         os.environ["FORGE_HEALTH_LEAK_DESTROY"] = "1"
