@@ -463,10 +463,6 @@ def run_scenario(name, udid, app):
     if not pid_alive(pid):
         return res
 
-    # Warm storyboard can satisfy first_frame before the first SwiftUI
-    # commit idles. Wait so kill_relaunch sample 0 is not that commit.
-    time.sleep(T["POST_FRAME_SETTLE_S"])
-
     early, src = footprint_mb(pid)
     worst = 0.0
     for w in range(int(T["SAMPLE_WINDOWS"])):
