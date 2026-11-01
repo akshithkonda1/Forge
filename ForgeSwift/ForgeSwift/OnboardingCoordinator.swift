@@ -21,14 +21,10 @@ final class OnboardingCoordinator {
     /// Tests and DEBUG skip-wait inject these. Production uses the system clock
     /// and real Health / cloud loads.
     var prepClock: AriaForgePrepClock = AriaForgePrepSystemClock()
-    /// DEBUG Simulator skips the 45s–180s console hold so a kill/relaunch
-    /// into prep does not freeze on a dark screen. Real devices keep the
-    /// floor and cap exactly as `AriaForgePrep` defines them.
-    #if DEBUG
-    var skipPrepHold = TestReadyLaunchPolicy.isRunningOnSimulator
-    #else
+    /// Launch never skips the hold. DEBUG "Skip wait" is the only setter;
+    /// every build, including the simulator, runs the real hold and leaves
+    /// at `AriaForgePrep.cap`.
     var skipPrepHold = false
-    #endif
     var prepWorkOverride: (() async -> Void)?
     var showAgeBlocked = false
     /// After the age block, the composer shows the birthday field. `.details`
@@ -1081,14 +1077,13 @@ final class OnboardingCoordinator {
     }
 
     private func runPrep(in store: AppStore) async {
-        // Skip-hold must leave AriaForgePrep before the 60s watchdog. The
-        // sequence still waits for work when skipHold is set, and
-        // FakeHealthPack.generate / welcome seeding can pin that path.
-        // Clear the handoff first; remaining work is best-effort.
+        // DEBUG "Skip wait" only. Launch never sets skipPrepHold.
         if skipPrepHold {
             await finishPrepWithoutHold(in: store)
             return
         }
+
+        AriaForgePrep.armLeftoverTimeout(store: store)
 
         let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
         prepHealthConnected = healthConnected
@@ -1134,13 +1129,15 @@ final class OnboardingCoordinator {
                     await override()
                     return
                 }
-                await AriaForgePrep.loadUserData(
-                    into: store,
-                    trainingTheme: theme,
-                    skipHeavyIngest: self?.skipPrepHold == true
-                )
+                AriaForgePrep.startLeftoverIngest(into: store, trainingTheme: theme)
+                await AriaForgePrep.awaitLeftoverIngest()
             }
         )
+
+        // Flush the handoff before welcome-chat work so the 60s watchdog
+        // sees onboarded even if seeding is slow.
+        store.finishForgePrep()
+        isPrepping = false
 
         store.activeTab = .chat
         // Interview → chat opener. On Dummy / Test-Ready, skip First Bond so
@@ -1162,13 +1159,10 @@ final class OnboardingCoordinator {
             store.completeAriaFirstBond()
             AriaOperatingMode.refresh()
         }
-        store.finishForgePrep()
-        isPrepping = false
     }
 
-    /// Opens the shell immediately. Ingest / welcome may continue after the
-    /// handoff flag is cleared so skip-hold cannot sit on AriaForgePrep past
-    /// `PREP_WATCHDOG_S`.
+    /// DEBUG "Skip wait" only. Clears the handoff so the developer is not
+    /// stuck on the console. Launch never calls this.
     private func finishPrepWithoutHold(in store: AppStore) async {
         prepStage = .ready
         prepProgress = 1

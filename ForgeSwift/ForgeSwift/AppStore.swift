@@ -79,9 +79,6 @@ final class AppStore: ObservableObject {
     /// above. Progress's skeleton keys off `.loading` for the first-load case only
     /// -- see ProgressPageView.isInitialLoading.
     @Published var dataLoadState: DataLoadState = .idle
-    /// Leftover-prep restore already opened the shell. Launch ingest would
-    /// pin MainActor during kill_relaunch / prep_wedge sample windows.
-    var skipLaunchIngest = false
 
     // Navigation
     @Published var activeTab: TabItem = .home
@@ -366,7 +363,15 @@ final class AppStore: ObservableObject {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             return
         }
+        // ContentView defers OnboardingView until after first paint, so
+        // runSequence's 55s clock starts several seconds late and the
+        // 60s launch watchdog still sees the handoff. Bound leftover
+        // prep to process start — the product cap, not a gate change.
+        if needsForgePrep {
+            AriaForgePrep.armLeftoverTimeout(store: self)
+        }
         Task { @MainActor in
+            await LaunchFirstFrame.afterPaint()
             #if canImport(FoundationModels) && !targetEnvironment(simulator)
             let foundationModelsGenerator = FoundationModelsResponseGenerator()
             if foundationModelsGenerator.isAvailable {
@@ -378,15 +383,13 @@ final class AppStore: ObservableObject {
                 self.restoreChatHistory()
             }
             // Sole launch owner for refreshDailyData. Home must not start a
-            // second pass — the coalesce window is a backstop, not a second owner.
-            // Let the first frame (and splash dismiss) land before HealthKit
-            // work. Test-Ready pack rewrites wait until after Home is loaded.
-            // Simulator never writes EventKit.
-            try? await Task.sleep(for: .milliseconds(450))
-            // AriaForgePrep owns ingest while the handoff flag is set.
-            // A HealthKit / notification probe here can pin MainActor so
-            // skip-hold work never finishes and the 60s watchdog fires.
-            if self.needsForgePrep || !self.isOnboarded || self.skipLaunchIngest { return }
+            // second pass. Leftover prep runs ingest here so a late
+            // OnboardingView is not the only start path.
+            if self.needsForgePrep {
+                AriaForgePrep.startLeftoverIngest(into: self)
+                return
+            }
+            if !self.isOnboarded { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
@@ -517,7 +520,7 @@ final class AppStore: ObservableObject {
         isOnboarded = true
         AriaForgePrepHandoff.clearInterviewComplete()
         UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: AriaForgePrepHandoff.interviewCompleteKey)
+        UserDefaults.standard.set(false, forKey: AriaForgePrepHandoff.interviewCompleteKey)
         UserDefaults.standard.synchronize()
         let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
         CFPreferencesSetAppValue(
@@ -527,7 +530,7 @@ final class AppStore: ObservableObject {
         )
         CFPreferencesSetAppValue(
             AriaForgePrepHandoff.interviewCompleteKey as CFString,
-            nil,
+            kCFBooleanFalse,
             app
         )
         CFPreferencesAppSynchronize(app)

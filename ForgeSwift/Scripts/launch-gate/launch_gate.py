@@ -118,30 +118,14 @@ def diff_share(path_a, path_b, tol=24):
     return d / len(a)
 
 
-def shot(udid, path, timeout=30, retries=3):
+def shot(udid, path, timeout=30):
     """Screenshot + downscale (sips, fast) so decoding is cheap. Returns the
-    small PNG path and the monotonic time the capture FINISHED.
-
-    `simctl io screenshot` after install/uninstall often hangs or takes
-    10–30s. A single hung 30s capture cannot measure an 8s first_frame
-    window, so callers retry here. Thresholds stay unchanged.
-    """
-    last_err = None
+    small PNG path and the monotonic time the capture FINISHED."""
+    simctl("io", udid, "screenshot", "--type=png", path, timeout=timeout)
+    done = time.monotonic()
     small = path[:-4] + "-small.png"
-    for attempt in range(1, retries + 1):
-        try:
-            if os.path.exists(path):
-                os.remove(path)
-            simctl("io", udid, "screenshot", "--type=png", path, timeout=timeout)
-            done = time.monotonic()
-            sh("sips", "-s", "format", "png", "-Z", str(int(T["SHOT_MAX_PX"])), path, "--out", small, timeout=30)
-            return small, done
-        except Exception as e:
-            last_err = e
-            print(f"  screenshot {os.path.basename(path)} attempt {attempt} failed: {e}", flush=True)
-            # Do not bootstatus here. That blocked cold first_frame for 40s
-            # after a single hung capture (run 41280052386).
-    raise RuntimeError(f"screenshot failed after retries: {last_err}")
+    sh("sips", "-s", "format", "png", "-Z", str(int(T["SHOT_MAX_PX"])), path, "--out", small, timeout=30)
+    return small, done
 
 
 def ensure_booted(udid):
@@ -177,54 +161,6 @@ def warmup_screenshot_io(udid):
         print("  warmup: screenshot IO works; continuing", flush=True)
         return
     raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
-
-
-def warmup_app_launch(udid, app):
-    """First process start after xcodebuild is often 10s+ of dyld, which
-    also wedges `simctl io screenshot` (cold first_frame on 64c527df:
-    hung 8s capture, then no frame). Page the just-built binary once,
-    then uninstall so each timed scenario is still a fresh install.
-    Thresholds stay unchanged. This is host page-cache, not a skipped
-    check."""
-    ensure_booted(udid)
-    fresh_install(udid, app)
-    try:
-        pid, t0 = launch(udid)
-        deadline = time.monotonic() + 25
-        while time.monotonic() < deadline:
-            if not pid_alive(pid):
-                print("  warmup app: process exited", flush=True)
-                break
-            try:
-                small, _ = shot(udid, f"{OUT}/warmup-app.png", timeout=20, retries=1)
-                share = dominant_share(small)
-                print(f"  warmup app frame dominant={share:.3f} at {time.monotonic() - t0:.1f}s", flush=True)
-                if share < T["BLANK_DOMINANT_SHARE"]:
-                    break
-            except Exception as e:
-                print(f"  warmup app shot failed: {e}", flush=True)
-            time.sleep(1)
-    finally:
-        simctl("terminate", udid, BUNDLE, check=False)
-        simctl("uninstall", udid, BUNDLE, check=False)
-
-
-def settle_screenshot_io(udid, tag):
-    """First screenshot after install/kill is often the 10–30s hang.
-    Burn it here, untimed, so the baseline and first_frame loop measure
-    the app, not simctl IO. Does not launch the app."""
-    for i in range(3):
-        try:
-            ensure_booted(udid)
-            t0 = time.monotonic()
-            shot(udid, f"{OUT}/{tag}-settle-{i}.png", timeout=20, retries=1)
-            dt = time.monotonic() - t0
-            print(f"  settle screenshot {tag}/{i}: {dt:.1f}s", flush=True)
-            if dt < 5:
-                return
-        except Exception as e:
-            print(f"  settle screenshot {tag}/{i} failed: {e}", flush=True)
-            time.sleep(1)
 
 
 def summarize(path, label):
@@ -459,16 +395,11 @@ def run_scenario(name, udid, app):
     # leftover image from a previous/killed launch can't count as the frame.
     simctl("terminate", udid, BUNDLE, check=False)
     time.sleep(T["BASELINE_SETTLE_S"])
-    settle_screenshot_io(udid, name)
-    base, _ = shot(udid, f"{OUT}/{name}-baseline.png", timeout=20, retries=4)
+    base, _ = shot(udid, f"{OUT}/{name}-baseline.png")
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
-    # simctl `defaults write` is not always visible to UserDefaults on a
-    # fresh container. Pass an explicit env so DEBUG restore can leave
-    # AriaForgePrep without waiting on that plist.
-    launch_env = {"FORGE_LAUNCH_PREP_WEDGE": "1"} if name == "prep_wedge" else None
-    pid, t0 = launch(udid, env=launch_env)
+    pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
     # first frame: FIRST_FRAME_CONSECUTIVE consecutive captures that are
@@ -476,12 +407,7 @@ def run_scenario(name, udid, app):
     # the first of them FINISHED capturing.
     frame_at, share, diff, streak, first_ok, last = None, None, None, 0, None, None
     while el() < T["FIRST_FRAME_MAX_S"]:
-        # Short timeout: a hung 30s capture would miss the 8s window.
-        try:
-            small, done = shot(udid, f"{OUT}/{name}-frame.png", timeout=12, retries=1)
-        except Exception as e:
-            print(f"  first_frame shot failed: {e}", flush=True)
-            continue
+        small, done = shot(udid, f"{OUT}/{name}-frame.png")
         last = small
         share = dominant_share(small)
         diff = diff_share(base, small)
@@ -550,7 +476,6 @@ def main():
     # "already booted" is the only boot error tolerated; bootstatus must pass.
     ensure_booted(udid)
     warmup_screenshot_io(udid)
-    warmup_app_launch(udid, app)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)

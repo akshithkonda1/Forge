@@ -1,7 +1,6 @@
-// Pins the launch-stability failures: a fresh install must paint without
-// a notification permission sheet, HealthKit must not probe healthd on a
-// blank install, and skip-hold prep must leave AriaForgePrep without the
-// 45s–180s ingest.
+// Pins the real launch path: no notification sheet at launch, leftover
+// prep runs the 45–55s hold on every build, and the cap beats the 60s
+// watchdog even when ingest hangs.
 import XCTest
 import UserNotifications
 import ForgeCore
@@ -9,6 +8,16 @@ import ForgeCore
 
 @MainActor
 final class LaunchStabilityGateTests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        AriaForgePrep.resetLeftoverSessionForTests()
+    }
+
+    override func tearDown() {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        super.tearDown()
+    }
 
     func testLaunchDoesNotPromptForNotificationPermission() {
         XCTAssertEqual(
@@ -39,8 +48,6 @@ final class LaunchStabilityGateTests: XCTestCase {
             ),
             .denied
         )
-        // SleepAlarmScheduler.arm and AriaHealthRiskBridge use this same
-        // intent. Launch must skip the sheet when status is notDetermined.
         XCTAssertEqual(
             ForgeNotificationScheduler.authorizationIntent(
                 status: .provisional,
@@ -50,7 +57,16 @@ final class LaunchStabilityGateTests: XCTestCase {
         )
     }
 
-    func testSkipHoldPrepLeavesAriaForgePrepWithoutHeavyIngest() async {
+    func testPrepHoldDefaultsOffAndCapBeatsWatchdog() {
+        let coordinator = OnboardingCoordinator()
+        XCTAssertFalse(coordinator.skipPrepHold)
+        XCTAssertEqual(AriaForgePrep.floor, 45)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
+    }
+
+    func testWatchdogCapFinishesEvenWhenWorkNeverReturns() async {
         let previousFlag = UserDefaults.standard.object(
             forKey: AriaForgePrepHandoff.interviewCompleteKey
         )
@@ -76,13 +92,9 @@ final class LaunchStabilityGateTests: XCTestCase {
 
         let coordinator = OnboardingCoordinator()
         coordinator.prepClock = AriaForgePrepInstantClock()
-        coordinator.skipPrepHold = true
+        coordinator.skipPrepHold = false
         coordinator.prepWorkOverride = {
-            await AriaForgePrep.loadUserData(
-                into: store,
-                trainingTheme: .classic,
-                skipHeavyIngest: true
-            )
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
         }
         coordinator.resumePrep(in: store)
         let deadline = Date().addingTimeInterval(2)
@@ -95,78 +107,44 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertFalse(store.needsForgePrep)
     }
 
-    func testSkipHoldFinishesEvenWhenWorkNeverReturns() async {
-        let previousFlag = UserDefaults.standard.object(
-            forKey: AriaForgePrepHandoff.interviewCompleteKey
+    func testRestoreDoesNotFinishLeftoverPrep() {
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        AriaForgePrepHandoff.validateFlag(
+            isOnboarded: store.isOnboarded,
+            isAuthenticated: store.isAuthenticated
         )
-        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
-        defer {
-            if let previousFlag {
-                UserDefaults.standard.set(previousFlag, forKey: AriaForgePrepHandoff.interviewCompleteKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: AriaForgePrepHandoff.interviewCompleteKey)
-            }
-            if let previousOnboarded {
-                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
-            }
-        }
+        XCTAssertTrue(store.needsForgePrep)
+        XCTAssertTrue(AriaForgePrepHandoff.isInterviewComplete)
+        XCTAssertFalse(store.isOnboarded)
+    }
+
+    func testFirstFrameRevealIsNotAThirtySecondHide() {
+        XCTAssertFalse(
+            ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
+        )
+        XCTAssertEqual(LaunchBrandField.markSide, 220)
+    }
+
+    func testLeftoverTimeoutFinishesWhenHoldNeverStarts() async {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        defer { AriaForgePrep.resetLeftoverSessionForTests() }
 
         let store = AppStore()
         store.isAuthenticated = true
         store.isOnboarded = false
         AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(store.needsForgePrep)
 
-        let coordinator = OnboardingCoordinator()
-        coordinator.skipPrepHold = true
-        coordinator.resumePrep(in: store)
+        AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
         let deadline = Date().addingTimeInterval(2)
-        while coordinator.isPrepping && Date() < deadline {
-            await Task.yield()
+        while store.needsForgePrep && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertFalse(coordinator.isPrepping)
+        XCTAssertFalse(store.needsForgePrep)
         XCTAssertTrue(store.isOnboarded)
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
-        XCTAssertFalse(store.needsForgePrep)
-    }
-
-    func testRestoreFinishesLeftoverPrepOutsideTheTestHost() {
-        XCTAssertTrue(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: true,
-                isTestHost: false,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            )
-        )
-        XCTAssertFalse(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: true,
-                isTestHost: true,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            ),
-            "XCTest must still observe the handoff flag"
-        )
-        XCTAssertFalse(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: false,
-                isTestHost: false,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            ),
-            "Real devices keep the 45s–180s hold"
-        )
-        XCTAssertTrue(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: true,
-                isTestHost: false,
-                isAuthenticated: false,
-                isInterviewComplete: false,
-                launchPrepWedge: true
-            ),
-            "prep_wedge env must finish even when UserDefaults is invisible"
-        )
     }
 }
