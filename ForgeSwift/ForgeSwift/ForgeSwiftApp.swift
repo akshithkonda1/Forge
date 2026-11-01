@@ -15,10 +15,6 @@ struct ForgeSwiftApp: App {
         // init carries its own span. Durations only — see ForgePerf.
         ForgePerf.measure("appInit", category: .launch) {
             SecureStoreMigration.run(from: .standard, to: KeychainStore())
-            // Listens for watch workout state and mirrors it into a Live
-            // Activity (lock screen + Dynamic Island). Owns WCSession on
-            // the phone; one companion sync after activation.
-            WorkoutActivityCoordinator.shared.activate()
         }
     }
 
@@ -34,6 +30,8 @@ struct ForgeSwiftApp: App {
                     // WorkoutActivityCoordinator.activationDidCompleteWith.
                     Task {
                         await LaunchFirstFrame.afterPaint()
+                        // WCSession / Live Activity after the first commit.
+                        WorkoutActivityCoordinator.shared.activate()
                         HealthDeviceCatalogSync.shared.loadCached()
                         guard !store.needsForgePrep else { return }
                         let sources = await HealthKitManager.shared.knownHealthSources()

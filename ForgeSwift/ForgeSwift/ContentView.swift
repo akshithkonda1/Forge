@@ -22,8 +22,7 @@ struct ContentView: View {
         ZStack {
             Group {
                 if !revealRoot {
-                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
-                        .ignoresSafeArea()
+                    LaunchBrandField()
                 } else if !store.isAuthenticated {
                     AuthWelcomeView()
                 } else if !store.isOnboarded {
@@ -31,8 +30,7 @@ struct ContentView: View {
                 } else if !showSplash {
                     MainTabView()
                 } else {
-                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
-                        .ignoresSafeArea()
+                    LaunchBrandField()
                 }
             }
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
@@ -86,6 +84,28 @@ struct ContentView: View {
     }
 }
 
+// MARK: - First-commit brand field
+
+/// Cheap launch canvas. Matches `LaunchScreen.storyboard` so the storyboard
+/// → first SwiftUI commit is two consecutive non-blank frames. No Metal,
+/// no blur, no speech.
+struct LaunchBrandField: View {
+    static let markSide: CGFloat = 220
+    static let background = Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+    static let ember = Color(red: 1, green: 77 / 255, blue: 0)
+
+    var body: some View {
+        ZStack {
+            Self.background
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(Self.ember)
+                .frame(width: Self.markSide, height: Self.markSide)
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
@@ -105,6 +125,14 @@ struct ForgeSplashScreen: View {
                 intensity: 0.55 + 0.45 * glowIntensity,
                 loopMotion: false
             )
+
+            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
+            // flat field; without this mark the first SwiftUI commit is a
+            // blank #08080C frame and the launch gate resets its streak.
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(LaunchBrandField.ember)
+                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
+                .accessibilityHidden(true)
 
             VStack(spacing: FDS.Spacing.xl) {
                 ZStack {
