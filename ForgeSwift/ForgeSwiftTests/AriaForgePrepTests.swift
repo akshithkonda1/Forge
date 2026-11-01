@@ -203,50 +203,32 @@ final class AriaForgePrepTests: XCTestCase {
         XCTAssertFalse(AriaForgePrepHandoff.needsPrep(isOnboarded: false))
     }
 
-    func testHeavyHealthIngestStaysOffOnSimulatorAndTestReady() {
+    func testLeftoverWatchdogClearsHandoffBeforeLaunchPrepWatchdog() {
+        XCTAssertGreaterThan(AriaForgePrep.leftoverWatchdog, AriaForgePrep.floor)
+        XCTAssertLessThan(AriaForgePrep.leftoverWatchdog, 60)
         XCTAssertFalse(
-            AriaForgePrep.shouldRunHeavyHealthIngest(
-                simulator: true, testReady: false, usingPack: false
-            )
-        )
-        XCTAssertFalse(
-            AriaForgePrep.shouldRunHeavyHealthIngest(
-                simulator: false, testReady: true, usingPack: false
-            )
-        )
-        XCTAssertFalse(
-            AriaForgePrep.shouldRunHeavyHealthIngest(
-                simulator: false, testReady: false, usingPack: true
+            AriaForgePrep.shouldFinish(
+                elapsed: 49,
+                duration: 45,
+                workFinished: false,
+                skipHold: false
             )
         )
         XCTAssertTrue(
-            AriaForgePrep.shouldRunHeavyHealthIngest(
-                simulator: false, testReady: false, usingPack: false
-            )
-        )
-        XCTAssertFalse(
-            AriaForgePrep.shouldAwaitNotificationSync(
-                simulator: true, testReady: false, usingPack: false
-            )
-        )
-        XCTAssertFalse(
-            AriaForgePrep.shouldAwaitNotificationSync(
-                simulator: false, testReady: true, usingPack: false
-            )
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.leftoverWatchdog,
+                duration: 45,
+                workFinished: false,
+                skipHold: false
+            ),
+            "Hung Health / notification work must still leave AriaForgePrep"
         )
         XCTAssertTrue(
-            AriaForgePrep.shouldAwaitNotificationSync(
-                simulator: false, testReady: false, usingPack: false
-            )
-        )
-        XCTAssertFalse(
-            AriaForgePrep.shouldAwaitLaunchRefresh(
-                simulator: true, testReady: false, usingPack: false
-            )
-        )
-        XCTAssertTrue(
-            AriaForgePrep.shouldAwaitLaunchRefresh(
-                simulator: false, testReady: false, usingPack: false
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.leftoverWatchdog,
+                duration: 45,
+                workFinished: false,
+                skipHold: true
             )
         )
     }

@@ -105,5 +105,13 @@ final class LaunchBootstrapTests: XCTestCase {
                 skipHold: false
             )
         )
+        XCTAssertTrue(
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.leftoverWatchdog,
+                duration: 90,
+                workFinished: false,
+                skipHold: false
+            )
+        )
     }
 }

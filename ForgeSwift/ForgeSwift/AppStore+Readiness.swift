@@ -28,16 +28,14 @@ extension AppStore {
         }
         dataLoadState = .loading
         lastLifeIngestError = nil
+        await Task.yield()
         let hk = HealthKitManager.shared
         let seeded = await seedTestReadyHealthKitIfNeeded()
+        await Task.yield()
         let authorized = await hk.checkAuthorizationStatus()
         healthKitLive = authorized
 
-        // Simulator Test-Ready already applied the pack in memory. Live
-        // HealthKit queries on the main actor are what pushed kill-relaunch
-        // past MAIN_THREAD_BLOCK_MAX_S; Home does not wait on them.
-        let skipLiveHealthQueries = seeded && TestReadyLaunchPolicy.isRunningOnSimulator
-        if authorized, !skipLiveHealthQueries {
+        if authorized {
             await hk.refreshHydration()
             readinessHealthContext = await ForgeHealthQueries.readinessContext(store: hk.healthStore)
             if let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {
@@ -70,7 +68,7 @@ extension AppStore {
         }
 
         if !seeded || !hasMeaningfulLifeSignal {
-            installFakeHealthPackIfNeeded()
+            await installFakeHealthPackIfNeeded()
         } else {
             usingTestReadyHealthPack = true
         }
@@ -417,7 +415,7 @@ extension AppStore {
         return tags
     }
 
-    func installFakeHealthPackIfNeeded() {
+    func installFakeHealthPackIfNeeded() async {
         let testReady = AriaService.shouldUseTestReadyDummy
         guard FakeHealthPack.shouldInstall(
             debugBuild: ForgeAuthPolicy.isDebugBuild,
@@ -426,7 +424,11 @@ extension AppStore {
         ) else {
             return
         }
-        apply(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
+        let seed = Self.testReadySessionSeed
+        let pack = await Task.detached(priority: .utility) {
+            FakeHealthPack.generate(seed: seed)
+        }.value
+        apply(pack)
     }
 
     func apply(_ pack: FakeHealthPack) {

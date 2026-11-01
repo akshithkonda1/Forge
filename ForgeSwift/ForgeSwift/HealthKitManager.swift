@@ -390,16 +390,9 @@ class HealthKitManager: ObservableObject {
         // reads must stay offline. Write-sharing or a real sample is live.
         // Onboarding READ-only persist is the extra OR: that key is set only
         // after a completed onboarding request, never from finishAuthorizationRequest.
-        // Simulator queries can hang a fresh container past the prep watchdog;
-        // cached daily stats are enough until Home is up.
-        let readable: Bool
-        if TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(
-            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
-        ) {
-            readable = await hasReadableHealthEvidence()
-        } else {
-            readable = HealthKitLiveEvidence.dailyStatsHaveSamples(todayStats)
-        }
+        // Cached stats decide the launch path so a sample query cannot pin
+        // first_frame. A background probe upgrades live status once Home is up.
+        let readable = HealthKitLiveEvidence.dailyStatsHaveSamples(todayStats)
         let onboardingConnected = UserDefaults.standard.bool(
             forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
         )
@@ -412,8 +405,28 @@ class HealthKitManager: ObservableObject {
             startBidirectionalSync()
         } else {
             stopBidirectionalSync()
+            Task { await self.upgradeLiveStatusFromHealthEvidence() }
         }
         return isAuthorized
+    }
+
+    /// Sample queries stay off the first-frame path. If they later prove
+    /// reads are live, flip authorization without another launch skip.
+    private func upgradeLiveStatusFromHealthEvidence() async {
+        guard isHealthDataAvailable(), !isAuthorized else { return }
+        let probed = await hasReadableHealthEvidence()
+        guard probed else { return }
+        let onboardingConnected = UserDefaults.standard.bool(
+            forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
+        )
+        isAuthorized = HealthKitOnboardingAuthorization.isLive(
+            canWrite: canWriteAnyRequestedType,
+            hasReadableSamples: true,
+            onboardingConnected: onboardingConnected
+        )
+        if isAuthorized {
+            startBidirectionalSync()
+        }
     }
 
     /// True when today's cached stats or a probe snapshot actually has samples.

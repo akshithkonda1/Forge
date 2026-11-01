@@ -37,49 +37,43 @@ final class OnboardingGateTests: XCTestCase {
     }
     #endif
 
-    func testFloorAndCapStayFortyFiveAndOneEighty() {
+    func testFloorCapAndLeftoverWatchdog() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
         XCTAssertEqual(AriaForgePrep.cap, 180)
-        XCTAssertFalse(TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(isSimulator: true))
-        XCTAssertFalse(
-            AriaForgePrep.shouldAwaitNotificationSync(
-                simulator: true, testReady: true, usingPack: false
-            )
-        )
-        XCTAssertFalse(
-            AriaForgePrep.shouldAwaitLaunchRefresh(
-                simulator: true, testReady: true, usingPack: false
-            )
-        )
-        XCTAssertFalse(TestReadyLaunchPolicy.launchPromptsForNotificationAuthorization)
-        XCTAssertFalse(TestReadyLaunchPolicy.simulatorTouchesNotificationCenter)
-        XCTAssertFalse(
-            ForgeNotificationScheduler.shouldTouchNotificationCenter(isSimulator: true)
-        )
-        XCTAssertTrue(
-            ForgeNotificationScheduler.shouldTouchNotificationCenter(isSimulator: false)
-        )
-        XCTAssertFalse(
-            ForgeNotificationScheduler.shouldPromptForAuthorization(
+        XCTAssertEqual(AriaForgePrep.leftoverWatchdog, 50)
+        XCTAssertLessThan(AriaForgePrep.leftoverWatchdog, 60)
+    }
+
+    func testLaunchAsksForNotificationsAfterFirstFrameNotDuringIt() {
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
                 status: .notDetermined,
-                promptIfNeeded: false,
-                isSimulator: true
-            )
-        )
-        XCTAssertFalse(
-            ForgeNotificationScheduler.shouldPromptForAuthorization(
-                status: .notDetermined,
-                promptIfNeeded: true,
-                isSimulator: true
+                promptIfUndetermined: false
             ),
-            "Simulator must never present the notification sheet"
+            .skipPrompt,
+            "first-frame path must not present the permission sheet"
         )
-        XCTAssertTrue(
-            ForgeNotificationScheduler.shouldPromptForAuthorization(
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
                 status: .notDetermined,
-                promptIfNeeded: true,
-                isSimulator: false
-            )
+                promptIfUndetermined: true
+            ),
+            .prompt,
+            "after the first frame, real devices and Simulator both ask"
+        )
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
+                status: .authorized,
+                promptIfUndetermined: false
+            ),
+            .alreadyGranted
+        )
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
+                status: .denied,
+                promptIfUndetermined: true
+            ),
+            .denied
         )
     }
 

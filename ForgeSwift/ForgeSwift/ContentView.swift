@@ -51,15 +51,30 @@ struct ContentView: View {
             }
         }
         .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
+            // First paint first. The permission sheet and the neural-voice
+            // catalog XPC both block first_frame if they run in this commit.
+            await Task.yield()
+            let promptAfterFirstFrame = {
+                if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                    Task { await store.resyncNotifications(promptIfNeeded: true) }
+                }
+            }
+            guard showSplash else {
+                promptAfterFirstFrame()
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
             try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
             withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
+            promptAfterFirstFrame()
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
         }
     }
 

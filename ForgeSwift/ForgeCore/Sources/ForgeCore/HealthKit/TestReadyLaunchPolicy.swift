@@ -25,23 +25,6 @@ public enum TestReadyLaunchPolicy: Sendable {
     public static let homeWaitsForRemoteDashboard = false
     public static let homeWaitsForThirtyDayHealthQueries = false
     public static let homeWaitsForHealthKitAuthorizationSheet = false
-    /// Simulator HealthKit sample probes (HKSampleQuery / HKStatisticsQuery)
-    /// can sit forever on a fresh container. Launch and AriaForgePrep decide
-    /// live status from write-sharing or the onboarding-connected flag, then
-    /// query after the shell is up.
-    public static func shouldProbeHealthKitEvidence(isSimulator: Bool) -> Bool {
-        !isSimulator
-    }
-    /// `UNUserNotificationCenter.requestAuthorization` presents a system
-    /// sheet. Launch-stability's `sample` cannot attach through that sheet,
-    /// and the Simulator has shut down under the gate when the alert lands
-    /// during cold-launch sampling. Settings / a user toggle may still ask.
-    public static let launchPromptsForNotificationAuthorization = false
-    /// `removePendingNotificationRequests` is a synchronous XPC to
-    /// usernotificationsd. On a fresh Simulator that daemon does not
-    /// answer; `sample` then reports no main thread and the launch gate
-    /// fails. Real devices still schedule after the user authorizes.
-    public static let simulatorTouchesNotificationCenter = false
     /// EventKit year writes must not run on MainActor. The old path committed
     /// ~120 events on the UI thread and froze Home for minutes.
     public static let calendarYearWriteRunsOnMainActor = false

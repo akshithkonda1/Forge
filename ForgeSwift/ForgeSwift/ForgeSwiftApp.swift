@@ -35,14 +35,8 @@ struct ForgeSwiftApp: App {
                     // Do not retry on a 1.5 / 4 / 8s ladder from here.
                     Task {
                         HealthDeviceCatalogSync.shared.loadCached()
-                        let sources: [String]
-                        if TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(
-                            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
-                        ) {
-                            sources = await HealthKitManager.shared.knownHealthSources()
-                        } else {
-                            sources = []
-                        }
+                        await HealthDeviceCatalogSync.shared.refresh(healthSources: [])
+                        let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }
                 }

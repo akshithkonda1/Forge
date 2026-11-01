@@ -12,7 +12,10 @@ final class AppStore: ObservableObject {
     
     // Onboarding
     @Published var isOnboarded: Bool = false {
-        didSet { UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey) }
+        didSet {
+            UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey)
+            UserDefaults.standard.synchronize()
+        }
     }
     @Published var onboardingStep: Int = 0
 
@@ -368,11 +371,11 @@ final class AppStore: ObservableObject {
             // work. Test-Ready pack rewrites wait until after Home is loaded.
             // Simulator never writes EventKit.
             try? await Task.sleep(for: .milliseconds(450))
+            // AriaForgePrep owns ingest while the handoff flag is set.
+            // A HealthKit probe here would pin MainActor so leftover prep
+            // never reaches leftoverWatchdog.
+            if self.needsForgePrep || !self.isOnboarded { return }
             await self.refreshDailyData()
-            // Launch must not present the notification permission sheet.
-            // TestReadyLaunchPolicy.launchPromptsForNotificationAuthorization
-            // is false; `sample` cannot attach through that alert.
-            await self.resyncNotifications()
         }
     }
 
