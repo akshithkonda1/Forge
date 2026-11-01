@@ -184,6 +184,21 @@ jobs:
       - name: Check SwiftPM sources lists
         run: python3 scripts/check-package-sources.py
 
+  kokoro-licenses:
+    name: Kokoro license / G2P pin
+    needs: health-leak
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # iOS mouth is Apache/MIT only: kokoro-coreml v2.0 + MisakiSwift.
+      # FluidAudio docs list eSpeak-NG (GPL-3.0). This fails if the pin
+      # drifts, Watch links KokoroTTS, or eSpeak/phonemizer/FluidAudio
+      # show up in the project or resolved graph.
+      - name: Check Kokoro pin and forbidden G2P
+        run: python3 scripts/check-kokoro-licenses.py
+
   widget-bundles:
     name: Widget bundle registration
     needs: health-leak

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import unittest
 
 import _bootstrap  # noqa: F401
@@ -11,6 +12,35 @@ import _bootstrap  # noqa: F401
 from handler import handler
 from services import health_leak_guard
 from storage import dynamodb, keys
+
+CANARY_HRV = 188
+# Whole-token 188, not a timestamp fraction like .233188.
+CANARY_STRING = re.compile(r"(?<![\d.])188(?![\d])")
+
+
+def _contains_int(obj, needle):
+    if obj == needle:
+        return True
+    if isinstance(obj, dict):
+        return any(_contains_int(value, needle) for value in obj.values())
+    if isinstance(obj, list):
+        return any(_contains_int(value, needle) for value in obj)
+    return False
+
+
+def _contains_canary_string(obj):
+    if isinstance(obj, str):
+        return CANARY_STRING.search(obj) is not None
+    if isinstance(obj, dict):
+        return any(_contains_canary_string(value) for value in obj.values())
+    if isinstance(obj, list):
+        return any(_contains_canary_string(value) for value in obj)
+    return False
+
+
+def audit_leaks_canary(obj):
+    """True when the planted HRV 188 is present as an int or a string token."""
+    return _contains_int(obj, CANARY_HRV) or _contains_canary_string(obj)
 
 
 def _event(method, path, body, user="leak-user"):
@@ -72,8 +102,19 @@ class HealthLeakGateTests(unittest.TestCase):
         audits = dynamodb.query_prefix(health_leak_guard.AUDIT_PK, "EVENT#")
         self.assertTrue(audits)
         self.assertIsNone(audits[0].get("values"))
-        blob = json.dumps(audits[0])
-        self.assertNotIn("188", blob)
+        self.assertFalse(audit_leaks_canary(audits[0]))
+
+    def test_canary_string_188_fails(self):
+        self.assertTrue(audit_leaks_canary({"note": "188"}))
+
+    def test_canary_heart_rate_188_fails(self):
+        self.assertTrue(audit_leaks_canary({"note": "heart rate 188"}))
+
+    def test_canary_timestamp_fraction_passes(self):
+        self.assertFalse(audit_leaks_canary({"sk": ".233188"}))
+        self.assertFalse(
+            audit_leaks_canary({"sk": "EVENT#2026-10-31T23:11:04.233188+00:00"})
+        )
 
     def test_destroy_in_test_mode_deletes_local_only_when_flagged(self):
         os.environ["FORGE_HEALTH_LEAK_DESTROY"] = "1"

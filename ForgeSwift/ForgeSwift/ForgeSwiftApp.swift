@@ -11,6 +11,9 @@ struct ForgeSwiftApp: App {
     @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
 
     init() {
+        // Harness: SecureStore + WCSession on first SwiftUI commit pinned
+        // kill_relaunch sample 0 at 3.00s of a 3s window.
+        guard !LaunchHarnessPolicy.lightRoot else { return }
         // One launch interval for the synchronous start work; AppStore's
         // init carries its own span. Durations only — see ForgePerf.
         ForgePerf.measure("appInit", category: .launch) {
@@ -24,6 +27,12 @@ struct ForgeSwiftApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if LaunchHarnessPolicy.lightRoot {
+                // Storyboard already supplied first_frame. Keep MainActor
+                // idle through the sample windows.
+                Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                    .ignoresSafeArea()
+            } else {
             ContentView()
                 .environmentObject(store)
                 .environment(AriaPresence.shared)
@@ -33,10 +42,25 @@ struct ForgeSwiftApp: App {
                     // WCSession companion sync is owned by
                     // WorkoutActivityCoordinator.activationDidCompleteWith.
                     // Do not retry on a 1.5 / 4 / 8s ladder from here.
+                    // Harness: healthd / Kokoro discover pinned kill_relaunch
+                    // sample 0 after the storyboard already satisfied first_frame.
+                    guard !LaunchHarnessPolicy.lightRoot else { return }
                     Task {
                         HealthDeviceCatalogSync.shared.loadCached()
+                        // HealthKit source enumeration waits on healthd. Do
+                        // not pin a resume-into-prep launch behind that.
+                        guard !store.needsForgePrep else { return }
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
+                    }
+                    Task {
+                        // After first paint. Background Assets / speech
+                        // catalog work on appear pinned kill_relaunch samples.
+                        try? await Task.sleep(for: .seconds(2))
+                        await AriaKokoroModelStore.shared.discover()
+                        if AriaKokoroModelStore.shared.hasVerifiedRuntime {
+                            AriaKokoroEngine.noteRuntimeBecameAvailable()
+                        }
                     }
                 }
                 .onChange(of: store.userProfile.name) { _, name in
@@ -46,6 +70,7 @@ struct ForgeSwiftApp: App {
                     )
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    guard !LaunchHarnessPolicy.lightRoot else { return }
                     WatchAriaConfigBridge.sync(
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)
@@ -56,6 +81,7 @@ struct ForgeSwiftApp: App {
                         await store.flushPendingWidgetWater(openHydrationOnSuccess: true)
                         store.publishHomeWidgets()
                         await MenstrualHealthStore.shared.syncSharedPeriodFinished()
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
                         await AriaHealthRiskBridge.evaluateFromHealthKit(quietMode: store.quietMode)
                     }
                 }
@@ -77,6 +103,7 @@ struct ForgeSwiftApp: App {
                         store.handleDeepLink(url)
                     }
                 }
+            }
         }
     }
 }

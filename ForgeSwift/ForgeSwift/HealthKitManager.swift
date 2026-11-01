@@ -390,10 +390,26 @@ class HealthKitManager: ObservableObject {
         // reads must stay offline. Write-sharing or a real sample is live.
         // Onboarding READ-only persist is the extra OR: that key is set only
         // after a completed onboarding request, never from finishAuthorizationRequest.
-        let readable = await hasReadableHealthEvidence()
         let onboardingConnected = UserDefaults.standard.bool(
             forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
         )
+        let cachedReadable = HealthKitLiveEvidence.dailyStatsHaveSamples(todayStats)
+        let readable: Bool
+        if HealthKitOnboardingAuthorization.shouldProbeStoreForLiveStatus(
+            canWrite: canWrite,
+            onboardingConnected: onboardingConnected,
+            cachedReadableSamples: cachedReadable
+        ) {
+            // `|| await` is illegal: `||` is an autoclosure. Probe only
+            // when the cheap cache is empty.
+            if cachedReadable {
+                readable = true
+            } else {
+                readable = await hasReadableHealthEvidence()
+            }
+        } else {
+            readable = false
+        }
         isAuthorized = HealthKitOnboardingAuthorization.isLive(
             canWrite: canWrite,
             hasReadableSamples: readable,

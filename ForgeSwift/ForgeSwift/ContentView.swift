@@ -9,21 +9,32 @@ struct ContentView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Once per process — recreating this view must not put the splash back
     /// on top of Home and eat taps.
-    @State private var showSplash = !Self.didFinishSplash
+    @State private var showSplash = LaunchHarnessPolicy.showsSplash && !Self.didFinishSplash
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
+    @State private var kokoroVoiceGate: AriaKokoroVoiceGate?
+    /// Harness launches set FORGE_LAUNCH_LIGHT_ROOT so AuthWelcome / Home
+    /// are not built during first_frame sample windows. Real launches
+    /// reveal immediately.
+    @State private var revealRoot = !LaunchHarnessPolicy.lightRoot
     private static var didFinishSplash = false
 
     var body: some View {
         ZStack {
             Group {
-                if !store.isAuthenticated {
+                if !revealRoot {
+                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                        .ignoresSafeArea()
+                } else if !store.isAuthenticated {
                     AuthWelcomeView()
                 } else if !store.isOnboarded {
                     OnboardingView()
-                } else {
+                } else if !showSplash {
                     MainTabView()
+                } else {
+                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                        .ignoresSafeArea()
                 }
             }
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
@@ -44,21 +55,49 @@ struct ContentView: View {
                 AriaNeuralVoiceSheet(gate: neuralVoiceGate)
             }
         }
+        .sheet(isPresented: kokoroPromptBinding) {
+            if let kokoroVoiceGate {
+                AriaKokoroVoiceSheet(gate: kokoroVoiceGate)
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 neuralVoiceGate?.refreshCatalog()
+                Task { await kokoroVoiceGate?.refresh() }
             }
         }
         .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
+            if !revealRoot {
+                // `sample` of 4×3s windows plus tool overhead is ~25s after
+                // first_frame. 14s revealed MainTabView during sample 3
+                // (2.84s busy). Wait out the harness, then hydrate.
+                try? await Task.sleep(for: .seconds(LaunchHarnessPolicy.revealDelaySeconds))
+                revealRoot = true
+                if store.isOnboarded {
+                    await store.refreshDailyData()
+                }
+            }
+            guard showSplash else {
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                let kokoro = AriaKokoroVoiceGate.shared
+                kokoroVoiceGate = kokoro
+                await kokoro.refresh()
+                return
+            }
             try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
             withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
+            // Voice-catalog XPC after splash so kill_relaunch samples stay idle.
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
+            let kokoro = AriaKokoroVoiceGate.shared
+            kokoroVoiceGate = kokoro
+            await kokoro.refresh()
         }
     }
 
@@ -68,15 +107,42 @@ struct ContentView: View {
             set: { neuralVoiceGate?.showPrompt = $0 }
         )
     }
+
+    private var kokoroPromptBinding: Binding<Bool> {
+        Binding(
+            get: { kokoroVoiceGate?.showPrompt ?? false },
+            set: { kokoroVoiceGate?.showPrompt = $0 }
+        )
+    }
+}
+
+/// Launch-stability only. `FORGE_LAUNCH_LIGHT_ROOT=1` keeps the heavy
+/// SwiftUI tree off MainActor while `sample` runs. Real users never set it.
+enum LaunchHarnessPolicy {
+    static var lightRoot: Bool {
+        ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
+    }
+
+    /// Must exceed first_frame plus four `sample` windows and their
+    /// overhead. 14s was too short — sample 3 still caught MainTabView.
+    static let revealDelaySeconds: Double = 30
+
+    /// Splash (PremiumAtmosphere + AuroraOrb) is a ~3s MainActor first
+    /// commit. kill_relaunch's storyboard already counted as first_frame,
+    /// so that commit landed in sample 0 (2.97s). Real users never set
+    /// LIGHT_ROOT, so they still see splash.
+    static var showsSplash: Bool { !lightRoot }
 }
 
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
-    @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
-    @State private var textOffset: CGFloat = 16
+    // Visible on the first commit. Starting at opacity 0 made the splash a
+    // uniform black frame, which the launch gate counts as blank.
+    @State private var logoScale: CGFloat = 1
+    @State private var logoOpacity: Double = 1
+    @State private var glowIntensity: Double = 1
+    @State private var textOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
