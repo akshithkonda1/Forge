@@ -28,15 +28,14 @@ extension AppStore {
         }
         dataLoadState = .loading
         lastLifeIngestError = nil
+        await Task.yield()
         let hk = HealthKitManager.shared
         let seeded = await seedTestReadyHealthKitIfNeeded()
+        await Task.yield()
         let authorized = await hk.checkAuthorizationStatus()
         healthKitLive = authorized
 
-        let probeSamples = TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
-            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
-        )
-        if authorized, probeSamples {
+        if authorized {
             await hk.refreshHydration()
             readinessHealthContext = await ForgeHealthQueries.readinessContext(store: hk.healthStore)
             if let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {
@@ -54,10 +53,8 @@ extension AppStore {
             }
         }
 
-        if probeSamples {
-            let samples = await BiometricsObserveService.shared.samplesFromStore(self)
-            _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
-        }
+        let samples = await BiometricsObserveService.shared.samplesFromStore(self)
+        _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
 
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
         if let sex = userProfile.biologicalSex {
@@ -77,16 +74,8 @@ extension AppStore {
         }
         learnFromFirstHealthConnectIfNeeded()
 
-        // Simulator launch must not wait on a year of calendar events or
-        // EventKit reminders. Those are what wedged AriaForgePrep past
-        // PREP_WATCHDOG_S and kept the main thread busy for 3s after
-        // kill-relaunch.
-        if TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
-            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
-        ) {
-            await ingestTestReadyCalendarIfNeeded()
-            await RemindersManager.shared.ingestIfAuthorized()
-        }
+        await ingestTestReadyCalendarIfNeeded()
+        await RemindersManager.shared.ingestIfAuthorized()
 
         lastMetricsRefresh = Date()
         invalidatePredictiveCoachPicture()

@@ -50,15 +50,21 @@ struct ContentView: View {
             }
         }
         .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
+            guard showSplash else {
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
             try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
             withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
+            // Voice-catalog XPC after splash so kill_relaunch samples stay idle.
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
         }
     }
 
@@ -73,10 +79,12 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
-    @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
-    @State private var textOffset: CGFloat = 16
+    // Visible on the first commit. Starting at opacity 0 made the splash a
+    // uniform black frame, which the launch gate counts as blank.
+    @State private var logoScale: CGFloat = 1
+    @State private var logoOpacity: Double = 1
+    @State private var glowIntensity: Double = 1
+    @State private var textOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {

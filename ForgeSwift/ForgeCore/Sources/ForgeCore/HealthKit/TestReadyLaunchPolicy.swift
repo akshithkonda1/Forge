@@ -58,14 +58,6 @@ public enum TestReadyLaunchPolicy: Sendable {
     /// and Apple Calendar dies with `0x8BADF00D`.
     public static let simulatorBackgroundIngestDelaySeconds: Double = 2.5
 
-    /// Launch must not issue a HealthKit sample probe on Simulator. The
-    /// snapshot query blocks the main actor (launch-stability
-    /// `kill_relaunch/main_thread` and the AriaForgePrep wedge) and Home
-    /// already coaches from the in-memory pack.
-    public static func shouldProbeHealthSamplesOnLaunch(isSimulator: Bool) -> Bool {
-        !isSimulator || homeWaitsForThirtyDayHealthQueries
-    }
-
     /// Backstop if a second launch caller still asks. AppStore.init owns the
     /// first refreshDailyData; Home must not start another pass.
     public static let launchRefreshCoalesceSeconds: Double = 8.0

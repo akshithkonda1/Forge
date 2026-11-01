@@ -34,14 +34,13 @@ enum AriaHealthRiskBridge {
         guard AriaHealthRiskCooldown.shouldNotify(lastNotified: last) else { return }
 
         Task {
+            // Never prompt from a launch / HealthKit evaluation. The system
+            // sheet is what pinned launch-stability first_frame and prep.
+            let granted = await ForgeNotificationScheduler.requestAuthorizationIfNeeded(
+                promptIfUndetermined: false
+            )
+            guard granted else { return }
             let center = UNUserNotificationCenter.current()
-            do {
-                let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-                guard granted else { return }
-            } catch {
-                print("AriaHealthRiskBridge: notification authorization failed: \(error.localizedDescription)")
-                return
-            }
             let content = UNMutableNotificationContent()
             content.title = finding.title
             content.body = finding.body
@@ -59,9 +58,6 @@ enum AriaHealthRiskBridge {
 
     @MainActor
     static func evaluateFromHealthKit(quietMode: Bool) async {
-        guard TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(
-            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
-        ) else { return }
         let store = HealthKitManager.shared.healthStore
         async let body = ForgeHealthQueries.latestBodyTemperatureFahrenheit(store: store)
         async let wrist = ForgeHealthQueries.latestSleepingWristTemperatureDeviationCelsius(store: store)

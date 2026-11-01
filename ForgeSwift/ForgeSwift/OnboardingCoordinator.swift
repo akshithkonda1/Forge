@@ -220,13 +220,6 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         ariaOrbState = .processing
         prepHealthConnected = store.healthKitLive || healthKitState == .authorized
-        // DEBUG Simulator already skips the 45s–180s hold. Do not also wait
-        // on Health / calendar ingest here — that is what left the launch
-        // gate in AriaForgePrep past PREP_WATCHDOG_S. AppStore still
-        // refreshes after first paint.
-        if skipPrepHold, prepWorkOverride == nil {
-            prepWorkOverride = { }
-        }
         Task { await runPrep(in: store) }
     }
 
@@ -1088,6 +1081,15 @@ final class OnboardingCoordinator {
     }
 
     private func runPrep(in store: AppStore) async {
+        // Skip-hold must leave AriaForgePrep before the 60s watchdog. The
+        // sequence still waits for work when skipHold is set, and
+        // FakeHealthPack.generate / welcome seeding can pin that path.
+        // Clear the handoff first; remaining work is best-effort.
+        if skipPrepHold {
+            await finishPrepWithoutHold(in: store)
+            return
+        }
+
         let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
         prepHealthConnected = healthConnected
         let cycleTracking = profile.biologicalSex?.cycleAutoEnabled == true
@@ -1132,7 +1134,11 @@ final class OnboardingCoordinator {
                     await override()
                     return
                 }
-                await AriaForgePrep.loadUserData(into: store, trainingTheme: theme)
+                await AriaForgePrep.loadUserData(
+                    into: store,
+                    trainingTheme: theme,
+                    skipHeavyIngest: self?.skipPrepHold == true
+                )
             }
         )
 
@@ -1158,6 +1164,42 @@ final class OnboardingCoordinator {
         }
         store.finishForgePrep()
         isPrepping = false
+    }
+
+    /// Opens the shell immediately. Ingest / welcome may continue after the
+    /// handoff flag is cleared so skip-hold cannot sit on AriaForgePrep past
+    /// `PREP_WATCHDOG_S`.
+    private func finishPrepWithoutHold(in store: AppStore) async {
+        prepStage = .ready
+        prepProgress = 1
+        ariaOrbState = .idle
+        store.activeTab = .chat
+        store.finishForgePrep()
+        isPrepping = false
+
+        if let override = prepWorkOverride {
+            await override()
+            return
+        }
+
+        let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
+        prepHealthConnected = healthConnected
+        let welcome = AriaOnboardingGuide.welcomeChatMessage(
+            profile: profile,
+            healthConnected: prepHealthConnected
+        )
+        store.seedAriaWelcomeFromOnboarding(
+            message: welcome,
+            suggestedActions: [
+                "How did I sleep?",
+                "What should I train?",
+                "How do I show up?",
+            ]
+        )
+        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy {
+            store.completeAriaFirstBond()
+            AriaOperatingMode.refresh()
+        }
     }
 
     /// "Review birthday" — closes the block and swaps the composer to the

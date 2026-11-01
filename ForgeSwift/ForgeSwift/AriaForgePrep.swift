@@ -200,10 +200,12 @@ enum AriaForgePrepHandoff {
 
     static func markInterviewComplete() {
         UserDefaults.standard.set(true, forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     static func clearInterviewComplete() {
         UserDefaults.standard.removeObject(forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
@@ -218,6 +220,21 @@ enum AriaForgePrepHandoff {
         if isOnboarded || !isAuthenticated {
             clearInterviewComplete()
         }
+    }
+
+    /// Leftover handoff after a kill must become visible to the 60s watchdog
+    /// without waiting on OnboardingView. XCTest keeps the flag so resume-prep
+    /// cases can still observe it. Real devices keep the 45s–180s hold.
+    static func shouldFinishLeftoverPrepOnRestore(
+        isDebugSimulator: Bool,
+        isTestHost: Bool,
+        isAuthenticated: Bool,
+        isInterviewComplete: Bool,
+        launchPrepWedge: Bool = false
+    ) -> Bool {
+        if isTestHost { return false }
+        if launchPrepWedge && isDebugSimulator { return true }
+        return isDebugSimulator && isAuthenticated && isInterviewComplete
     }
 }
 
@@ -271,21 +288,21 @@ extension AriaForgePrep {
     }
 
     @MainActor
-    static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
-        await store.refreshDailyData()
-
-        // Simulator Home does not wait on HealthKit backfill or catalog
-        // XPC. Doing that work here is what left AriaForgePrep wedged past
-        // PREP_WATCHDOG_S on the launch gate.
-        if TestReadyLaunchPolicy.isRunningOnSimulator,
-           !TestReadyLaunchPolicy.shouldProbeHealthSamplesOnLaunch(isSimulator: true) {
-            store.learnFromFirstHealthConnectIfNeeded()
+    static func loadUserData(
+        into store: AppStore,
+        trainingTheme: AriaTrainingTheme,
+        skipHeavyIngest: Bool = false
+    ) async {
+        if skipHeavyIngest {
+            // Skip-hold already opened the shell. Do not generate the 30-day
+            // FakeHealthPack or touch HealthKit / notifications — that work
+            // is what pinned skip-hold past the 60s watchdog.
             WatchAriaConfigBridge.sync(
                 firstName: store.userProfile.name.split(separator: " ").first.map(String.init)
             )
-            AriaContextStore.shared.addInsight("Onboarding interview complete.")
             return
         }
+        await store.refreshDailyData()
 
         if store.healthKitLive {
             await HealthKitManager.shared.fetchTodayStats(force: true)
