@@ -220,6 +220,13 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         ariaOrbState = .processing
         prepHealthConnected = store.healthKitLive || healthKitState == .authorized
+        // DEBUG Simulator already skips the 45s–180s hold. Do not also wait
+        // on Health / calendar ingest here — that is what left the launch
+        // gate in AriaForgePrep past PREP_WATCHDOG_S. AppStore still
+        // refreshes after first paint.
+        if skipPrepHold, prepWorkOverride == nil {
+            prepWorkOverride = { }
+        }
         Task { await runPrep(in: store) }
     }
 

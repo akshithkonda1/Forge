@@ -54,8 +54,10 @@ extension AppStore {
             }
         }
 
-        let samples = await BiometricsObserveService.shared.samplesFromStore(self)
-        _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
+        if probeSamples {
+            let samples = await BiometricsObserveService.shared.samplesFromStore(self)
+            _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
+        }
 
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
         if let sex = userProfile.biologicalSex {
