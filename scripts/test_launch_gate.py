@@ -59,6 +59,7 @@ class ThresholdPins(unittest.TestCase):
         src = SCRIPT.read_text(encoding="utf-8")
         self.assertNotIn("FORGE_LAUNCH_LIGHT_ROOT", src)
         self.assertNotIn("warmup_app_launch", src)
+        self.assertIn("settle_screenshot_io", src)
 
     def test_launch_storyboard_is_ib_geometry_not_raster(self):
         storyboard = ROOT / "ForgeSwift" / "ForgeSwift" / "LaunchScreen.storyboard"

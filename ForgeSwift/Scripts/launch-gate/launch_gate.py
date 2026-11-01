@@ -118,14 +118,29 @@ def diff_share(path_a, path_b, tol=24):
     return d / len(a)
 
 
-def shot(udid, path, timeout=30):
+def shot(udid, path, timeout=30, retries=3):
     """Screenshot + downscale (sips, fast) so decoding is cheap. Returns the
-    small PNG path and the monotonic time the capture FINISHED."""
-    simctl("io", udid, "screenshot", "--type=png", path, timeout=timeout)
-    done = time.monotonic()
+    small PNG path and the monotonic time the capture FINISHED.
+
+    `simctl io screenshot` after install/uninstall often hangs or takes
+    10–30s. A single hung 30s capture cannot measure an 8s first_frame
+    window, so callers retry here. Thresholds stay unchanged.
+    """
+    last_err = None
     small = path[:-4] + "-small.png"
-    sh("sips", "-s", "format", "png", "-Z", str(int(T["SHOT_MAX_PX"])), path, "--out", small, timeout=30)
-    return small, done
+    for attempt in range(1, retries + 1):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+            simctl("io", udid, "screenshot", "--type=png", path, timeout=timeout)
+            done = time.monotonic()
+            sh("sips", "-s", "format", "png", "-Z", str(int(T["SHOT_MAX_PX"])), path, "--out", small, timeout=30)
+            return small, done
+        except Exception as e:
+            last_err = e
+            print(f"  screenshot {os.path.basename(path)} attempt {attempt} failed: {e}", flush=True)
+            ensure_booted(udid)
+    raise RuntimeError(f"screenshot failed after retries: {last_err}")
 
 
 def ensure_booted(udid):
@@ -161,6 +176,24 @@ def warmup_screenshot_io(udid):
         print("  warmup: screenshot IO works; continuing", flush=True)
         return
     raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
+
+
+def settle_screenshot_io(udid, tag):
+    """First screenshot after install/kill is often the 10–30s hang.
+    Burn it here, untimed, so the baseline and first_frame loop measure
+    the app, not simctl IO. Does not launch the app."""
+    for i in range(3):
+        try:
+            ensure_booted(udid)
+            t0 = time.monotonic()
+            shot(udid, f"{OUT}/{tag}-settle-{i}.png", timeout=20, retries=1)
+            dt = time.monotonic() - t0
+            print(f"  settle screenshot {tag}/{i}: {dt:.1f}s", flush=True)
+            if dt < 5:
+                return
+        except Exception as e:
+            print(f"  settle screenshot {tag}/{i} failed: {e}", flush=True)
+            time.sleep(1)
 
 
 def summarize(path, label):
@@ -395,7 +428,8 @@ def run_scenario(name, udid, app):
     # leftover image from a previous/killed launch can't count as the frame.
     simctl("terminate", udid, BUNDLE, check=False)
     time.sleep(T["BASELINE_SETTLE_S"])
-    base, _ = shot(udid, f"{OUT}/{name}-baseline.png")
+    settle_screenshot_io(udid, name)
+    base, _ = shot(udid, f"{OUT}/{name}-baseline.png", timeout=20, retries=4)
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
@@ -411,7 +445,12 @@ def run_scenario(name, udid, app):
     # the first of them FINISHED capturing.
     frame_at, share, diff, streak, first_ok, last = None, None, None, 0, None, None
     while el() < T["FIRST_FRAME_MAX_S"]:
-        small, done = shot(udid, f"{OUT}/{name}-frame.png")
+        # Short timeout: a hung 30s capture would miss the 8s window.
+        try:
+            small, done = shot(udid, f"{OUT}/{name}-frame.png", timeout=8, retries=1)
+        except Exception as e:
+            print(f"  first_frame shot failed: {e}", flush=True)
+            continue
         last = small
         share = dominant_share(small)
         diff = diff_share(base, small)
