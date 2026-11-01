@@ -9,6 +9,10 @@ enum AriaForgePrep: Sendable {
     static let floor: TimeInterval = 45
     static let cap: TimeInterval = 180
     static let tick: TimeInterval = 0.25
+    /// Shared leftover-prep timeout from #506. The visual hold still uses
+    /// `floor`…`cap`, but a hung HealthKit / notification await must not keep
+    /// `interviewComplete` set past the launch-stability `PREP_WATCHDOG_S=60`.
+    static let leftoverWatchdog: TimeInterval = 50
 
     /// Prep copy is on-screen only. Spoken ARIA during this sequence is a fail
     /// (same bar as reading the UI aloud).
@@ -148,9 +152,11 @@ enum AriaForgePrep: Sendable {
         duration: TimeInterval,
         workFinished: Bool,
         skipHold: Bool,
-        cap: TimeInterval = cap
+        cap: TimeInterval = cap,
+        leftoverWatchdog watchdog: TimeInterval = AriaForgePrep.leftoverWatchdog
     ) -> Bool {
         if elapsed >= cap { return true }
+        if elapsed >= watchdog { return true }
         if skipHold { return workFinished }
         return workFinished && elapsed >= duration
     }
@@ -200,10 +206,12 @@ enum AriaForgePrepHandoff {
 
     static func markInterviewComplete() {
         UserDefaults.standard.set(true, forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     static func clearInterviewComplete() {
         UserDefaults.standard.removeObject(forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
@@ -272,19 +280,6 @@ extension AriaForgePrep {
 
     @MainActor
     static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
-        await store.refreshDailyData()
-
-        if store.healthKitLive {
-            await HealthKitManager.shared.fetchTodayStats(force: true)
-            await HealthKitManager.shared.fetchWeeklyTrends()
-            _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
-            // Deep historical seed so server-side personal baselines and the
-            // daily story have something to say well before a week of live
-            // usage accumulates — this is what "Pulling Apple Health" is
-            // actually doing behind the console hold, not just today/7-day.
-            await BiometricsObserveService.shared.runInitialBackfillIfNeeded(store: store)
-        }
-
         store.learnFromFirstHealthConnectIfNeeded()
 
         if trainingTheme != .classic
@@ -298,14 +293,29 @@ extension AriaForgePrep {
             store.todayWorkout = plan.workoutPlan
         }
 
-        await store.syncChatHistoryFromCloud()
         WatchAriaConfigBridge.sync(
             firstName: store.userProfile.name.split(separator: " ").first.map(String.init)
         )
-        let sources = await HealthKitManager.shared.knownHealthSources()
-        await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
-        await store.resyncNotifications()
         AriaContextStore.shared.addInsight("Onboarding interview complete.")
+
+        // Health, cloud chat, and reminder scheduling stay off the handoff
+        // path. Awaiting them is what pinned leftover prep past the 60s
+        // watchdog; the leftoverWatchdog is the backstop if a caller still
+        // waits. ContentView asks for notification permission after the
+        // first frame.
+        Task { @MainActor in
+            await store.refreshDailyData()
+            if store.healthKitLive {
+                await HealthKitManager.shared.fetchTodayStats(force: true)
+                await HealthKitManager.shared.fetchWeeklyTrends()
+                _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
+                await BiometricsObserveService.shared.runInitialBackfillIfNeeded(store: store)
+            }
+            await store.syncChatHistoryFromCloud()
+            let sources = await HealthKitManager.shared.knownHealthSources()
+            await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
+            await store.resyncNotifications(promptIfNeeded: false)
+        }
     }
 
     @MainActor

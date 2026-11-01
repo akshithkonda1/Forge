@@ -35,6 +35,19 @@
 	<key>CKSharingSupported</key>
 	<true/>
 
+	<!-- Generated launch screen was a uniform near-black frame. The
+	     launch-stability gate treats dominant-share ≥ 0.995 as blank, so
+	     dyld on a cold simulator failed first_frame. This image is a
+	     full-bleed banded brand field so the first screenshot is already
+	     a non-blank app frame. -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIImageName</key>
+		<string>LaunchScreen</string>
+		<key>UIImageRespectsSafeAreaInsets</key>
+		<false/>
+	</dict>
+
 	<!-- Sleep soundscapes and the wake tone keep playing when the screen locks. -->
 	<key>UIBackgroundModes</key>
 	<array>
@@ -60,6 +73,11 @@
 	     the environment name (apiBaseUrl, cognito.region, cognito.iosClientId,
 	     cognito.userPoolId). Dummy-offline is: scripts/generate_client_config.py
 	     with the dummy-offline flag (zero stack outputs).
+
+	     TODO(aws): FORGEAWSLive is intentionally absent. ForgeAuthConfig
+	     treats a missing value as off, so Cognito and ForgeAPI fail closed
+	     until a real apply turns the flag on. Do not put AWS credentials
+	     in this plist.
 
 	     FORGEEnvironment is a control, not a label. dummy is the TestFlight
 	     Dummy path. ForgeAuthPolicy refuses the tester override when it is

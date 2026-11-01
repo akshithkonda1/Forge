@@ -12,7 +12,10 @@ final class AppStore: ObservableObject {
     
     // Onboarding
     @Published var isOnboarded: Bool = false {
-        didSet { UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey) }
+        didSet {
+            UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey)
+            UserDefaults.standard.synchronize()
+        }
     }
     @Published var onboardingStep: Int = 0
 
@@ -144,13 +147,13 @@ final class AppStore: ObservableObject {
     @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadNotificationSettings() {
         didSet {
             ForgePersistence.saveNotificationSettings(notificationSettings)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfNeeded: true) }
         }
     }
     @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationsEnabled() {
         didSet {
             ForgePersistence.saveBriefNotificationsEnabled(briefNotificationsEnabled)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfNeeded: true) }
         }
     }
     @Published var nutritionPreferences: NutritionPreferences = ForgePersistence.loadNutritionPreferences() {
@@ -358,13 +361,7 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
-            #if canImport(FoundationModels) && !targetEnvironment(simulator)
-            let foundationModelsGenerator = FoundationModelsResponseGenerator()
-            if foundationModelsGenerator.isAvailable {
-                self.aiModelAvailable = true
-                self.responseGenerator = foundationModelsGenerator
-            }
-            #endif
+            self.refreshOnDeviceModel()
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 self.restoreChatHistory()
             }
@@ -374,9 +371,28 @@ final class AppStore: ObservableObject {
             // work. Test-Ready pack rewrites wait until after Home is loaded.
             // Simulator never writes EventKit.
             try? await Task.sleep(for: .milliseconds(450))
+            // AriaForgePrep owns ingest while the handoff flag is set.
+            // A HealthKit probe here would pin MainActor so leftover prep
+            // never reaches leftoverWatchdog.
+            if self.needsForgePrep || !self.isOnboarded { return }
             await self.refreshDailyData()
-            await self.resyncNotifications()
         }
+    }
+
+    /// Moves ARIA onto Apple's on-device model once it is ready. On a first
+    /// launch it can still be downloading, so this runs again whenever the app
+    /// comes back to the foreground instead of waiting for a relaunch.
+    func refreshOnDeviceModel() {
+        #if canImport(FoundationModels) && !targetEnvironment(simulator)
+        if !aiModelAvailable {
+            let foundationModelsGenerator = FoundationModelsResponseGenerator()
+            if foundationModelsGenerator.isAvailable {
+                aiModelAvailable = true
+                responseGenerator = foundationModelsGenerator
+            }
+        }
+        #endif
+        LocalTestingOrchestrator.shared.refreshOnDeviceModel()
     }
 
     // MARK: - Chat Persistence & Momentum

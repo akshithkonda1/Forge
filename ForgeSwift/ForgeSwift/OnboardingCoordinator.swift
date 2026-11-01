@@ -238,6 +238,11 @@ final class OnboardingCoordinator {
     }
 
     private func runIntro() async {
+        // Speech synthesis on the first commit is what pinned kill_relaunch
+        // main-thread samples. Let the interview frame paint first, on
+        // every platform — not a Simulator skip.
+        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(250))
         await ariaSay(
             AriaInterviewVoice.introLine(
                 firstName: profile.firstName,

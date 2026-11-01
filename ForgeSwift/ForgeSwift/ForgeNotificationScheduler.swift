@@ -27,12 +27,40 @@ enum ForgeNotificationScheduler {
         static let partnerSupport = "forge.notif.partner.support"
     }
 
+    /// Launch must not show the system permission sheet on the first
+    /// commit — that sheet blocks first_frame and `sample`. ContentView
+    /// asks after the first frame with `promptIfNeeded: true`. Settings
+    /// toggles also pass true. No Simulator-only skip.
+    nonisolated enum AuthorizationIntent: Equatable {
+        case alreadyGranted
+        case denied
+        case prompt
+        case skipPrompt
+    }
+
+    nonisolated static func authorizationIntent(
+        status: UNAuthorizationStatus,
+        promptIfUndetermined: Bool
+    ) -> AuthorizationIntent {
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            return .alreadyGranted
+        case .denied:
+            return .denied
+        case .notDetermined:
+            return promptIfUndetermined ? .prompt : .skipPrompt
+        @unknown default:
+            return .denied
+        }
+    }
+
     static func sync(
         settings: AppNotificationSettings,
         briefEnabled: Bool,
-        brief: BriefNotificationSettings
+        brief: BriefNotificationSettings,
+        promptIfNeeded: Bool = false
     ) async {
-        guard await requestAuthorizationIfNeeded() else { return }
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: promptIfNeeded) else { return }
 
         await removeAllForgeNotifications()
 
@@ -180,6 +208,7 @@ enum ForgeNotificationScheduler {
         settings: MenstrualTrackingSettings,
         snapshot: MenstrualCycleSnapshot
     ) async {
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         let cycleIds = [
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
             ID.cyclePeriodReminder,
@@ -259,10 +288,10 @@ enum ForgeNotificationScheduler {
     /// so a lock screen never names a period. Cleared when the share is empty,
     /// paused, or stale.
     static func syncPartnerSupport(_ glance: PartnerSupportGlance?) async {
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
         center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
         guard let glance, !glance.isPaused, !glance.isStale else { return }
-        guard await requestAuthorizationIfNeeded() else { return }
         await scheduleDaily(
             id: ID.partnerSupport,
             hour: 8, minute: 0,
@@ -272,12 +301,20 @@ enum ForgeNotificationScheduler {
         )
     }
 
-    static func requestAuthorizationIfNeeded() async -> Bool {
-        do {
-            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
-        } catch {
-            print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
+    static func requestAuthorizationIfNeeded(promptIfUndetermined: Bool = false) async -> Bool {
+        let status = await center.notificationSettings().authorizationStatus
+        switch authorizationIntent(status: status, promptIfUndetermined: promptIfUndetermined) {
+        case .alreadyGranted:
+            return true
+        case .denied, .skipPrompt:
             return false
+        case .prompt:
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            } catch {
+                print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
+                return false
+            }
         }
     }
 

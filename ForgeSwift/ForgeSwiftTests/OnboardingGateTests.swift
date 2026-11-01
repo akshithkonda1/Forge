@@ -2,6 +2,7 @@
 // Fails on main: skipPrepHold defaults to false even on the DEBUG simulator,
 // and a leftover interviewComplete flag still gates prep without a session.
 import XCTest
+import UserNotifications
 import ForgeCore
 @testable import ForgeSwift
 
@@ -36,9 +37,44 @@ final class OnboardingGateTests: XCTestCase {
     }
     #endif
 
-    func testFloorAndCapStayFortyFiveAndOneEighty() {
+    func testFloorCapAndLeftoverWatchdog() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
         XCTAssertEqual(AriaForgePrep.cap, 180)
+        XCTAssertEqual(AriaForgePrep.leftoverWatchdog, 50)
+        XCTAssertLessThan(AriaForgePrep.leftoverWatchdog, 60)
+    }
+
+    func testLaunchAsksForNotificationsAfterFirstFrameNotDuringIt() {
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
+                status: .notDetermined,
+                promptIfUndetermined: false
+            ),
+            .skipPrompt,
+            "first-frame path must not present the permission sheet"
+        )
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
+                status: .notDetermined,
+                promptIfUndetermined: true
+            ),
+            .prompt,
+            "after the first frame, real devices and Simulator both ask"
+        )
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
+                status: .authorized,
+                promptIfUndetermined: false
+            ),
+            .alreadyGranted
+        )
+        XCTAssertEqual(
+            ForgeNotificationScheduler.authorizationIntent(
+                status: .denied,
+                promptIfUndetermined: true
+            ),
+            .denied
+        )
     }
 
     func testStaleInterviewFlagClearsWhenUnauthenticated() {

@@ -240,6 +240,7 @@ let package = Package(
                 "TestReadyLaunchPolicyTests.swift",
                 "FakeCycleOverlayTests.swift",
                 "LifeIngestErrorTests.swift",
+                "LaunchStabilityFixtureTests.swift",
                 "ForgeAuthTests.swift",
                 "CognitoRefreshTests.swift",
                 "ReadinessCalculatorTests.swift",

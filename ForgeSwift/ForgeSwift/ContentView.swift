@@ -47,18 +47,34 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 neuralVoiceGate?.refreshCatalog()
+                store.refreshOnDeviceModel()
             }
         }
         .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
+            // First paint first. The permission sheet and the neural-voice
+            // catalog XPC both block first_frame if they run in this commit.
+            await Task.yield()
+            let promptAfterFirstFrame = {
+                if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                    Task { await store.resyncNotifications(promptIfNeeded: true) }
+                }
+            }
+            guard showSplash else {
+                promptAfterFirstFrame()
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
             try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
             withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
+            promptAfterFirstFrame()
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
         }
     }
 
@@ -73,11 +89,10 @@ struct ContentView: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
-    @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
-    @State private var textOffset: CGFloat = 16
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var logoScale: CGFloat = 1.0
+    @State private var logoOpacity: Double = 1
+    @State private var glowIntensity: Double = 1
+    @State private var textOffset: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -124,21 +139,6 @@ struct ForgeSplashScreen: View {
                 }
                 .opacity(logoOpacity)
                 .offset(y: textOffset)
-            }
-        }
-        .onAppear {
-            let base: Animation = reduceMotion
-                ? .easeOut(duration: 0.3)
-                : ForgeMotion.gentle
-            withAnimation(base) {
-                logoScale = 1.0
-                logoOpacity = 1.0
-            }
-            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : ForgeMotion.gentle).delay(0.18)) {
-                textOffset = 0
-            }
-            withAnimation(.easeInOut(duration: 0.5).delay(0.1)) {
-                glowIntensity = 1.0
             }
         }
     }

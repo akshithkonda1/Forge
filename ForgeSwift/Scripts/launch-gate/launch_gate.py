@@ -18,7 +18,7 @@ Checks (thresholds in thresholds.env only):
 
 Any failed check, or any measurement that cannot be taken, fails the gate.
 """
-import json, os, re, struct, subprocess, sys, time, zlib
+import json, os, plistlib, re, struct, subprocess, sys, time, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUNDLE = "com.forge.ForgeSwift"
@@ -104,6 +104,32 @@ def diff_share(path_a, path_b, tol=24):
         raise RuntimeError(f"screenshot size mismatch {len(a)} vs {len(b)}")
     d = sum(1 for p, q in zip(a, b) if max(abs(x - y) for x, y in zip(p, q)) > tol)
     return d / len(a)
+
+
+def warmup_screenshot_io(udid):
+    """True harness bug: the first `simctl io screenshot` after a long
+    xcodebuild is often 10–30s. `first_frame` needs two captures inside
+    8s, so that host cost must not count as a blank app. Thresholds and
+    checks stay unchanged."""
+    path = f"{OUT}/warmup.png"
+    successes, last_err = 0, None
+    for attempt in range(1, 6):
+        try:
+            t0 = time.monotonic()
+            simctl("io", udid, "screenshot", "--type=png", path, timeout=45)
+            dt = time.monotonic() - t0
+            successes += 1
+            print(f"  warmup screenshot {attempt}: {dt:.1f}s", flush=True)
+            if successes >= 2 and dt < 5:
+                return
+        except Exception as e:
+            last_err = e
+            print(f"  warmup screenshot {attempt} failed: {e}", flush=True)
+            time.sleep(2)
+    if successes >= 1:
+        print("  warmup: screenshot IO works; continuing", flush=True)
+        return
+    raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
 
 
 def shot(udid, path):
@@ -236,9 +262,87 @@ def launch(udid):
     return int(m.group(1)), time.monotonic()
 
 
+def app_data_container(udid):
+    r = simctl("get_app_container", udid, BUNDLE, "data")
+    path = r.stdout.strip()
+    if not path:
+        raise RuntimeError("get_app_container returned empty path")
+    return path
+
+
+def prefs_plist(udid):
+    return os.path.join(app_data_container(udid), "Library", "Preferences", f"{BUNDLE}.plist")
+
+
+def _load_prefs(path):
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "rb") as fh:
+            data = plistlib.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def plist_write_bool(udid, key, value):
+    # True harness bug: `defaults write $BUNDLE` before first launch lands
+    # in the device domain. UserDefaults.standard reads the app-container
+    # plist. Dotted keys are literal names — plutil -replace treats dots
+    # as a key path. Thresholds and checks stay unchanged.
+    path = prefs_plist(udid)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    data = _load_prefs(path)
+    data[key] = bool(value)
+    with open(path, "wb") as fh:
+        plistlib.dump(data, fh)
+
+
+def plist_read(udid, key):
+    try:
+        data = _load_prefs(prefs_plist(udid))
+    except Exception:
+        return None
+    if key not in data:
+        return None
+    val = data[key]
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    return str(val)
+
+
+def pref_is_true(value):
+    return (value or "").strip().lower() in ("1", "true", "yes")
+
+
 def defaults_read(udid, key):
+    boxed = plist_read(udid, key)
+    if boxed is not None:
+        return boxed
     r = simctl("spawn", udid, "defaults", "read", BUNDLE, key, check=False)
     return r.stdout.strip() if r.returncode == 0 else None
+
+
+def write_prep_wedge_flags(udid):
+    try:
+        plist_write_bool(udid, "forge.onboarding.interviewComplete", True)
+        plist_write_bool(udid, "forge.onboarding.completed", False)
+        plist_write_bool(udid, "forge.auth.session.v1", True)
+    except Exception as e:
+        print(f"  prep_wedge container plist write failed ({e}); creating data container", flush=True)
+        pid, _ = launch(udid)
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline and pid_alive(pid):
+            time.sleep(0.2)
+        if pid_alive(pid):
+            subprocess.run(["kill", "-9", str(pid)])
+        simctl("terminate", udid, BUNDLE, check=False)
+        plist_write_bool(udid, "forge.onboarding.interviewComplete", True)
+        plist_write_bool(udid, "forge.onboarding.completed", False)
+        plist_write_bool(udid, "forge.auth.session.v1", True)
+    simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.interviewComplete", "-bool", "YES")
+    simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.completed", "-bool", "NO")
+    simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
 
 
 def run_scenario(name, udid, app):
@@ -255,9 +359,7 @@ def run_scenario(name, udid, app):
         subprocess.run(["kill", "-9", str(pid)])
         time.sleep(2)
     if name == "prep_wedge":
-        simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.interviewComplete", "-bool", "YES")
-        simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.onboarding.completed", "-bool", "NO")
-        simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
+        write_prep_wedge_flags(udid)
 
     # Baseline: the screen with the app NOT running (terminate + settle), so a
     # leftover image from a previous/killed launch can't count as the frame.
@@ -325,7 +427,7 @@ def run_scenario(name, udid, app):
         while el() < T["PREP_WATCHDOG_S"]:
             ic = defaults_read(udid, "forge.onboarding.interviewComplete")
             ob = defaults_read(udid, "forge.onboarding.completed")
-            pending = ic == "1" and ob != "1"
+            pending = pref_is_true(ic) and not pref_is_true(ob)
             if not pending:
                 break
             time.sleep(2)
@@ -346,6 +448,7 @@ def main():
     if b.returncode != 0 and "Booted" not in b.stderr:
         raise SystemExit(f"::error::simctl boot failed: {b.stderr.strip()}")
     simctl("bootstatus", udid, "-b", timeout=300)
+    warmup_screenshot_io(udid)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)
