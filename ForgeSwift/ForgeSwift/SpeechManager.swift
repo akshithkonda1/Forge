@@ -13,10 +13,12 @@ final class SpeechManager: ObservableObject {
     @Published var voiceState: VoiceState = .idle
     @Published var authorizationDenied = false
 
-    private let audioEngine = AVAudioEngine()
+    /// Built on first listen. Constructing these in `init` pinned the
+    /// interview first commit (AVAudioEngine + speech framework).
+    private lazy var audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private lazy var speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var silenceTimer: Timer?
     private var levelTimer: Timer?
     /// Closes the mic when nothing at all is heard. `silenceTimer` only arms

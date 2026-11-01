@@ -13,17 +13,24 @@ struct ContentView: View {
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
+    /// First SwiftUI commit is the splash field only. AuthWelcome / interview
+    /// / Home attach after that paint — every build, not a simulator env.
+    @State private var revealRoot = Self.didFinishSplash
     private static var didFinishSplash = false
 
     var body: some View {
         ZStack {
             Group {
-                if !store.isAuthenticated {
+                if !revealRoot {
+                    LaunchBrandField()
+                } else if !store.isAuthenticated {
                     AuthWelcomeView()
                 } else if !store.isOnboarded {
                     OnboardingView()
-                } else {
+                } else if !showSplash {
                     MainTabView()
+                } else {
+                    LaunchBrandField()
                 }
             }
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
@@ -50,15 +57,25 @@ struct ContentView: View {
             }
         }
         .task {
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
-            guard showSplash else { return }
+            await LaunchFirstFrame.afterPaint()
+            revealRoot = true
+            if store.needsForgePrep {
+                AriaForgePrep.armLeftoverTimeout(store: store)
+            }
+            guard showSplash else {
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
             try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
             withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
         }
     }
 
@@ -70,13 +87,37 @@ struct ContentView: View {
     }
 }
 
+// MARK: - First-commit brand field
+
+/// Cheap launch canvas. Matches `LaunchScreen.storyboard` so the storyboard
+/// → first SwiftUI commit is two consecutive non-blank frames. No Metal,
+/// no blur, no speech.
+struct LaunchBrandField: View {
+    static let markSide: CGFloat = 220
+    static let background = Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+    static let ember = Color(red: 1, green: 77 / 255, blue: 0)
+
+    var body: some View {
+        ZStack {
+            Self.background
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(Self.ember)
+                .frame(width: Self.markSide, height: Self.markSide)
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    @State private var logoScale: CGFloat = 0.4
-    @State private var logoOpacity: Double = 0
-    @State private var glowIntensity: Double = 0
-    @State private var textOffset: CGFloat = 16
+    // Visible on the first commit. Starting at opacity 0 made the splash a
+    // uniform black frame, which the launch gate counts as blank.
+    @State private var logoScale: CGFloat = 1
+    @State private var logoOpacity: Double = 1
+    @State private var glowIntensity: Double = 1
+    @State private var textOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -87,6 +128,14 @@ struct ForgeSplashScreen: View {
                 intensity: 0.55 + 0.45 * glowIntensity,
                 loopMotion: false
             )
+
+            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
+            // flat field; without this mark the first SwiftUI commit is a
+            // blank #08080C frame and the launch gate resets its streak.
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(LaunchBrandField.ember)
+                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
+                .accessibilityHidden(true)
 
             VStack(spacing: FDS.Spacing.xl) {
                 ZStack {
