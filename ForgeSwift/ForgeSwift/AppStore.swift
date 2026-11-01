@@ -363,6 +363,18 @@ final class AppStore: ObservableObject {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             return
         }
+        // ContentView defers OnboardingView until after first paint, so
+        // runSequence's 55s clock starts several seconds late and the
+        // 60s launch watchdog still sees the handoff. Bound leftover
+        // prep to process start — the product cap, not a gate change.
+        if needsForgePrep {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(AriaForgePrep.cap))
+                if self.needsForgePrep {
+                    self.finishForgePrep()
+                }
+            }
+        }
         Task { @MainActor in
             await LaunchFirstFrame.afterPaint()
             #if canImport(FoundationModels) && !targetEnvironment(simulator)

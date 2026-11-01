@@ -101,8 +101,8 @@ final class AriaForgePrepTests: XCTestCase {
     func testShouldFinishWaitsForWorkUntilTheCap() {
         XCTAssertFalse(
             AriaForgePrep.shouldFinish(
-                elapsed: 90,
-                duration: 90,
+                elapsed: AriaForgePrep.cap - 1,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false
             )
@@ -110,7 +110,7 @@ final class AriaForgePrepTests: XCTestCase {
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
                 elapsed: AriaForgePrep.cap,
-                duration: 90,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false
             )
