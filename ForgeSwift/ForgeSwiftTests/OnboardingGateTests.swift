@@ -46,6 +46,11 @@ final class OnboardingGateTests: XCTestCase {
                 simulator: true, testReady: true, usingPack: false
             )
         )
+        XCTAssertFalse(
+            AriaForgePrep.shouldAwaitLaunchRefresh(
+                simulator: true, testReady: true, usingPack: false
+            )
+        )
         XCTAssertFalse(TestReadyLaunchPolicy.launchPromptsForNotificationAuthorization)
         XCTAssertFalse(TestReadyLaunchPolicy.simulatorTouchesNotificationCenter)
         XCTAssertFalse(
