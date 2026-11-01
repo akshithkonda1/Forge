@@ -394,18 +394,10 @@ class HealthKitManager: ObservableObject {
             forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
         )
         let cachedReadable = HealthKitLiveEvidence.dailyStatsHaveSamples(todayStats)
-        let readable: Bool
-        if HealthKitOnboardingAuthorization.shouldProbeStoreForLiveStatus(
-            canWrite: canWrite,
-            onboardingConnected: onboardingConnected,
-            cachedReadableSamples: cachedReadable
-        ) {
-            // `|| await` is illegal: `||` is an autoclosure. Probe only
-            // when the cheap cache is empty.
-            readable = cachedReadable ? true : await hasReadableHealthEvidence()
-        } else {
-            readable = false
-        }
+        // `|| await` is illegal: `||` is an autoclosure. Always take the
+        // live path — a cheap cache hit skips the store, otherwise probe.
+        // Launch never calls this until after the first frame.
+        let readable = cachedReadable ? true : await hasReadableHealthEvidence()
         isAuthorized = HealthKitOnboardingAuthorization.isLive(
             canWrite: canWrite,
             hasReadableSamples: readable,

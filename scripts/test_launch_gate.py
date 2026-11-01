@@ -64,6 +64,14 @@ class HealthKitShortCircuit(unittest.TestCase):
             "cachedReadable ? true : await hasReadableHealthEvidence()",
             src,
         )
+        self.assertNotIn("shouldProbeStoreForLiveStatus(", src)
+
+
+class HarnessDoesNotHideTheApp(unittest.TestCase):
+    def test_launch_does_not_inject_light_root(self):
+        src = SCRIPT.read_text(encoding="utf-8")
+        self.assertNotIn('extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}', src)
+        self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", src)
 
 
 class IdleClassifier(unittest.TestCase):

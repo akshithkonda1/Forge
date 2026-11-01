@@ -364,10 +364,7 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
-            // kill_relaunch's storyboard already counted as first_frame
-            // (~0.8s). Chat restore + HealthKit here landed in sample 0.
-            // ContentView hydrates after the 30s reveal.
-            if LaunchHarnessPolicy.lightRoot { return }
+            await LaunchFirstFrame.afterPaint()
             #if canImport(FoundationModels) && !targetEnvironment(simulator)
             let foundationModelsGenerator = FoundationModelsResponseGenerator()
             if foundationModelsGenerator.isAvailable {
@@ -379,14 +376,7 @@ final class AppStore: ObservableObject {
                 self.restoreChatHistory()
             }
             // Sole launch owner for refreshDailyData. Home must not start a
-            // second pass — the coalesce window is a backstop, not a second owner.
-            // Let the first frame (and splash dismiss) land before HealthKit
-            // work. Test-Ready pack rewrites wait until after Home is loaded.
-            // Simulator never writes EventKit.
-            try? await Task.sleep(for: .milliseconds(450))
-            // AriaForgePrep owns ingest while the handoff flag is set.
-            // A HealthKit / notification probe here can pin MainActor so
-            // skip-hold work never finishes and the 60s watchdog fires.
+            // second pass. Prep owns ingest while the handoff flag is set.
             if self.needsForgePrep || !self.isOnboarded { return }
             await self.refreshDailyData()
             await self.resyncNotifications()

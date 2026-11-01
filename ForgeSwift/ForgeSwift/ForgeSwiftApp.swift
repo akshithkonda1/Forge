@@ -32,14 +32,9 @@ struct ForgeSwiftApp: App {
                 .onAppear {
                     // WCSession companion sync is owned by
                     // WorkoutActivityCoordinator.activationDidCompleteWith.
-                    // Do not retry on a 1.5 / 4 / 8s ladder from here.
-                    // Harness: healthd enumeration pinned kill_relaunch sample 0
-                    // after the storyboard already satisfied first_frame.
-                    guard !LaunchHarnessPolicy.lightRoot else { return }
                     Task {
+                        await LaunchFirstFrame.afterPaint()
                         HealthDeviceCatalogSync.shared.loadCached()
-                        // HealthKit source enumeration waits on healthd. Do
-                        // not pin a resume-into-prep launch behind that.
                         guard !store.needsForgePrep else { return }
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
@@ -52,7 +47,6 @@ struct ForgeSwiftApp: App {
                     )
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                    guard !LaunchHarnessPolicy.lightRoot else { return }
                     WatchAriaConfigBridge.sync(
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)

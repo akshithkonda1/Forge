@@ -325,11 +325,9 @@ def fresh_install(udid, app):
 def launch(udid, env=None):
     # simctl launch has no --env flag (that token is parsed as the device
     # UDID). Child process variables must be prefixed SIMCTL_CHILD_.
-    # LIGHT_ROOT keeps AuthWelcome / Home off the main thread for the
-    # sample windows; the storyboard still supplies first_frame.
-    extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}
-    if env:
-        extra.update(env)
+    # Do not inject FORGE_LAUNCH_LIGHT_ROOT — the app must meet the
+    # first-frame / main-thread limits on the real launch path.
+    extra = dict(env or {})
     extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()}
     out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
@@ -440,11 +438,9 @@ def run_scenario(name, udid, app):
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
-    # simctl `defaults write` is not always visible to UserDefaults on a
-    # fresh container. Pass an explicit env so DEBUG simulator restore can
-    # leave AriaForgePrep without waiting on that plist.
-    launch_env = {"FORGE_LAUNCH_PREP_WEDGE": "1"} if name == "prep_wedge" else None
-    pid, t0 = launch(udid, env=launch_env)
+    # prep_wedge flags live in the app-container plist (write_prep_wedge_flags).
+    # The app runs the real 45–55s hold; there is no env shortcut.
+    pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
     # first frame: FIRST_FRAME_CONSECUTIVE consecutive captures that are
