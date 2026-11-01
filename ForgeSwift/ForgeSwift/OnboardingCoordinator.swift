@@ -18,17 +18,12 @@ final class OnboardingCoordinator {
     var prepStage: AriaForgePrep.Stage = .profile
     var prepProgress: Double = 0
     var prepHealthConnected = false
-    /// Tests and DEBUG skip-wait inject these. Production uses the system clock
-    /// and real Health / cloud loads.
+    /// Tests and the DEBUG "Skip wait" button inject these. Production uses
+    /// the system clock and the 45–55s hold on every build.
     var prepClock: AriaForgePrepClock = AriaForgePrepSystemClock()
-    /// DEBUG Simulator skips the 45s–180s console hold so a kill/relaunch
-    /// into prep does not freeze on a dark screen. Real devices keep the
-    /// floor and cap exactly as `AriaForgePrep` defines them.
-    #if DEBUG
-    var skipPrepHold = TestReadyLaunchPolicy.isRunningOnSimulator
-    #else
+    /// Explicit debug skip only. Launch never sets this — leftover prep
+    /// runs the real hold and leaves at `AriaForgePrep.cap`.
     var skipPrepHold = false
-    #endif
     var prepWorkOverride: (() async -> Void)?
     var showAgeBlocked = false
     /// After the age block, the composer shows the birthday field. `.details`
@@ -238,15 +233,7 @@ final class OnboardingCoordinator {
     }
 
     private func runIntro() async {
-        #if DEBUG
-        if TestReadyLaunchPolicy.isRunningOnSimulator {
-            // Spoken intro / speech synthesis pinned kill_relaunch
-            // main-thread samples at 2.95s of a 3s window. Text-only on
-            // DEBUG simulator; real devices still speak.
-            step = .name
-            return
-        }
-        #endif
+        await LaunchFirstFrame.afterPaint()
         await ariaSay(
             AriaInterviewVoice.introLine(
                 firstName: profile.firstName,
@@ -1090,10 +1077,7 @@ final class OnboardingCoordinator {
     }
 
     private func runPrep(in store: AppStore) async {
-        // DEBUG simulator skip-hold must leave AriaForgePrep before the 60s
-        // watchdog. The sequence still waits for work when skipHold is set,
-        // and FakeHealthPack.generate / welcome seeding can pin that path.
-        // Clear the handoff first; remaining work is best-effort.
+        // DEBUG "Skip wait" only. Launch never sets skipPrepHold.
         if skipPrepHold {
             await finishPrepWithoutHold(in: store)
             return
@@ -1145,8 +1129,7 @@ final class OnboardingCoordinator {
                 }
                 await AriaForgePrep.loadUserData(
                     into: store,
-                    trainingTheme: theme,
-                    skipHeavyIngest: self?.skipPrepHold == true
+                    trainingTheme: theme
                 )
             }
         )
@@ -1175,9 +1158,8 @@ final class OnboardingCoordinator {
         isPrepping = false
     }
 
-    /// Opens the shell immediately. Ingest / welcome may continue after the
-    /// handoff flag is cleared so a DEBUG simulator cannot sit on
-    /// AriaForgePrep past `PREP_WATCHDOG_S`.
+    /// DEBUG "Skip wait" only. Clears the handoff so the developer is not
+    /// stuck on the console. Launch never calls this.
     private func finishPrepWithoutHold(in store: AppStore) async {
         prepStage = .ready
         prepProgress = 1

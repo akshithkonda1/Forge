@@ -3,11 +3,16 @@ import ForgeCore
 
 /// Console-style first boot after the ARIA interview: load this person's
 /// profile, Health, history, plan, Watch, and reminders before the shell
-/// opens. Duration is 45 seconds to 3 minutes from how much data there is —
-/// like a quiet first boot — not a percent spinner.
+/// opens. Duration is 45–55 seconds from how much data there is. The cap
+/// is the product timeout: prep always finishes or fails open before
+/// `PREP_WATCHDOG_S` (60s) on every build — device, simulator, Debug,
+/// Release.
 enum AriaForgePrep: Sendable {
     static let floor: TimeInterval = 45
-    static let cap: TimeInterval = 180
+    /// Leave the console before the launch-stability watchdog (60s).
+    static let cap: TimeInterval = 55
+    /// Same number as `ForgeSwift/Scripts/launch-gate/thresholds.env`.
+    static let watchdog: TimeInterval = 60
     static let tick: TimeInterval = 0.25
 
     /// Prep copy is on-screen only. Spoken ARIA during this sequence is a fail
@@ -102,9 +107,9 @@ enum AriaForgePrep: Sendable {
         }
     }
 
-    /// 45s with nothing to ingest. Scales toward 3 minutes as Health history,
-    /// cycle, clinical records, and cloud chat show up. Never below floor,
-    /// never above cap.
+    /// 45s with nothing to ingest. Scales toward the 55s cap as Health
+    /// history, cycle, clinical records, and cloud chat show up. Never
+    /// below floor, never above cap.
     static func duration(for load: Load) -> TimeInterval {
         var extra: TimeInterval = 0
         if load.healthConnected { extra += 25 }
@@ -141,8 +146,10 @@ enum AriaForgePrep: Sendable {
     }
 
     /// Hold until the floor (console boot) even if loads finish early.
-    /// If loads run long, wait for them until the 3-minute cap, then open
-    /// the shell and let remaining cloud work finish in the background.
+    /// If loads run long, wait for them until the cap, then open the
+    /// shell and let remaining work finish in the background. The cap
+    /// is the graceful timeout — every build leaves AriaForgePrep before
+    /// the 60s watchdog.
     static func shouldFinish(
         elapsed: TimeInterval,
         duration: TimeInterval,
@@ -215,26 +222,11 @@ enum AriaForgePrepHandoff {
     }
 
     /// Drop a leftover `interviewComplete` flag that cannot resume a real prep.
-    /// Does not change the 45s–180s hold on a valid resume.
+    /// A valid resume still runs the 45–55s hold on every build.
     static func validateFlag(isOnboarded: Bool, isAuthenticated: Bool) {
         if isOnboarded || !isAuthenticated {
             clearInterviewComplete()
         }
-    }
-
-    /// DEBUG simulator skip-hold must clear a leftover handoff at restore so
-    /// the 60s watchdog does not wait on OnboardingView / UserDefaults flush.
-    /// XCTest keeps the flag so resume-prep cases can still observe it.
-    static func shouldFinishLeftoverPrepOnRestore(
-        isDebugSimulator: Bool,
-        isTestHost: Bool,
-        isAuthenticated: Bool,
-        isInterviewComplete: Bool,
-        launchPrepWedge: Bool = false
-    ) -> Bool {
-        if isTestHost { return false }
-        if launchPrepWedge && isDebugSimulator { return true }
-        return isDebugSimulator && isAuthenticated && isInterviewComplete
     }
 }
 
@@ -290,18 +282,8 @@ extension AriaForgePrep {
     @MainActor
     static func loadUserData(
         into store: AppStore,
-        trainingTheme: AriaTrainingTheme,
-        skipHeavyIngest: Bool = false
+        trainingTheme: AriaTrainingTheme
     ) async {
-        if skipHeavyIngest {
-            // DEBUG Simulator skips the 45s–180s hold. Do not generate the
-            // 30-day FakeHealthPack or touch HealthKit / notifications —
-            // that work is what pinned skip-hold past the 60s watchdog.
-            WatchAriaConfigBridge.sync(
-                firstName: store.userProfile.name.split(separator: " ").first.map(String.init)
-            )
-            return
-        }
         await store.refreshDailyData()
 
         if store.healthKitLive {
@@ -352,6 +334,16 @@ extension AriaForgePrep {
             clinicalLikely: clinical,
             chatHistoryLikely: !store.chatMessages.isEmpty || ForgeCloudSync.shared.isRemoteEligible
         )
+    }
+}
+
+/// Shared launch hop: the first SwiftUI commit stays a cheap field, then
+/// HealthKit, Kokoro, FoundationModels, and the destination tree start.
+/// Every build uses this — there is no simulator env and no 30s hide.
+enum LaunchFirstFrame {
+    @MainActor
+    static func afterPaint() async {
+        await Task.yield()
     }
 }
 

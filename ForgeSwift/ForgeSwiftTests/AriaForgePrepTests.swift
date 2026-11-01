@@ -3,9 +3,11 @@ import XCTest
 
 final class AriaForgePrepTests: XCTestCase {
 
-    func testFloorIsFortyFiveSecondsAndCapIsThreeMinutes() {
+    func testFloorIsFortyFiveSecondsAndCapBeatsTheWatchdog() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
-        XCTAssertEqual(AriaForgePrep.cap, 180)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
     }
 
     func testEmptyLoadStaysAtTheFloor() {
@@ -30,10 +32,9 @@ final class AriaForgePrepTests: XCTestCase {
         let empty = AriaForgePrep.duration(for: .empty)
         let lightDuration = AriaForgePrep.duration(for: light)
         let heavyDuration = AriaForgePrep.duration(for: heavy)
+        XCTAssertEqual(empty, AriaForgePrep.floor)
         XCTAssertGreaterThan(lightDuration, empty)
-        XCTAssertGreaterThan(heavyDuration, lightDuration)
-        XCTAssertLessThanOrEqual(heavyDuration, AriaForgePrep.cap)
-        XCTAssertGreaterThanOrEqual(empty, AriaForgePrep.floor)
+        XCTAssertLessThanOrEqual(lightDuration, AriaForgePrep.cap)
         XCTAssertEqual(heavyDuration, AriaForgePrep.cap)
     }
 
@@ -108,7 +109,7 @@ final class AriaForgePrepTests: XCTestCase {
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: 180,
+                elapsed: AriaForgePrep.cap,
                 duration: 90,
                 workFinished: false,
                 skipHold: false

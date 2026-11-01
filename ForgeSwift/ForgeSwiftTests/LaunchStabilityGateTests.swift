@@ -1,7 +1,6 @@
-// Pins the launch-stability failures: a fresh simulator must paint without
-// a notification permission sheet, HealthKit must not probe healthd on a
-// blank install, and skip-hold prep must leave AriaForgePrep without the
-// 45s–180s ingest.
+// Pins the real launch path: no notification sheet at launch, leftover
+// prep runs the 45–55s hold on every build, and the cap beats the 60s
+// watchdog even when ingest hangs.
 import XCTest
 import UserNotifications
 import ForgeCore
@@ -39,8 +38,6 @@ final class LaunchStabilityGateTests: XCTestCase {
             ),
             .denied
         )
-        // SleepAlarmScheduler.arm and AriaHealthRiskBridge use this same
-        // intent. Launch must skip the sheet when status is notDetermined.
         XCTAssertEqual(
             ForgeNotificationScheduler.authorizationIntent(
                 status: .provisional,
@@ -50,7 +47,16 @@ final class LaunchStabilityGateTests: XCTestCase {
         )
     }
 
-    func testSkipHoldPrepLeavesAriaForgePrepWithoutHeavyIngest() async {
+    func testPrepHoldDefaultsOffAndCapBeatsWatchdog() {
+        let coordinator = OnboardingCoordinator()
+        XCTAssertFalse(coordinator.skipPrepHold)
+        XCTAssertEqual(AriaForgePrep.floor, 45)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
+    }
+
+    func testWatchdogCapFinishesEvenWhenWorkNeverReturns() async {
         let previousFlag = UserDefaults.standard.object(
             forKey: AriaForgePrepHandoff.interviewCompleteKey
         )
@@ -76,13 +82,9 @@ final class LaunchStabilityGateTests: XCTestCase {
 
         let coordinator = OnboardingCoordinator()
         coordinator.prepClock = AriaForgePrepInstantClock()
-        coordinator.skipPrepHold = true
+        coordinator.skipPrepHold = false
         coordinator.prepWorkOverride = {
-            await AriaForgePrep.loadUserData(
-                into: store,
-                trainingTheme: .classic,
-                skipHeavyIngest: true
-            )
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
         }
         coordinator.resumePrep(in: store)
         let deadline = Date().addingTimeInterval(2)
@@ -95,87 +97,23 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertFalse(store.needsForgePrep)
     }
 
-    func testSkipHoldFinishesEvenWhenWorkNeverReturns() async {
-        let previousFlag = UserDefaults.standard.object(
-            forKey: AriaForgePrepHandoff.interviewCompleteKey
-        )
-        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
-        defer {
-            if let previousFlag {
-                UserDefaults.standard.set(previousFlag, forKey: AriaForgePrepHandoff.interviewCompleteKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: AriaForgePrepHandoff.interviewCompleteKey)
-            }
-            if let previousOnboarded {
-                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
-            }
-        }
-
+    func testRestoreDoesNotFinishLeftoverPrep() {
         let store = AppStore()
         store.isAuthenticated = true
         store.isOnboarded = false
         AriaForgePrepHandoff.markInterviewComplete()
-
-        let coordinator = OnboardingCoordinator()
-        coordinator.skipPrepHold = true
-        coordinator.resumePrep(in: store)
-        let deadline = Date().addingTimeInterval(2)
-        while coordinator.isPrepping && Date() < deadline {
-            await Task.yield()
-        }
-        XCTAssertFalse(coordinator.isPrepping)
-        XCTAssertTrue(store.isOnboarded)
-        XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
-        XCTAssertFalse(store.needsForgePrep)
+        AriaForgePrepHandoff.validateFlag(
+            isOnboarded: store.isOnboarded,
+            isAuthenticated: store.isAuthenticated
+        )
+        XCTAssertTrue(store.needsForgePrep)
+        XCTAssertTrue(AriaForgePrepHandoff.isInterviewComplete)
+        XCTAssertFalse(store.isOnboarded)
     }
 
-    func testRestoreFinishesLeftoverPrepOutsideTheTestHost() {
-        XCTAssertTrue(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: true,
-                isTestHost: false,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            )
-        )
+    func testFirstFrameRevealIsNotAThirtySecondHide() {
         XCTAssertFalse(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: true,
-                isTestHost: true,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            ),
-            "XCTest must still observe the handoff flag"
+            ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
         )
-        XCTAssertFalse(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: false,
-                isTestHost: false,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            ),
-            "Real devices keep the 45s–180s hold"
-        )
-        XCTAssertTrue(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: true,
-                isTestHost: false,
-                isAuthenticated: false,
-                isInterviewComplete: false,
-                launchPrepWedge: true
-            ),
-            "prep_wedge env must finish even when UserDefaults is invisible"
-        )
-    }
-
-    func testLightRootRevealWaitsOutSampleWindows() {
-        // 4 × 3s `sample` windows plus tool overhead is ~25s after first_frame.
-        // 14s revealed MainTabView during sample 3 on run 41236747489.
-        XCTAssertGreaterThanOrEqual(LaunchHarnessPolicy.revealDelaySeconds, 30)
-        // kill_relaunch first_frame is the storyboard at ~0.8s. Splash must
-        // stay off or its first commit is sample 0 (run 41239722577, 2.97s).
-        XCTAssertEqual(LaunchHarnessPolicy.showsSplash, !LaunchHarnessPolicy.lightRoot)
     }
 }
