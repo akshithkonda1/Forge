@@ -140,11 +140,14 @@ final class LaunchStabilityGateTests: XCTestCase {
 
         AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
         let deadline = Date().addingTimeInterval(2)
-        while store.needsForgePrep && Date() < deadline {
+        // Fail-open flushes the plist off the main actor first. Yield so
+        // `finishForgePrep` can run; do not stop on the handoff flag alone.
+        while !store.isOnboarded && Date() < deadline {
+            await Task.yield()
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertFalse(store.needsForgePrep)
         XCTAssertTrue(store.isOnboarded)
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
+        XCTAssertFalse(store.needsForgePrep)
     }
 }
