@@ -144,13 +144,13 @@ final class AppStore: ObservableObject {
     @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadNotificationSettings() {
         didSet {
             ForgePersistence.saveNotificationSettings(notificationSettings)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfNeeded: true) }
         }
     }
     @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationsEnabled() {
         didSet {
             ForgePersistence.saveBriefNotificationsEnabled(briefNotificationsEnabled)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfNeeded: true) }
         }
     }
     @Published var nutritionPreferences: NutritionPreferences = ForgePersistence.loadNutritionPreferences() {
@@ -369,6 +369,9 @@ final class AppStore: ObservableObject {
             // Simulator never writes EventKit.
             try? await Task.sleep(for: .milliseconds(450))
             await self.refreshDailyData()
+            // Launch must not present the notification permission sheet.
+            // TestReadyLaunchPolicy.launchPromptsForNotificationAuthorization
+            // is false; `sample` cannot attach through that alert.
             await self.resyncNotifications()
         }
     }

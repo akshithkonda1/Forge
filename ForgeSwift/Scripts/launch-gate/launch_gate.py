@@ -222,7 +222,19 @@ def main_thread_busy_s(pid, window, tag, timeout):
 
 
 # ---------- scenario ----------
+def ensure_booted(udid):
+    """The sim can die under `sample` / a permission sheet. Boot it back
+    before the next scenario so a cold harness failure does not skip
+    kill_relaunch and prep_wedge. Already-booted is fine."""
+    b = simctl("boot", udid, check=False)
+    err = (b.stderr or "") + (b.stdout or "")
+    if b.returncode != 0 and "Booted" not in err and "already" not in err.lower():
+        raise RuntimeError(f"simctl boot failed: {b.stderr.strip()}")
+    simctl("bootstatus", udid, "-b", timeout=300)
+
+
 def fresh_install(udid, app):
+    ensure_booted(udid)
     simctl("terminate", udid, BUNDLE, check=False)
     simctl("uninstall", udid, BUNDLE, check=False)
     simctl("install", udid, app)

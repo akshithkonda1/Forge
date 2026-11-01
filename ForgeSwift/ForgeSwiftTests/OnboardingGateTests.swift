@@ -2,6 +2,7 @@
 // Fails on main: skipPrepHold defaults to false even on the DEBUG simulator,
 // and a leftover interviewComplete flag still gates prep without a session.
 import XCTest
+import UserNotifications
 import ForgeCore
 @testable import ForgeSwift
 
@@ -43,6 +44,29 @@ final class OnboardingGateTests: XCTestCase {
         XCTAssertFalse(
             AriaForgePrep.shouldAwaitNotificationSync(
                 simulator: true, testReady: true, usingPack: false
+            )
+        )
+        XCTAssertFalse(TestReadyLaunchPolicy.launchPromptsForNotificationAuthorization)
+        XCTAssertFalse(
+            ForgeNotificationScheduler.shouldPromptForAuthorization(
+                status: .notDetermined,
+                promptIfNeeded: false,
+                isSimulator: true
+            )
+        )
+        XCTAssertFalse(
+            ForgeNotificationScheduler.shouldPromptForAuthorization(
+                status: .notDetermined,
+                promptIfNeeded: true,
+                isSimulator: true
+            ),
+            "Simulator must never present the notification sheet"
+        )
+        XCTAssertTrue(
+            ForgeNotificationScheduler.shouldPromptForAuthorization(
+                status: .notDetermined,
+                promptIfNeeded: true,
+                isSimulator: false
             )
         )
     }

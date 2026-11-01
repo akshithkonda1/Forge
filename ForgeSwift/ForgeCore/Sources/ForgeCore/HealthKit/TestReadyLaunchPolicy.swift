@@ -32,6 +32,11 @@ public enum TestReadyLaunchPolicy: Sendable {
     public static func shouldProbeHealthKitEvidence(isSimulator: Bool) -> Bool {
         !isSimulator
     }
+    /// `UNUserNotificationCenter.requestAuthorization` presents a system
+    /// sheet. Launch-stability's `sample` cannot attach through that sheet,
+    /// and the Simulator has shut down under the gate when the alert lands
+    /// during cold-launch sampling. Settings / a user toggle may still ask.
+    public static let launchPromptsForNotificationAuthorization = false
     /// EventKit year writes must not run on MainActor. The old path committed
     /// ~120 events on the UI thread and froze Home for minutes.
     public static let calendarYearWriteRunsOnMainActor = false

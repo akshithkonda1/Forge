@@ -27,30 +27,40 @@ enum ForgeNotificationScheduler {
         static let partnerSupport = "forge.notif.partner.support"
     }
 
+    static func canSchedule(for status: UNAuthorizationStatus) -> Bool {
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Launch / AriaForgePrep pass `promptIfNeeded: false`. A Settings toggle
+    /// may pass true, but never on Simulator — the permission sheet is what
+    /// made `sample` fail and shut the sim down under launch-stability.
+    static func shouldPromptForAuthorization(
+        status: UNAuthorizationStatus,
+        promptIfNeeded: Bool,
+        isSimulator: Bool
+    ) -> Bool {
+        promptIfNeeded && !isSimulator && status == .notDetermined
+    }
+
     static func sync(
         settings: AppNotificationSettings,
         briefEnabled: Bool,
-        brief: BriefNotificationSettings
+        brief: BriefNotificationSettings,
+        promptIfNeeded: Bool = false
     ) async {
         let status = await center.notificationSettings().authorizationStatus
-        switch status {
-        case .authorized, .provisional, .ephemeral:
-            break
-        case .denied:
-            return
-        case .notDetermined:
-            // Do not await the system alert. First-boot / AriaForgePrep and
-            // AppStore.init would sit here until a tap, past PREP_WATCHDOG_S.
-            Task {
-                guard await requestAuthorizationIfNeeded() else { return }
-                await sync(
-                    settings: settings,
-                    briefEnabled: briefEnabled,
-                    brief: brief
-                )
-            }
-            return
-        @unknown default:
+        if shouldPromptForAuthorization(
+            status: status,
+            promptIfNeeded: promptIfNeeded,
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        ) {
+            guard await requestAuthorizationIfNeeded() else { return }
+        } else if !canSchedule(for: status) {
             return
         }
 
@@ -282,7 +292,8 @@ enum ForgeNotificationScheduler {
         center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
         center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
         guard let glance, !glance.isPaused, !glance.isStale else { return }
-        guard await requestAuthorizationIfNeeded() else { return }
+        let status = await center.notificationSettings().authorizationStatus
+        guard canSchedule(for: status) else { return }
         await scheduleDaily(
             id: ID.partnerSupport,
             hour: 8, minute: 0,
