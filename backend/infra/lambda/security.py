@@ -12,7 +12,14 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 from typing import Any
+
+# Per-counter admission locks. Dynamo UpdateItem is atomic on AWS; moto's
+# in-process table is a get-merge-put. Without this lock two threads can
+# both pass ``count < limit`` and both increment, over-admitting.
+_RATE_LIMIT_LOCKS_GUARD = threading.Lock()
+_RATE_LIMIT_LOCKS: dict[str, threading.Lock] = {}
 
 
 # --- Environment -------------------------------------------------------------
@@ -233,6 +240,17 @@ def _rate_window_id(*, hours: int = 1) -> str:
     return _rate_window(hours=hours)[0]
 
 
+def _rate_limit_admission_lock(pk: str, sk: str) -> threading.Lock:
+    """Lock for one user+bucket so condition and increment are one reservation."""
+    key = f"{pk}|{sk}"
+    with _RATE_LIMIT_LOCKS_GUARD:
+        lock = _RATE_LIMIT_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _RATE_LIMIT_LOCKS[key] = lock
+        return lock
+
+
 def enforce_user_rate_limit(
     user_id: str,
     *,
@@ -242,11 +260,14 @@ def enforce_user_rate_limit(
 ) -> None:
     """Raise ``PermissionError`` when ``user_id`` exceeds ``limit`` for ``action``.
 
-    Atomic Dynamo ``UpdateItem`` (``ADD count :1`` with
-    ``attribute_not_exists(count) OR count < :limit``). The in-memory local
-    store honors the same condition under its lock. A failed condition
-    maps to the same ``PermissionError("rate limit exceeded")`` that routes
-    already turn into a 429.
+    Atomic reservation: a per-counter lock around Dynamo ``UpdateItem``
+    (``ADD count :1`` with ``attribute_not_exists(count) OR count < :limit``).
+    The lock makes the check-then-increment one critical section in-process
+    (moto, local, same Lambda worker). The condition still rejects on AWS
+    across workers. The in-memory local store honors the same condition
+    under its lock. A failed condition maps to the same
+    ``PermissionError("rate limit exceeded")`` that routes already turn
+    into a 429.
     """
     from storage import dynamodb
     from storage.keys import rate_limit_key
@@ -256,19 +277,20 @@ def enforce_user_rate_limit(
     bucket = f"{action}:{window_id}"
     key = rate_limit_key(uid, bucket)
     try:
-        dynamodb.update_item(
-            key["pk"],
-            key["sk"],
-            {
-                "action": action,
-                "window": bucket,
-                "entity_type": "rate_limit",
-                "ttl": ttl,
-            },
-            add={"count": 1},
-            condition_expression="attribute_not_exists(#c) OR #c < :limit",
-            expression_attribute_names={"#c": "count"},
-            expression_attribute_values={":limit": limit},
-        )
+        with _rate_limit_admission_lock(key["pk"], key["sk"]):
+            dynamodb.update_item(
+                key["pk"],
+                key["sk"],
+                {
+                    "action": action,
+                    "window": bucket,
+                    "entity_type": "rate_limit",
+                    "ttl": ttl,
+                },
+                add={"count": 1},
+                condition_expression="attribute_not_exists(#c) OR #c < :limit",
+                expression_attribute_names={"#c": "count"},
+                expression_attribute_values={":limit": limit},
+            )
     except dynamodb.ConditionalCheckFailed as exc:
         raise PermissionError("rate limit exceeded") from exc
