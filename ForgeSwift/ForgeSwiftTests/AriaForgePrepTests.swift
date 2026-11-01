@@ -208,4 +208,30 @@ final class AriaForgePrepTests: XCTestCase {
         )
         XCTAssertFalse(UserDefaults.standard.bool(forKey: key))
     }
+
+    func testFlushHandoffOpenWritesFalseAndOnboarded() {
+        let interview = AriaForgePrepHandoff.interviewCompleteKey
+        let onboarded = AriaForgePrepHandoff.onboardedKey
+        let previousInterview = UserDefaults.standard.object(forKey: interview)
+        let previousOnboarded = UserDefaults.standard.object(forKey: onboarded)
+        defer {
+            if let previousInterview {
+                UserDefaults.standard.set(previousInterview, forKey: interview)
+            } else {
+                UserDefaults.standard.removeObject(forKey: interview)
+            }
+            if let previousOnboarded {
+                UserDefaults.standard.set(previousOnboarded, forKey: onboarded)
+            } else {
+                UserDefaults.standard.removeObject(forKey: onboarded)
+            }
+        }
+
+        AriaForgePrepHandoff.markInterviewComplete()
+        UserDefaults.standard.set(false, forKey: onboarded)
+        AriaForgePrepHandoff.flushHandoffOpen()
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: interview))
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: onboarded))
+        XCTAssertNotNil(UserDefaults.standard.object(forKey: interview))
+    }
 }

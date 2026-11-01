@@ -1,6 +1,10 @@
 import Foundation
 import ForgeCore
 
+/// Module load, before `AppStore.init`. Leftover fail-open is counted from
+/// here so a true-cold dyld still leaves AriaForgePrep before `watchdog`.
+let forgeProcessStart = Date()
+
 /// Console-style first boot after the ARIA interview: load this person's
 /// profile, Health, history, plan, Watch, and reminders before the shell
 /// opens. Duration is 45–55 seconds from how much data there is. The cap
@@ -200,6 +204,7 @@ final class AriaForgePrepInstantClock: AriaForgePrepClock {
 
 enum AriaForgePrepHandoff {
     static let interviewCompleteKey = "forge.onboarding.interviewComplete"
+    static let onboardedKey = "forge.onboarding.completed"
 
     static var isInterviewComplete: Bool {
         UserDefaults.standard.bool(forKey: interviewCompleteKey)
@@ -211,15 +216,29 @@ enum AriaForgePrepHandoff {
     }
 
     static func clearInterviewComplete() {
-        // Write false, do not tombstone. The launch gate reads the
-        // container plist and falls back to `simctl defaults`; a missing
-        // key keeps the pre-launch YES the harness wrote.
+        // Write false, do not tombstone. Keep this cheap: every cold
+        // unauthenticated launch hits `validateFlag` → here from
+        // `AppStore.init`. CFPreferences flush belongs on the leftover
+        // fail-open / finish path, not the first frame.
         UserDefaults.standard.set(false, forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
+    }
+
+    /// Gate-visible open. The launch gate reads the container plist and
+    /// `simctl defaults`; both keys must be on disk as false / true.
+    static func flushHandoffOpen() {
+        UserDefaults.standard.set(false, forKey: interviewCompleteKey)
+        UserDefaults.standard.set(true, forKey: onboardedKey)
         UserDefaults.standard.synchronize()
         let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
         CFPreferencesSetAppValue(
             interviewCompleteKey as CFString,
             kCFBooleanFalse,
+            app
+        )
+        CFPreferencesSetAppValue(
+            onboardedKey as CFString,
+            kCFBooleanTrue,
             app
         )
         CFPreferencesAppSynchronize(app)
@@ -241,25 +260,15 @@ enum AriaForgePrepHandoff {
 }
 
 extension AriaForgePrep {
-    /// One leftover-prep session per process. The timeout is wall-clock
-    /// from process start — not from when OnboardingView happens to appear
-    /// or when this arm is reached — so a late root still leaves
-    /// AriaForgePrep before `watchdog`.
+    /// One leftover-prep session per process. Fail-open is wall-clock from
+    /// module load (`forgeProcessStart`), not from a late `AppStore.init`
+    /// or OnboardingView, so a true-cold dyld still leaves before `watchdog`.
     @MainActor
     private static var leftoverTimeoutArmed = false
     @MainActor
     private static var leftoverTimeoutTask: Task<Void, Never>?
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
-    @MainActor
-    private static var leftoverClockOrigin: Date?
-
-    @MainActor
-    static func noteProcessStart() {
-        if leftoverClockOrigin == nil {
-            leftoverClockOrigin = Date()
-        }
-    }
 
     @MainActor
     static func resetLeftoverSessionForTests() {
@@ -268,13 +277,13 @@ extension AriaForgePrep {
         leftoverTimeoutTask = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
-        leftoverClockOrigin = nil
     }
 
-    /// Fail-open: if the hold or ingest is still pending at `cap` from
-    /// process start, open the shell and flush the handoff the launch
-    /// gate reads. Sleep is off the main actor so leftover ingest cannot
-    /// push the write past `watchdog`.
+    /// Fail-open: leftover restore must be gone from the plist before
+    /// `watchdog` (60s from `simctl launch`). The console hold still uses
+    /// `cap` (55s). This timer is 10s inside the watchdog so dyld plus
+    /// the gate's 2s poll cannot miss the write. Sleep and the plist
+    /// flush are off the main actor so leftover ingest cannot block them.
     @MainActor
     static func armLeftoverTimeout(
         store: AppStore,
@@ -282,16 +291,15 @@ extension AriaForgePrep {
     ) {
         guard store.needsForgePrep, !leftoverTimeoutArmed else { return }
         leftoverTimeoutArmed = true
-        noteProcessStart()
-        let origin = leftoverClockOrigin ?? Date()
-        let remaining = max(0, seconds - Date().timeIntervalSince(origin))
+        let budget = min(seconds, watchdog - 10)
+        let remaining = max(0, budget - Date().timeIntervalSince(forgeProcessStart))
         leftoverTimeoutTask = Task.detached { [store] in
             let ns = UInt64((remaining * 1_000_000_000).rounded())
             if ns > 0 {
                 try? await Task.sleep(nanoseconds: ns)
             }
             guard !Task.isCancelled else { return }
-            AriaForgePrepHandoff.clearInterviewComplete()
+            AriaForgePrepHandoff.flushHandoffOpen()
             await MainActor.run {
                 guard !store.isOnboarded else { return }
                 store.finishForgePrep()

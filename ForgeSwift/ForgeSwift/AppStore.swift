@@ -332,7 +332,6 @@ final class AppStore: ObservableObject {
     // MARK: - Initialization
     
     init() {
-        AriaForgePrep.noteProcessStart()
         // First frame always gets the rule-based generator. Evaluating
         // `SystemLanguageModel.default` in FoundationModelsResponseGenerator
         // can trap or stall launch; probe it after paint, never in init.
@@ -519,22 +518,7 @@ final class AppStore: ObservableObject {
 
     func finishForgePrep() {
         isOnboarded = true
-        AriaForgePrepHandoff.clearInterviewComplete()
-        UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
-        UserDefaults.standard.set(false, forKey: AriaForgePrepHandoff.interviewCompleteKey)
-        UserDefaults.standard.synchronize()
-        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
-        CFPreferencesSetAppValue(
-            Self.onboardedDefaultsKey as CFString,
-            kCFBooleanTrue,
-            app
-        )
-        CFPreferencesSetAppValue(
-            AriaForgePrepHandoff.interviewCompleteKey as CFString,
-            kCFBooleanFalse,
-            app
-        )
-        CFPreferencesAppSynchronize(app)
+        AriaForgePrepHandoff.flushHandoffOpen()
         refreshTutorialOpeningFromProfile()
     }
 

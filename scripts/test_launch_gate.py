@@ -87,7 +87,8 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
     def test_prep_has_a_wall_clock_fail_open(self):
         src = PREP.read_text(encoding="utf-8")
         self.assertIn("static func armLeftoverTimeout", src)
-        self.assertIn("static func noteProcessStart", src)
+        self.assertIn("static func flushHandoffOpen", src)
+        self.assertIn("let forgeProcessStart = Date()", src)
         self.assertIn("Task.detached", src)
         self.assertIn("static let cap: TimeInterval = 55", src)
         self.assertIn("static let watchdog: TimeInterval = 60", src)
@@ -99,6 +100,11 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
             "UserDefaults.standard.removeObject(forKey: interviewCompleteKey)",
             src,
         )
+        self.assertNotIn("static func noteProcessStart", src)
+        clear_fn = src.split("static func clearInterviewComplete()", 1)[1].split(
+            "static func flushHandoffOpen", 1
+        )[0]
+        self.assertNotIn("CFPreferencesAppSynchronize", clear_fn)
 
 
 class HealthKitShortCircuit(unittest.TestCase):
