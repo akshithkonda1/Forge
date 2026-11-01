@@ -106,6 +106,32 @@ def diff_share(path_a, path_b, tol=24):
     return d / len(a)
 
 
+def warmup_screenshot_io(udid):
+    """True harness bug: the first `simctl io screenshot` after a long
+    xcodebuild is often 10–30s. `first_frame` needs two captures inside
+    8s, so that host cost must not count as a blank app. Thresholds and
+    checks stay unchanged."""
+    path = f"{OUT}/warmup.png"
+    successes, last_err = 0, None
+    for attempt in range(1, 6):
+        try:
+            t0 = time.monotonic()
+            simctl("io", udid, "screenshot", "--type=png", path, timeout=45)
+            dt = time.monotonic() - t0
+            successes += 1
+            print(f"  warmup screenshot {attempt}: {dt:.1f}s", flush=True)
+            if successes >= 2 and dt < 5:
+                return
+        except Exception as e:
+            last_err = e
+            print(f"  warmup screenshot {attempt} failed: {e}", flush=True)
+            time.sleep(2)
+    if successes >= 1:
+        print("  warmup: screenshot IO works; continuing", flush=True)
+        return
+    raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
+
+
 def shot(udid, path):
     """Screenshot + downscale (sips, fast) so decoding is cheap. Returns the
     small PNG path and the monotonic time the capture FINISHED."""
@@ -422,6 +448,7 @@ def main():
     if b.returncode != 0 and "Booted" not in b.stderr:
         raise SystemExit(f"::error::simctl boot failed: {b.stderr.strip()}")
     simctl("bootstatus", udid, "-b", timeout=300)
+    warmup_screenshot_io(udid)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)
