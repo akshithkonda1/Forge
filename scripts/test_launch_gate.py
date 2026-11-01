@@ -60,6 +60,12 @@ class ThresholdPins(unittest.TestCase):
         self.assertNotIn("FORGE_LAUNCH_LIGHT_ROOT", src)
         self.assertNotIn("warmup_app_launch", src)
 
+    def test_launch_storyboard_is_ib_geometry_not_raster(self):
+        storyboard = ROOT / "ForgeSwift" / "ForgeSwift" / "LaunchScreen.storyboard"
+        raw = storyboard.read_text(encoding="utf-8")
+        self.assertIn('launchScreen="YES"', raw)
+        self.assertNotRegex(raw, r"<image |png|jpg|jpeg|pdf")
+
 
 class HealthKitShortCircuit(unittest.TestCase):
     def test_await_is_not_an_or_autoclosure(self):

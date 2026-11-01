@@ -46,6 +46,7 @@ extension AppStore {
                 launchPrepWedge: ProcessInfo.processInfo.environment["FORGE_LAUNCH_PREP_WEDGE"] == "1"
             ) {
                 finishForgePrep()
+                skipLaunchIngest = true
             }
             return
         }

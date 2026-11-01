@@ -79,6 +79,9 @@ final class AppStore: ObservableObject {
     /// above. Progress's skeleton keys off `.loading` for the first-load case only
     /// -- see ProgressPageView.isInitialLoading.
     @Published var dataLoadState: DataLoadState = .idle
+    /// Leftover-prep restore already opened the shell. Launch ingest would
+    /// pin MainActor during kill_relaunch / prep_wedge sample windows.
+    var skipLaunchIngest = false
 
     // Navigation
     @Published var activeTab: TabItem = .home
@@ -383,7 +386,7 @@ final class AppStore: ObservableObject {
             // AriaForgePrep owns ingest while the handoff flag is set.
             // A HealthKit / notification probe here can pin MainActor so
             // skip-hold work never finishes and the 60s watchdog fires.
-            if self.needsForgePrep || !self.isOnboarded { return }
+            if self.needsForgePrep || !self.isOnboarded || self.skipLaunchIngest { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }

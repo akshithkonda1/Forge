@@ -22,8 +22,13 @@ struct ContentView: View {
                     AuthWelcomeView()
                 } else if !store.isOnboarded {
                     OnboardingView()
-                } else {
+                } else if !showSplash {
+                    // Do not build Home under the splash. That first commit
+                    // pinned prep_wedge sample 0 at 2.44s of a 2.0s budget.
                     MainTabView()
+                } else {
+                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                        .ignoresSafeArea()
                 }
             }
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
