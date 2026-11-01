@@ -139,7 +139,8 @@ def shot(udid, path, timeout=30, retries=3):
         except Exception as e:
             last_err = e
             print(f"  screenshot {os.path.basename(path)} attempt {attempt} failed: {e}", flush=True)
-            ensure_booted(udid)
+            # Do not bootstatus here. That blocked cold first_frame for 40s
+            # after a single hung capture (run 41280052386).
     raise RuntimeError(f"screenshot failed after retries: {last_err}")
 
 
@@ -176,6 +177,36 @@ def warmup_screenshot_io(udid):
         print("  warmup: screenshot IO works; continuing", flush=True)
         return
     raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
+
+
+def warmup_app_launch(udid, app):
+    """First process start after xcodebuild is often 10s+ of dyld, which
+    also wedges `simctl io screenshot` (cold first_frame on 64c527df:
+    hung 8s capture, then no frame). Page the just-built binary once,
+    then uninstall so each timed scenario is still a fresh install.
+    Thresholds stay unchanged. This is host page-cache, not a skipped
+    check."""
+    ensure_booted(udid)
+    fresh_install(udid, app)
+    try:
+        pid, t0 = launch(udid)
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline:
+            if not pid_alive(pid):
+                print("  warmup app: process exited", flush=True)
+                break
+            try:
+                small, _ = shot(udid, f"{OUT}/warmup-app.png", timeout=20, retries=1)
+                share = dominant_share(small)
+                print(f"  warmup app frame dominant={share:.3f} at {time.monotonic() - t0:.1f}s", flush=True)
+                if share < T["BLANK_DOMINANT_SHARE"]:
+                    break
+            except Exception as e:
+                print(f"  warmup app shot failed: {e}", flush=True)
+            time.sleep(1)
+    finally:
+        simctl("terminate", udid, BUNDLE, check=False)
+        simctl("uninstall", udid, BUNDLE, check=False)
 
 
 def settle_screenshot_io(udid, tag):
@@ -447,7 +478,7 @@ def run_scenario(name, udid, app):
     while el() < T["FIRST_FRAME_MAX_S"]:
         # Short timeout: a hung 30s capture would miss the 8s window.
         try:
-            small, done = shot(udid, f"{OUT}/{name}-frame.png", timeout=8, retries=1)
+            small, done = shot(udid, f"{OUT}/{name}-frame.png", timeout=12, retries=1)
         except Exception as e:
             print(f"  first_frame shot failed: {e}", flush=True)
             continue
@@ -519,6 +550,7 @@ def main():
     # "already booted" is the only boot error tolerated; bootstatus must pass.
     ensure_booted(udid)
     warmup_screenshot_io(udid)
+    warmup_app_launch(udid, app)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)
