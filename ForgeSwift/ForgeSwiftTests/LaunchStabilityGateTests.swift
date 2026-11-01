@@ -9,6 +9,16 @@ import ForgeCore
 @MainActor
 final class LaunchStabilityGateTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        AriaForgePrep.resetLeftoverSessionForTests()
+    }
+
+    override func tearDown() {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        super.tearDown()
+    }
+
     func testLaunchDoesNotPromptForNotificationPermission() {
         XCTAssertEqual(
             ForgeNotificationScheduler.authorizationIntent(
@@ -115,5 +125,26 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertFalse(
             ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
         )
+        XCTAssertEqual(LaunchBrandField.markSide, 220)
+    }
+
+    func testLeftoverTimeoutFinishesWhenHoldNeverStarts() async {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        defer { AriaForgePrep.resetLeftoverSessionForTests() }
+
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(store.needsForgePrep)
+
+        AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
+        let deadline = Date().addingTimeInterval(2)
+        while store.needsForgePrep && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertFalse(store.needsForgePrep)
+        XCTAssertTrue(store.isOnboarded)
+        XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
     }
 }

@@ -1083,6 +1083,8 @@ final class OnboardingCoordinator {
             return
         }
 
+        AriaForgePrep.armLeftoverTimeout(store: store)
+
         let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
         prepHealthConnected = healthConnected
         let cycleTracking = profile.biologicalSex?.cycleAutoEnabled == true
@@ -1127,12 +1129,15 @@ final class OnboardingCoordinator {
                     await override()
                     return
                 }
-                await AriaForgePrep.loadUserData(
-                    into: store,
-                    trainingTheme: theme
-                )
+                AriaForgePrep.startLeftoverIngest(into: store, trainingTheme: theme)
+                await AriaForgePrep.awaitLeftoverIngest()
             }
         )
+
+        // Flush the handoff before welcome-chat work so the 60s watchdog
+        // sees onboarded even if seeding is slow.
+        store.finishForgePrep()
+        isPrepping = false
 
         store.activeTab = .chat
         // Interview → chat opener. On Dummy / Test-Ready, skip First Bond so
@@ -1154,8 +1159,6 @@ final class OnboardingCoordinator {
             store.completeAriaFirstBond()
             AriaOperatingMode.refresh()
         }
-        store.finishForgePrep()
-        isPrepping = false
     }
 
     /// DEBUG "Skip wait" only. Clears the handoff so the developer is not

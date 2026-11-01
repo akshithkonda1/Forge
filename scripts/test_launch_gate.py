@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "launch_gate.py"
 THRESHOLDS = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "thresholds.env"
 HEALTHKIT = ROOT / "ForgeSwift" / "ForgeSwift" / "HealthKitManager.swift"
+CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
+PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
 
 
 def _load():
@@ -72,6 +74,22 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         src = SCRIPT.read_text(encoding="utf-8")
         self.assertNotIn('extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}', src)
         self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", src)
+
+    def test_first_commit_is_branded_not_a_solid_field(self):
+        src = CONTENT.read_text(encoding="utf-8")
+        self.assertIn("struct LaunchBrandField", src)
+        self.assertIn("static let markSide: CGFloat = 220", src)
+        self.assertIn("LaunchBrandField()", src)
+        self.assertNotIn(
+            "if !revealRoot {\n                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)",
+            src,
+        )
+
+    def test_prep_has_a_wall_clock_fail_open(self):
+        src = PREP.read_text(encoding="utf-8")
+        self.assertIn("static func armLeftoverTimeout", src)
+        self.assertIn("static let cap: TimeInterval = 55", src)
+        self.assertIn("static let watchdog: TimeInterval = 60", src)
 
 
 class IdleClassifier(unittest.TestCase):

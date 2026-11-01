@@ -231,6 +231,65 @@ enum AriaForgePrepHandoff {
 }
 
 extension AriaForgePrep {
+    /// One leftover-prep session per process. The timeout is wall-clock
+    /// from this arm — not from when OnboardingView happens to appear —
+    /// so a late root still leaves AriaForgePrep before `watchdog`.
+    @MainActor
+    private static var leftoverTimeoutArmed = false
+    @MainActor
+    private static var leftoverTimeoutTask: Task<Void, Never>?
+    @MainActor
+    private static var leftoverIngestTask: Task<Void, Never>?
+
+    @MainActor
+    static func resetLeftoverSessionForTests() {
+        leftoverTimeoutArmed = false
+        leftoverTimeoutTask?.cancel()
+        leftoverTimeoutTask = nil
+        leftoverIngestTask?.cancel()
+        leftoverIngestTask = nil
+    }
+
+    /// Fail-open: if the hold or ingest is still pending at `cap`, open
+    /// the shell and flush the handoff the launch gate reads.
+    @MainActor
+    static func armLeftoverTimeout(
+        store: AppStore,
+        after seconds: TimeInterval = cap
+    ) {
+        guard store.needsForgePrep, !leftoverTimeoutArmed else { return }
+        leftoverTimeoutArmed = true
+        leftoverTimeoutTask = Task { [weak store] in
+            let ns = UInt64((max(0, seconds) * 1_000_000_000).rounded())
+            try? await Task.sleep(nanoseconds: ns)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let store, store.needsForgePrep else { return }
+                store.finishForgePrep()
+            }
+        }
+    }
+
+    /// Start Health / plan / cloud ingest once, off the first-frame path.
+    /// The console hold and this task share the same work so a late
+    /// OnboardingView does not start a second refreshDailyData.
+    @MainActor
+    static func startLeftoverIngest(
+        into store: AppStore,
+        trainingTheme: AriaTrainingTheme? = nil
+    ) {
+        guard leftoverIngestTask == nil else { return }
+        let theme = trainingTheme ?? store.userProfile.trainingTheme
+        leftoverIngestTask = Task { @MainActor in
+            await loadUserData(into: store, trainingTheme: theme)
+        }
+    }
+
+    @MainActor
+    static func awaitLeftoverIngest() async {
+        await leftoverIngestTask?.value
+    }
+
     /// Runs `work` in parallel with the console hold. `onTick` is the only
     /// UI channel — this never speaks.
     @MainActor
@@ -284,6 +343,9 @@ extension AriaForgePrep {
         into store: AppStore,
         trainingTheme: AriaTrainingTheme
     ) async {
+        // Yield so the first SwiftUI commit / prep tick can run. HealthKit,
+        // Kokoro, and cloud ingest stay on this task — never the first frame.
+        await Task.yield()
         await store.refreshDailyData()
 
         if store.healthKitLive {

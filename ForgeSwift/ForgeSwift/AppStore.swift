@@ -368,12 +368,7 @@ final class AppStore: ObservableObject {
         // 60s launch watchdog still sees the handoff. Bound leftover
         // prep to process start — the product cap, not a gate change.
         if needsForgePrep {
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(AriaForgePrep.cap))
-                if self.needsForgePrep {
-                    self.finishForgePrep()
-                }
-            }
+            AriaForgePrep.armLeftoverTimeout(store: self)
         }
         Task { @MainActor in
             await LaunchFirstFrame.afterPaint()
@@ -388,8 +383,13 @@ final class AppStore: ObservableObject {
                 self.restoreChatHistory()
             }
             // Sole launch owner for refreshDailyData. Home must not start a
-            // second pass. Prep owns ingest while the handoff flag is set.
-            if self.needsForgePrep || !self.isOnboarded { return }
+            // second pass. Leftover prep runs ingest here so a late
+            // OnboardingView is not the only start path.
+            if self.needsForgePrep {
+                AriaForgePrep.startLeftoverIngest(into: self)
+                return
+            }
+            if !self.isOnboarded { return }
             await self.refreshDailyData()
             await self.resyncNotifications()
         }
