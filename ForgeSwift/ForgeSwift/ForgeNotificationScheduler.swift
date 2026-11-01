@@ -27,7 +27,7 @@ enum ForgeNotificationScheduler {
         static let partnerSupport = "forge.notif.partner.support"
     }
 
-    static func canSchedule(for status: UNAuthorizationStatus) -> Bool {
+    nonisolated static func canSchedule(for status: UNAuthorizationStatus) -> Bool {
         switch status {
         case .authorized, .provisional, .ephemeral:
             return true
@@ -39,12 +39,18 @@ enum ForgeNotificationScheduler {
     /// Launch / AriaForgePrep pass `promptIfNeeded: false`. A Settings toggle
     /// may pass true, but never on Simulator — the permission sheet is what
     /// made `sample` fail and shut the sim down under launch-stability.
-    static func shouldPromptForAuthorization(
+    nonisolated static func shouldPromptForAuthorization(
         status: UNAuthorizationStatus,
         promptIfNeeded: Bool,
         isSimulator: Bool
     ) -> Bool {
         promptIfNeeded && !isSimulator && status == .notDetermined
+    }
+
+    nonisolated static func shouldTouchNotificationCenter(
+        isSimulator: Bool = TestReadyLaunchPolicy.isRunningOnSimulator
+    ) -> Bool {
+        !isSimulator || TestReadyLaunchPolicy.simulatorTouchesNotificationCenter
     }
 
     static func sync(
@@ -53,6 +59,7 @@ enum ForgeNotificationScheduler {
         brief: BriefNotificationSettings,
         promptIfNeeded: Bool = false
     ) async {
+        guard shouldTouchNotificationCenter() else { return }
         let status = await center.notificationSettings().authorizationStatus
         if shouldPromptForAuthorization(
             status: status,
@@ -210,6 +217,9 @@ enum ForgeNotificationScheduler {
         settings: MenstrualTrackingSettings,
         snapshot: MenstrualCycleSnapshot
     ) async {
+        guard shouldTouchNotificationCenter() else { return }
+        let status = await center.notificationSettings().authorizationStatus
+        guard canSchedule(for: status) else { return }
         let cycleIds = [
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
             ID.cyclePeriodReminder,
@@ -289,11 +299,12 @@ enum ForgeNotificationScheduler {
     /// so a lock screen never names a period. Cleared when the share is empty,
     /// paused, or stale.
     static func syncPartnerSupport(_ glance: PartnerSupportGlance?) async {
+        guard shouldTouchNotificationCenter() else { return }
+        let status = await center.notificationSettings().authorizationStatus
+        guard canSchedule(for: status) else { return }
         center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
         center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
         guard let glance, !glance.isPaused, !glance.isStale else { return }
-        let status = await center.notificationSettings().authorizationStatus
-        guard canSchedule(for: status) else { return }
         await scheduleDaily(
             id: ID.partnerSupport,
             hour: 8, minute: 0,

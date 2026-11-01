@@ -206,6 +206,7 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertFalse(TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(isSimulator: true))
         XCTAssertTrue(TestReadyLaunchPolicy.shouldProbeHealthKitEvidence(isSimulator: false))
         XCTAssertFalse(TestReadyLaunchPolicy.launchPromptsForNotificationAuthorization)
+        XCTAssertFalse(TestReadyLaunchPolicy.simulatorTouchesNotificationCenter)
         XCTAssertFalse(TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor)
         XCTAssertFalse(TestReadyLaunchPolicy.writesEventKitYearOnSimulator)
         XCTAssertFalse(TestReadyLaunchPolicy.shouldWriteEventKitYear(isSimulator: true))

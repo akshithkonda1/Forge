@@ -47,6 +47,13 @@ final class OnboardingGateTests: XCTestCase {
             )
         )
         XCTAssertFalse(TestReadyLaunchPolicy.launchPromptsForNotificationAuthorization)
+        XCTAssertFalse(TestReadyLaunchPolicy.simulatorTouchesNotificationCenter)
+        XCTAssertFalse(
+            ForgeNotificationScheduler.shouldTouchNotificationCenter(isSimulator: true)
+        )
+        XCTAssertTrue(
+            ForgeNotificationScheduler.shouldTouchNotificationCenter(isSimulator: false)
+        )
         XCTAssertFalse(
             ForgeNotificationScheduler.shouldPromptForAuthorization(
                 status: .notDetermined,

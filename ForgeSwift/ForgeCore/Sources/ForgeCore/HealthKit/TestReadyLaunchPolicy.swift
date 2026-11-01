@@ -37,6 +37,11 @@ public enum TestReadyLaunchPolicy: Sendable {
     /// and the Simulator has shut down under the gate when the alert lands
     /// during cold-launch sampling. Settings / a user toggle may still ask.
     public static let launchPromptsForNotificationAuthorization = false
+    /// `removePendingNotificationRequests` is a synchronous XPC to
+    /// usernotificationsd. On a fresh Simulator that daemon does not
+    /// answer; `sample` then reports no main thread and the launch gate
+    /// fails. Real devices still schedule after the user authorizes.
+    public static let simulatorTouchesNotificationCenter = false
     /// EventKit year writes must not run on MainActor. The old path committed
     /// ~120 events on the UI thread and froze Home for minutes.
     public static let calendarYearWriteRunsOnMainActor = false
