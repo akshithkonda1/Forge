@@ -40,6 +40,10 @@ ignored.
    text. Log locally. Do not switch voices.
 3. **Load / synthesis retry** — exactly once after the runtime lands, then
    fail closed.
+4. **Voice-id retry inside Kokoro** — `synthesizeWithFallback` retries
+   once with Kokoro's `afHeart` (`af_heart`) when the requested preset
+   cannot synthesize. That retry stays inside `KokoroTTS`. It never
+   switches to another engine, Apple voice, or network mouth.
 
 ## Package and licenses
 
@@ -120,7 +124,11 @@ listed in `ForgeSwift/ForgeCore/Package.swift` test sources:
   reply, (2) empty audio is a silent failure and is not played, (3) load
   and synthesis retry exactly once. These drive `AriaKokoroEnginePath`,
   the same path `AriaKokoroRuntimeSynthesizer` uses, not a stubbed
-  `synthesizeWithPackage`.
+  `synthesizeWithPackage`. Swift CI executed **4** tests in this suite.
+- `AriaVoiceEngineRegistryTests.swift` — register a second fake engine,
+  switch to it, and fall back to Kokoro when it is removed. A failed or
+  missing engine stays silent (no automatic voice fallback). Swift CI
+  executed **3** tests in this suite.
 - `AriaKokoroVoiceTests.swift` — pin, MisakiSwift, no network at speak.
 - `AriaKokoroDeliveryTests.swift` — consent, locator, checksum, retry
   budget.
