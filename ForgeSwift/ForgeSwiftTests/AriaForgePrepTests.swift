@@ -239,5 +239,15 @@ final class AriaForgePrepTests: XCTestCase {
                 simulator: false, testReady: false, usingPack: false
             )
         )
+        XCTAssertFalse(
+            AriaForgePrep.shouldAwaitLaunchRefresh(
+                simulator: true, testReady: false, usingPack: false
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldAwaitLaunchRefresh(
+                simulator: false, testReady: false, usingPack: false
+            )
+        )
     }
 }

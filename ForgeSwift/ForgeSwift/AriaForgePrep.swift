@@ -296,15 +296,37 @@ extension AriaForgePrep {
         )
     }
 
+    /// `refreshDailyData` is already started from AppStore.init. Awaiting it
+    /// here keeps interviewComplete set until that load finishes — past
+    /// PREP_WATCHDOG_S on Simulator. The shell opens; the refresh continues.
+    static func shouldAwaitLaunchRefresh(
+        simulator: Bool,
+        testReady: Bool,
+        usingPack: Bool
+    ) -> Bool {
+        shouldRunHeavyHealthIngest(
+            simulator: simulator,
+            testReady: testReady,
+            usingPack: usingPack
+        )
+    }
+
     @MainActor
     static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
-        await store.refreshDailyData()
-
         let skipHeavy = !shouldRunHeavyHealthIngest(
             simulator: TestReadyLaunchPolicy.isRunningOnSimulator,
             testReady: AriaService.shouldUseTestReadyDummy,
             usingPack: store.usingTestReadyHealthPack
         )
+        if shouldAwaitLaunchRefresh(
+            simulator: TestReadyLaunchPolicy.isRunningOnSimulator,
+            testReady: AriaService.shouldUseTestReadyDummy,
+            usingPack: store.usingTestReadyHealthPack
+        ) {
+            await store.refreshDailyData()
+        } else {
+            Task { await store.refreshDailyData() }
+        }
         if store.healthKitLive, !skipHeavy {
             await HealthKitManager.shared.fetchTodayStats(force: true)
             await HealthKitManager.shared.fetchWeeklyTrends()

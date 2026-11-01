@@ -255,16 +255,22 @@ def defaults_read(udid, key):
 
 def prime_app_container(udid):
     """Create the app's data container so later `defaults write` is visible
-    to UserDefaults.standard. Kill once the process is up; this launch is
-    not measured."""
+    to UserDefaults.standard. Kill as soon as the process is up; this
+    launch is not measured."""
     pid, _ = launch(udid)
-    deadline = time.monotonic() + 8
+    deadline = time.monotonic() + 2
     while time.monotonic() < deadline and pid_alive(pid):
-        time.sleep(0.25)
+        time.sleep(0.2)
     if pid_alive(pid):
         subprocess.run(["kill", "-9", str(pid)])
-    time.sleep(1)
+    time.sleep(0.5)
     simctl("terminate", udid, BUNDLE, check=False)
+
+
+def prep_flag_pending(udid):
+    ic = defaults_read(udid, "forge.onboarding.interviewComplete")
+    ob = defaults_read(udid, "forge.onboarding.completed")
+    return ic == "1" and ob != "1"
 
 
 def seed_prep_wedge_defaults(udid):
@@ -356,6 +362,8 @@ def run_scenario(name, udid, app):
           f"<= {T['MAIN_THREAD_BLOCK_MAX_S']}s")
 
     while el() < T["MEMORY_STEADY_AT_S"] and pid_alive(pid):
+        if name == "prep_wedge" and not prep_flag_pending(udid):
+            break
         time.sleep(1)
     check("alive@steady", pid_alive(pid), f"{el():.0f}s", "alive")
     if pid_alive(pid):
@@ -366,14 +374,11 @@ def run_scenario(name, udid, app):
               f"{early:.0f}->{steady:.0f}MB", f"<= +{T['MEMORY_GROWTH_MAX_MB']:.0f}MB")
 
     if name == "prep_wedge":
-        pending = True
-        while el() < T["PREP_WATCHDOG_S"]:
-            ic = defaults_read(udid, "forge.onboarding.interviewComplete")
-            ob = defaults_read(udid, "forge.onboarding.completed")
-            pending = ic == "1" and ob != "1"
-            if not pending:
-                break
+        pending = prep_flag_pending(udid)
+        while pending and el() < T["PREP_WATCHDOG_S"]:
             time.sleep(2)
+            pending = prep_flag_pending(udid)
+        pending = prep_flag_pending(udid)
         check("prep_watchdog", not pending and pid_alive(pid),
               f"{'still in AriaForgePrep' if pending else 'left prep'} at {el():.0f}s, alive={pid_alive(pid)}",
               f"left prep by {T['PREP_WATCHDOG_S']:.0f}s")
