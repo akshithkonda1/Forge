@@ -380,6 +380,8 @@
 		62CE64B31B7E57543467B23F /* ForgeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C1B6969F84C56786E87B84 /* ForgeChrome.swift */; };
 		1TEST05200000000000000A /* HomeTodayProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST05100000000000000A /* HomeTodayProgressTests.swift */; };
 		5C953C07E2A3364865863079 /* ForgeChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */; };
+		C7MED0020000000000000001 /* CycleHealthKitPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MED0010000000000000001 /* CycleHealthKitPolicy.swift */; };
+		C7MED0040000000000000001 /* CycleHealthKitPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MED0030000000000000001 /* CycleHealthKitPolicyTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -594,6 +596,8 @@
 		82C1B6969F84C56786E87B84 /* ForgeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeChrome.swift; sourceTree = "<group>"; };
 		1TEST05100000000000000A /* HomeTodayProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTodayProgressTests.swift; sourceTree = "<group>"; };
 		C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeChromeTests.swift; sourceTree = "<group>"; };
+		C7MED0010000000000000001 /* CycleHealthKitPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthKitPolicy.swift; sourceTree = "<group>"; };
+		C7MED0030000000000000001 /* CycleHealthKitPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthKitPolicyTests.swift; sourceTree = "<group>"; };
 		1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSurfacePresenceTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
@@ -1020,6 +1024,7 @@
 				024834B6BA4A2216068B15E3 /* MenstrualHealthStore+People.swift */,
 				F1E36C3CF6A30436812D6CA6 /* MenstrualHealthStore+Recompute.swift */,
 				F30B047292ADD42FD4B118B6 /* MenstrualHealthStore+HealthKit.swift */,
+				C7MED0010000000000000001 /* CycleHealthKitPolicy.swift */,
 				41A17320AF2DF34E1036CFD6 /* MenstrualHealthStore+Aria.swift */,
 				C7C1E1010000000000000001 /* MenstrualHealthStore+Vault.swift */,
 				C7C1E1030000000000000001 /* CycleMonthlyDigestFactory.swift */,
@@ -1384,6 +1389,7 @@
 			isa = PBXGroup;
 			children = (
 				1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */,
+				C7MED0030000000000000001 /* CycleHealthKitPolicyTests.swift */,
 				1TEST01300000000000000A /* PartnerCycleDigestTests.swift */,
 				C7C1E1070000000000000001 /* CycleVaultAppTests.swift */,
 				C7C1E1150000000000000001 /* IntimacyFlowTests.swift */,
@@ -1784,6 +1790,7 @@
 				9FC77F8DED25E37614408497 /* MenstrualHealthStore+People.swift in Sources */,
 				C67DE6F26D785828F5BC1D6D /* MenstrualHealthStore+Recompute.swift in Sources */,
 				DFAD02CD6941A035C6C01983 /* MenstrualHealthStore+HealthKit.swift in Sources */,
+				C7MED0020000000000000001 /* CycleHealthKitPolicy.swift in Sources */,
 				A2C5EDADB407191EC019770C /* MenstrualHealthStore+Aria.swift in Sources */,
 				C7C1E1020000000000000001 /* MenstrualHealthStore+Vault.swift in Sources */,
 				C7C1E1040000000000000001 /* CycleMonthlyDigestFactory.swift in Sources */,
@@ -2043,6 +2050,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1TEST01200000000000000A /* MenstrualCycleEngineTests.swift in Sources */,
+				C7MED0040000000000000001 /* CycleHealthKitPolicyTests.swift in Sources */,
 				1TEST01400000000000000A /* PartnerCycleDigestTests.swift in Sources */,
 				C7C1E1080000000000000001 /* CycleVaultAppTests.swift in Sources */,
 				C7C1E1160000000000000001 /* IntimacyFlowTests.swift in Sources */,
