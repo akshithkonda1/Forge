@@ -17,7 +17,9 @@ struct ClinicalDataNonPHIView: View {
     @State private var page = PharmacySearchPage(items: [], total: 0, groups: [])
     @State private var catalogCount = 0
     @State private var refreshLabel = MedicationPharmacy.lastRefreshLabel()
-    @State private var saved = MedicationPharmacy.savedNames()
+    @State private var saved = MedicationPharmacy.savedItems()
+    @State private var capWarning = false
+    @State private var shareWithAria = MedicationPharmacy.shareWithAria
     @State private var sort: PharmacySort = .archetype
     @State private var archetypeFilter: String?
     @State private var diseaseFilter: String?
@@ -44,6 +46,7 @@ struct ClinicalDataNonPHIView: View {
             ScrollView(showsIndicators: false) {
                 ForgeScreenStack(top: FDS.Spacing.sm) {
                     introBlock
+                    shareBlock
                     healthStep
                     pharmacyStep
                 }
@@ -91,7 +94,7 @@ struct ClinicalDataNonPHIView: View {
                 subtitle: "Allow Apple Health — the same full catalog Forge asks at first connect — so allergies, meds, conditions, shots, labs, procedures, and vitals already on this iPhone land in Forge."
             )
             if showHow {
-                Text("Then search every federal-list product by brand or generic, or photograph the bottle. ARIA never names a medicine or a dose for you.")
+                Text("Then search every federal-list product by brand or generic, or photograph the bottle. ARIA never names a medicine or a dose for you. It only sees names you save or type after Share medicine with ARIA is on.")
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
                     .forgeWrapping()
@@ -104,6 +107,24 @@ struct ClinicalDataNonPHIView: View {
                     withForgeMotion(ForgeMotion.smooth) { showHow.toggle() }
                 }
             }
+        }
+    }
+
+    private var shareBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            SettingsRow(icon: "eye.fill", iconColor: .steel, label: "Share medicine with ARIA") {
+                ForgeToggle(isOn: $shareWithAria)
+                    .accessibilityLabel("Share medicine with ARIA")
+            }
+            Text("Off by default. ARIA only sees medicine names you save or type after this is on. Catalog disease labels stay out of what ARIA sees.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+        .forgeContentCard(tint: .steel)
+        .onChange(of: shareWithAria) { _, value in
+            MedicationPharmacy.shareWithAria = value
+            AriaContextStore.shared.applyMedicationLayer()
         }
     }
 
@@ -243,6 +264,20 @@ struct ClinicalDataNonPHIView: View {
                     : "\(catalogCount.formatted()) presentations · \(refreshLabel)"
             )
             searchCard
+            if MedicationPharmacy.lastRefreshFailed {
+                noticeCard(
+                    "Couldn't refresh the federal catalog. Showing the bundled list on this iPhone.",
+                    systemImage: "wifi.slash",
+                    tint: .steel
+                )
+            }
+            if capWarning {
+                noticeCard(
+                    "You can keep \(MedicationPharmacy.savedCap) medicines on this list. Remove one to add another.",
+                    systemImage: "exclamationmark.circle",
+                    tint: .warning
+                )
+            }
             if let bottleScan {
                 bottleScanCard(bottleScan)
             }
@@ -287,7 +322,7 @@ struct ClinicalDataNonPHIView: View {
             bottleScanButton
             PhotosPicker(selection: $photoItem, matching: .images) {
                 Image(systemName: "photo.on.rectangle")
-                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .font(HomeType.label)
                     .foregroundStyle(Color.steel)
                     .frame(minWidth: ForgeUX.minTap + 4, minHeight: ForgeUX.minTap + 8)
                     .background(
@@ -343,12 +378,30 @@ struct ClinicalDataNonPHIView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeCardHeader("On your list", meta: "\(saved.count)", tint: .steel)
             VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
-                ForEach(saved, id: \.self) { name in
-                    Text(name)
-                        .font(HomeType.status)
-                        .foregroundStyle(Color.textPrimary)
-                        .forgeWrapping()
-                        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap - 2 * ForgeLayout.rowVerticalPadding, alignment: .leading)
+                ForEach(saved) { item in
+                    Button {
+                        ForgeHaptics.play(.selection)
+                        _ = MedicationPharmacy.toggleSaved(id: item.id, name: item.name)
+                        saved = MedicationPharmacy.savedItems()
+                        capWarning = false
+                        AriaContextStore.shared.applyMedicationLayer()
+                    } label: {
+                        HStack {
+                            Text(item.name)
+                                .font(HomeType.status)
+                                .foregroundStyle(Color.textPrimary)
+                                .forgeWrapping()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Image(systemName: "minus.circle")
+                                .font(HomeType.label)
+                                .foregroundStyle(Color.steel)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(minHeight: ForgeUX.minTap)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(item.name) from your list")
                 }
             }
         }
@@ -459,14 +512,15 @@ struct ClinicalDataNonPHIView: View {
     /// Agenda row: well, name over both names over the facts, then a 44 pt
     /// add or check mark. Tapping the row adds or removes it from the list.
     private func pharmacyRow(_ med: FDAMedication) -> some View {
-        let isSaved = saved.contains { $0.caseInsensitiveCompare(med.name) == .orderedSame }
+        let isSaved = MedicationPharmacy.isSaved(med)
         let facts = [med.strength, med.form, med.archetype, med.disease]
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
         return Button {
             ForgeHaptics.play(.selection)
-            MedicationPharmacy.toggleSaved(name: med.name)
-            saved = MedicationPharmacy.savedNames()
+            let result = MedicationPharmacy.toggleSaved(med)
+            capWarning = result == .atCap
+            saved = MedicationPharmacy.savedItems()
             AriaContextStore.shared.applyMedicationLayer()
         } label: {
             HStack(alignment: .center, spacing: ForgeLayout.rowGap) {
@@ -495,7 +549,7 @@ struct ClinicalDataNonPHIView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
                 Image(systemName: isSaved ? "checkmark.circle.fill" : "plus.circle")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(HomeType.status)
                     .foregroundStyle(isSaved ? Color.vitality : Color.steel)
                     .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
                     .accessibilityHidden(true)
@@ -554,7 +608,7 @@ struct ClinicalDataNonPHIView: View {
     private func noticeCard(_ message: String, systemImage: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: systemImage)
-                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .font(HomeType.label)
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)
             Text(message)
@@ -647,8 +701,9 @@ struct ClinicalDataNonPHIView: View {
         let scan = MedicationBottleScanner.match(ocrText: text)
         bottleScan = scan
         if let med = scan.admitted {
-            MedicationPharmacy.ensureSaved(name: med.name)
-            saved = MedicationPharmacy.savedNames()
+            let result = MedicationPharmacy.ensureSaved(id: med.id, name: med.name)
+            capWarning = result == .atCap
+            saved = MedicationPharmacy.savedItems()
             AriaContextStore.shared.applyMedicationLayer()
             query = med.brandOrGeneric
             applySearch()
