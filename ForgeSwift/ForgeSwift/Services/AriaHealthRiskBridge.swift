@@ -34,14 +34,7 @@ enum AriaHealthRiskBridge {
         guard AriaHealthRiskCooldown.shouldNotify(lastNotified: last) else { return }
 
         Task {
-            let center = UNUserNotificationCenter.current()
-            do {
-                let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-                guard granted else { return }
-            } catch {
-                print("AriaHealthRiskBridge: notification authorization failed: \(error.localizedDescription)")
-                return
-            }
+            guard await ForgeNotificationScheduler.hasAuthorization() else { return }
             let content = UNMutableNotificationContent()
             content.title = finding.title
             content.body = finding.body
@@ -52,7 +45,7 @@ enum AriaHealthRiskBridge {
                 content: content,
                 trigger: nil
             )
-            try? await center.add(request)
+            try? await UNUserNotificationCenter.current().add(request)
             UserDefaults.standard.set(Date(), forKey: key)
         }
     }

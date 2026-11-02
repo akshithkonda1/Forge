@@ -375,7 +375,11 @@ final class AppStore: ObservableObject {
             // Simulator never writes EventKit.
             try? await Task.sleep(for: .milliseconds(450))
             await self.refreshDailyData()
-            await self.resyncNotifications()
+            // Never prompt for notifications at launch. Returning users who
+            // already granted can reschedule; fresh installs wait for onboarding.
+            if self.isOnboarded {
+                await self.resyncNotifications()
+            }
         }
     }
 

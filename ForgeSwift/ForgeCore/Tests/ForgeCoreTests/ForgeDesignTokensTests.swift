@@ -197,6 +197,8 @@ final class ForgeDesignTokensTests: XCTestCase {
         for haptic in ForgeHaptic.allCases {
             XCTAssertEqual(file.ux.haptics[haptic.rawValue], haptic.token, haptic.rawValue)
         }
+        XCTAssertEqual(ForgeHaptics.strikeToken, "rigid")
+        XCTAssertNotEqual(ForgeHaptic.press.token, ForgeHaptics.strikeToken)
         XCTAssertEqual(file.copy.voice, "identity-first")
         XCTAssertEqual(file.copy.ariaRole, "lifestyle coach")
         XCTAssertTrue(file.copy.neverExpandARIA)

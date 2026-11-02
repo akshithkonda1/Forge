@@ -272,13 +272,33 @@ enum ForgeNotificationScheduler {
         )
     }
 
-    static func requestAuthorizationIfNeeded() async -> Bool {
+    /// Schedulers never prompt. A fresh install used to ask during the splash.
+    static let promptPolicy = "onboarding-after-sign-in"
+    static let syncPromptsWhenUndetermined = false
+
+    /// True only when the system already granted alerts. Does not prompt.
+    static func hasAuthorization() async -> Bool {
+        let status = await center.notificationSettings().authorizationStatus
+        switch status {
+        case .authorized, .provisional, .ephemeral: return true
+        default: return false
+        }
+    }
+
+    /// Explicit ask from onboarding after sign-in. Never call this at launch.
+    static func promptAuthorization() async -> Bool {
         do {
             return try await center.requestAuthorization(options: [.alert, .sound, .badge])
         } catch {
             print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
             return false
         }
+    }
+
+    /// Schedule only. If the user has not been asked yet, skip — do not present
+    /// the system sheet over the launch splash.
+    static func requestAuthorizationIfNeeded() async -> Bool {
+        await hasAuthorization()
     }
 
     private static func scheduleDaily(
