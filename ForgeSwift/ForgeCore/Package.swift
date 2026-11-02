@@ -295,6 +295,7 @@ let package = Package(
                 "RemindersWorkloadTests.swift",
                 "LifeContextVaultTests.swift",
                 "LifeOpsDigestTests.swift",
+                "PharmacyVaultTests.swift",
             ]
         ),
     ],
