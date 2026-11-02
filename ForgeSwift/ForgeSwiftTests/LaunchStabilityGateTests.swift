@@ -177,6 +177,66 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertNotEqual(store.launchRootDestination, .home)
     }
 
+    func testStaleSessionV1AloneDoesNotAuthenticateOutsideHarnessPath() {
+        let client = ForgeAuthClient.shared
+        let previousOverride = client.devOverrideEnabled
+        let previousAuth = UserDefaults.standard.object(forKey: AppStore.authDefaultsKey)
+        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
+        let previousInterview = UserDefaults.standard.object(
+            forKey: AriaForgePrepHandoff.interviewCompleteKey
+        )
+        defer {
+            client.devOverrideEnabled = previousOverride
+            if previousOverride {
+                _ = client.installTestReadySessionIfNeeded()
+            }
+            if let previousAuth {
+                UserDefaults.standard.set(previousAuth, forKey: AppStore.authDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AppStore.authDefaultsKey)
+            }
+            if let previousOnboarded {
+                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
+            }
+            if let previousInterview {
+                UserDefaults.standard.set(
+                    previousInterview,
+                    forKey: AriaForgePrepHandoff.interviewCompleteKey
+                )
+            } else {
+                UserDefaults.standard.removeObject(
+                    forKey: AriaForgePrepHandoff.interviewCompleteKey
+                )
+            }
+            UserDefaults.standard.synchronize()
+        }
+
+        // Outside the test-ready / harness path: no auto-minted tester.
+        client.devOverrideEnabled = false
+        client.signOut()
+        UserDefaults.standard.set(false, forKey: AppStore.onboardedDefaultsKey)
+        UserDefaults.standard.set(true, forKey: AppStore.authDefaultsKey)
+        UserDefaults.standard.synchronize()
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(
+            AriaForgePrepHandoff.readBool(AppStore.authDefaultsKey),
+            "Fixture: leftover forge.auth.session.v1 is YES"
+        )
+        XCTAssertNil(client.session)
+
+        let store = AppStore()
+        XCTAssertFalse(
+            store.isAuthenticated,
+            "Stale forge.auth.session.v1 alone must not authenticate outside harness"
+        )
+        XCTAssertNil(ForgeAuthClient.shared.session)
+        XCTAssertFalse(store.isOnboarded)
+        XCTAssertEqual(store.launchRootDestination, .authWelcome)
+        XCTAssertNotEqual(store.launchRootDestination, .home)
+    }
+
     func testLeftoverTimeoutFinishesWhenHoldNeverStarts() async {
         AriaForgePrep.resetLeftoverSessionForTests()
         defer { AriaForgePrep.resetLeftoverSessionForTests() }

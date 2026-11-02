@@ -9,17 +9,23 @@ import FoundationModels
 extension AppStore {
 
     /// Rehydrates auth + completed onboarding on cold launch.
+    ///
+    /// `forge.auth.session.v1` is a leftover UserDefaults bool, not a
+    /// session. Production restore authenticates only from
+    /// `ForgeAuthClient.shared.session`. Harness / test-ready auth is the
+    /// Keychain tester minted by `installTestReadySessionIfNeeded`, never
+    /// `AriaForgePrepHandoff.readBool(authDefaultsKey)` and never a leftover
+    /// interview flag promoting that bool.
     func restoreOnboardingState() {
         ForgeAuthClient.shared.installTestReadySessionIfNeeded()
         AriaOperatingMode.refresh()
-        let harnessAuth = AriaForgePrepHandoff.readBool(Self.authDefaultsKey)
         if let session = ForgeAuthClient.shared.session {
             isAuthenticated = true
             authProvider = session.provider
             authEmail = session.email
             AriaContextStore.shared.configure(userId: session.userId)
         } else {
-            isAuthenticated = harnessAuth
+            isAuthenticated = false
             authProvider = UserDefaults.standard.string(forKey: Self.authProviderKey) ?? ""
             authEmail = UserDefaults.standard.string(forKey: Self.authEmailKey) ?? ""
         }
@@ -35,8 +41,8 @@ extension AppStore {
             // Keep a leftover interview flag. Clearing it because auth
             // restore lagged made the launch gate keep reading the
             // pre-launch YES while the app never ran finishForgePrep.
+            // Do not promote the leftover bool into a signed-in session.
             if AriaForgePrepHandoff.isInterviewComplete {
-                if !isAuthenticated, harnessAuth { isAuthenticated = true }
                 restoreUserProfileForCurrentUser()
             } else {
                 AriaForgePrepHandoff.validateFlag(
