@@ -86,10 +86,12 @@ final class CycleCoachingCopyTests: XCTestCase {
         XCTAssertTrue(MenstrualCycleEngine.disclaimer.localizedCaseInsensitiveContains("readiness"))
     }
 
+    @MainActor
     func testAnalystDirectiveOmitsRecoveryAndKeepsNeverDiagnose() {
-        XCTAssertFalse(CycleAriaAnalyst.systemDirective.localizedCaseInsensitiveContains("recovery"))
-        XCTAssertTrue(CycleAriaAnalyst.systemDirective.contains("Never diagnose"))
-        XCTAssertTrue(CycleAriaAnalyst.systemDirective.localizedCaseInsensitiveContains("readiness"))
+        let directive = CycleAriaAnalyst.systemDirective
+        XCTAssertFalse(directive.localizedCaseInsensitiveContains("recovery"))
+        XCTAssertTrue(directive.contains("Never diagnose"))
+        XCTAssertTrue(directive.localizedCaseInsensitiveContains("readiness"))
     }
 
     func testWorkoutDirectiveUsesTendenciesAndBlocksMaxEffortOnLowConfidence() {
