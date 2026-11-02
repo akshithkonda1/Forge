@@ -494,7 +494,7 @@ struct RegularForgeTab: View {
                 .frame(height: ShellTabStyle.iconSlotHeight)
             if isActive {
                 Capsule()
-                    .fill(FDS.Gradient.ember)
+                    .fill(Color.ember)
                     .frame(width: 14, height: 2.5)
                     .offset(y: 2)
                     .matchedGeometryEffect(id: "tab-dot", in: namespace)
