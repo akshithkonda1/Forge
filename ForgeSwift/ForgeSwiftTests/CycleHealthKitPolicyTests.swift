@@ -128,9 +128,14 @@ final class CycleHealthKitPolicyTests: XCTestCase {
             CycleDayLog(dayKey: "2026-03-04", flow: .medium, source: "healthkit"),
             CycleDayLog(dayKey: "2026-03-05", flow: .light, source: "healthkit"),
         ]
+        // Live query still has the 5th — only the 4th was deleted in Health.
+        // An empty successful fetch would infer *every* Health-sourced bleed gone.
         let merged = CycleHealthKitPolicy.merge(
             existing: existing,
-            bundle: emptyBundle(deleted: ["2026-03-04"])
+            bundle: emptyBundle(
+                flow: [(noon("2026-03-05"), .light)],
+                deleted: ["2026-03-04"]
+            )
         )
         XCTAssertFalse(merged.contains { $0.dayKey == "2026-03-04" })
         XCTAssertTrue(merged.contains { $0.dayKey == "2026-03-05" && $0.flow == .light })
