@@ -1,10 +1,12 @@
 import XCTest
 @testable import ForgeCore
 
-/// BH-15: HealthKitManager wiring, not just the gate.
+/// BH-15 call-site contract (source-grep). Distinct from the ForgeSwiftTests
+/// `HealthKitObserverCompletionTests` class, which exercises
+/// `HealthKitManager.shared.handleObserverDelivery`.
 /// Fails on main/0d1426ca where `startBidirectionalSync` calls `completion()`
 /// before `scheduleLiveRefresh` finishes. A revert of that call site must fail.
-final class HealthKitObserverCompletionTests: XCTestCase {
+final class HealthKitObserverCallSiteTests: XCTestCase {
 
     override func setUp() {
         super.setUp()

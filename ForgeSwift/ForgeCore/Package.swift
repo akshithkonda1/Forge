@@ -236,7 +236,7 @@ let package = Package(
                 "OnboardingGraphTests.swift",
                 "HealthKitOnboardingAuthorizationTests.swift",
                 "HealthKitObserverGateTests.swift",
-                "HealthKitObserverCompletionTests.swift",
+                "HealthKitObserverCallSiteTests.swift",
                 "LaunchStabilityFixtureTests.swift",
                 "FakeHealthPackTests.swift",
                 "FakeCalendarPackTests.swift",
