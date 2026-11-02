@@ -338,6 +338,7 @@ final class AppStore: ObservableObject {
         self.responseGenerator = RuleBasedResponseGenerator()
         self.aiModelAvailable = false
         AriaForgePrep.markProcessStart()
+        AriaForgePrep.bindLeftoverStore(self)
         
         AriaContextStore.shared.configure()
         AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()

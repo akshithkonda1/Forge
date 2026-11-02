@@ -59,7 +59,7 @@ struct ContentView: View {
         .task {
             await LaunchFirstFrame.afterPaint()
             revealRoot = true
-            if store.needsForgePrep {
+            if store.needsForgePrep || (AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded) {
                 AriaForgePrep.armLeftoverTimeout(store: store)
             }
             guard showSplash else {

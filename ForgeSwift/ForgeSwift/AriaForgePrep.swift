@@ -282,13 +282,27 @@ extension AriaForgePrep {
     @MainActor
     private static var leftoverTimeoutArmed = false
     private static var leftoverTimeoutWork: DispatchWorkItem?
+    private static var processWatchdogWork: DispatchWorkItem?
+    @MainActor
+    private static weak var leftoverStore: AppStore?
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
 
     static func markProcessStart() {
         if bootstrapUptime == nil {
             bootstrapUptime = ProcessInfo.processInfo.systemUptime
+            // Do not depend on reading the harness interview flag during
+            // AppStore.init — if that read misses, leftover never arms and
+            // the 60s gate stays pending. XCTest must not get a 48s timer.
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                scheduleProcessHandoffWatchdog()
+            }
         }
+    }
+
+    @MainActor
+    static func bindLeftoverStore(_ store: AppStore) {
+        leftoverStore = store
     }
 
     @MainActor
@@ -298,6 +312,9 @@ extension AriaForgePrep {
         leftoverTimeoutArmed = false
         leftoverTimeoutWork?.cancel()
         leftoverTimeoutWork = nil
+        processWatchdogWork?.cancel()
+        processWatchdogWork = nil
+        leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
     }
@@ -311,6 +328,9 @@ extension AriaForgePrep {
         leftoverTimeoutArmed = false
         leftoverTimeoutWork?.cancel()
         leftoverTimeoutWork = nil
+        processWatchdogWork?.cancel()
+        processWatchdogWork = nil
+        leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
     }
@@ -342,6 +362,7 @@ extension AriaForgePrep {
         let leftover = AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded
         guard leftover || store.needsForgePrep else { return }
         leftoverTimeoutArmed = true
+        leftoverStore = store
         let authenticated = store.isAuthenticated
         let elapsed = elapsedSinceProcessStart()
         // Product cap is 55s. Fail-open must still beat PREP_WATCHDOG_S
@@ -360,6 +381,29 @@ extension AriaForgePrep {
             }
         }
         leftoverTimeoutWork = work
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + remaining,
+            execute: work
+        )
+    }
+
+    /// Always-on fail-open from process start. The launch gate writes
+    /// `interviewComplete` before `simctl launch`; AppStore.init can miss
+    /// that read and skip `armLeftoverTimeout`. This timer re-reads the
+    /// plist at `watchdog-12` and flushes if still pending.
+    private static func scheduleProcessHandoffWatchdog() {
+        processWatchdogWork?.cancel()
+        let remaining = max(0.05, watchdog - 12)
+        let work = DispatchWorkItem {
+            let interview = AriaForgePrepHandoff.isInterviewComplete
+            let onboarded = AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey)
+            guard interview, !onboarded else { return }
+            AriaForgePrepHandoff.flushHandoff(onboarded: false)
+            Task { @MainActor in
+                leftoverStore?.finishForgePrep()
+            }
+        }
+        processWatchdogWork = work
         DispatchQueue.global(qos: .userInitiated).asyncAfter(
             deadline: .now() + remaining,
             execute: work
