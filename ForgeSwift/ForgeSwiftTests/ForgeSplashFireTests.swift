@@ -299,6 +299,35 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertLessThan(settled.flameScale, 1.20, "rise, not a burst")
     }
 
+    func testStrikeBudgetStaysLightweight() {
+        XCTAssertFalse(ForgeStrikeBudget.usesBlur)
+        XCTAssertFalse(ForgeStrikeBudget.usesShader)
+        XCTAssertFalse(ForgeStrikeBudget.usesRaster)
+        XCTAssertTrue(ForgeStrikeBudget.pausesAfterSequence)
+        XCTAssertEqual(ForgeStrikeBudget.ghostTrails, 1)
+        XCTAssertEqual(ForgeStrikeBudget.flameLayers, 3)
+        XCTAssertLessThanOrEqual(ForgeStrikeBudget.maxPersistentDraws, 12)
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.paintHz, 60)
+        XCTAssertGreaterThan(ForgeStrikeGeometry.impactSpikeWidth, 0.08)
+        XCTAssertLessThanOrEqual(ForgeStrikeGeometry.maxLocalizedGlow, 0.28)
+        let hit = ForgeStrikeGeometry.pose(
+            time: ForgeStrikeGeometry.splashImpactTime,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: false
+        )
+        XCTAssertLessThan(hit.stretch, 1, "squash on the strike")
+        XCTAssertGreaterThan(hit.stretch, 0.80)
+        let settled = ForgeStrikeGeometry.pose(
+            time: ForgeStrikeGeometry.splashDuration,
+            duration: ForgeStrikeGeometry.splashDuration,
+            reduceMotion: false
+        )
+        XCTAssertEqual(settled.stretch, 1, accuracy: 0.02)
+        let reduced = ForgeStrikeGeometry.pose(time: 0, duration: 1.85, reduceMotion: true)
+        XCTAssertEqual(reduced.stretch, 1, accuracy: 0.001)
+        XCTAssertLessThan(reduced.impact, 0.05)
+    }
+
     func testSparksAreOneShotCanvasChips() {
         XCTAssertEqual(ForgeSparkBurst.kind, "canvas")
         XCTAssertEqual(ForgeSparkBurst.shape, "chip")

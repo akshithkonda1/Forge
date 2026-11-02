@@ -241,6 +241,8 @@ struct ForgeStrikePose: Equatable, Sendable {
     var heat: Double
     /// Camera push. 0 at windup, 1 at rest.
     var push: Double
+    /// 1 at rest. Below 1 squashes the head on the strike (follow-through).
+    var stretch: Double
 }
 
 enum ForgeStrikeGeometry: Sendable {
@@ -254,6 +256,8 @@ enum ForgeStrikeGeometry: Sendable {
     static let strikeImpactFraction: Double = 0.42
     /// Localized contact glow only. Well under a full-screen flash.
     static let maxLocalizedGlow: Double = 0.28
+    /// Cosine spike width — wide so the glow fades slowly, never a strobe.
+    static let impactSpikeWidth: Double = 0.14
     static let paintHz: Double = 60
     static var splashImpactTime: TimeInterval { splashDuration * strikeImpactFraction }
 
@@ -277,11 +281,11 @@ enum ForgeStrikeGeometry: Sendable {
         let raised = windup + (gather - windup) * antic
         let down = easeInQuart(window(u, anticipationEnd, strikeImpactFraction))
         let hammerDown = raised * (1 - down) + rest * down
-        let hit = spike(u, center: strikeImpactFraction, width: 0.08)
+        let hit = spike(u, center: strikeImpactFraction, width: impactSpikeWidth)
 
         switch style {
         case .accelerateRebound:
-            let rebound = springOvershoot(window(u, strikeImpactFraction, 1), amplitude: 0.13, decay: 10, omega: 18)
+            let rebound = springOvershoot(window(u, strikeImpactFraction, 1), amplitude: 0.11, decay: 9, omega: 16)
             let settle = smoothstep(window(u, strikeImpactFraction, 0.82))
             return ForgeStrikePose(
                 hammerAngle: hammerDown + rebound,
@@ -289,7 +293,8 @@ enum ForgeStrikeGeometry: Sendable {
                 flameScale: 0.62 + 0.48 * hit + 0.28 * settle,
                 sparkTravel: smoothstep(window(u, strikeImpactFraction, 0.82)),
                 heat: 0.42 + 0.48 * hit + 0.22 * settle,
-                push: 0.12 * antic + 0.88 * settle
+                push: 0.12 * antic + 0.88 * settle,
+                stretch: 1 - 0.12 * hit
             )
         case .forgeAndRest:
             let gatherFlame = smoothstep(window(u, strikeImpactFraction, 0.62))
@@ -299,7 +304,8 @@ enum ForgeStrikeGeometry: Sendable {
                 flameScale: 0.88 + 0.13 * gatherFlame,
                 sparkTravel: smoothstep(window(u, strikeImpactFraction, 0.72)),
                 heat: 0.40 + 0.28 * gatherFlame,
-                push: gatherFlame
+                push: gatherFlame,
+                stretch: 1 - 0.08 * hit
             )
         }
     }
@@ -367,6 +373,18 @@ enum ForgeStrikeMotion: Sendable {
     static let swingIsLinear = false
     static var allowsRebound: Bool { style == .accelerateRebound }
     static var allowsImpactShake: Bool { style == .accelerateRebound }
+}
+
+/// Hard budget for the splash beat. One Canvas pass, no blur/shaders,
+/// TimelineView pauses when the sequence ends.
+enum ForgeStrikeBudget: Sendable {
+    static let usesBlur = false
+    static let usesShader = false
+    static let usesRaster = false
+    static let pausesAfterSequence = true
+    static let ghostTrails = 1
+    static let flameLayers = 3
+    static let maxPersistentDraws = 12
 }
 
 /// Hammer, anvil, and flame. Plays once, then holds the last pose.
@@ -484,7 +502,7 @@ private enum ForgeStrikeCanvas {
         context.scaleBy(x: push, y: push)
         context.translateBy(x: -size.width * 0.5, y: -size.height * 0.56)
         if ForgeStrikeMotion.allowsImpactShake {
-            context.translateBy(x: 0, y: CGFloat(pose.impact) * s * 0.010)
+            context.translateBy(x: 0, y: CGFloat(pose.impact) * s * 0.004)
         }
 
         let grip = CGPoint(x: size.width * 0.30, y: size.height * 0.06)
@@ -499,18 +517,16 @@ private enum ForgeStrikeCanvas {
         drawAnvilShadow(context: &context, face: face, top: top, s: s)
         drawAnvil(context: &context, face: face, top: top, s: s, pose: pose)
         drawFlame(context: &context, face: face, top: top, s: s, pose: pose, time: time, reduceMotion: reduceMotion)
-        drawHeatShimmer(context: &context, face: face, top: top, s: s, pose: pose, time: time, reduceMotion: reduceMotion)
         drawFaceHeat(context: &context, face: face, top: top, s: s, pose: pose)
         drawSparks(context: &context, face: face, top: top, s: s, pose: pose)
 
-        if !reduceMotion {
-            for (lag, alpha) in [(0.055, 0.10), (0.028, 0.20)] {
-                let earlier = ForgeStrikeGeometry.pose(
-                    time: time - lag,
-                    duration: duration,
-                    reduceMotion: false
-                )
-                guard abs(earlier.hammerAngle - pose.hammerAngle) > 0.04 else { continue }
+        if !reduceMotion, ForgeStrikeBudget.ghostTrails > 0 {
+            let earlier = ForgeStrikeGeometry.pose(
+                time: time - 0.030,
+                duration: duration,
+                reduceMotion: false
+            )
+            if abs(earlier.hammerAngle - pose.hammerAngle) > 0.04 {
                 drawHammer(
                     context: &context,
                     grip: grip,
@@ -518,8 +534,9 @@ private enum ForgeStrikeCanvas {
                     angle: earlier.hammerAngle,
                     headWidth: headWidth,
                     headDepth: headDepth,
-                    opacity: alpha,
+                    opacity: 0.16,
                     impact: 0,
+                    stretch: 1,
                     ghost: true
                 )
             }
@@ -534,17 +551,27 @@ private enum ForgeStrikeCanvas {
             headDepth: headDepth,
             opacity: 1,
             impact: pose.impact,
+            stretch: pose.stretch,
             ghost: false
         )
 
         if pose.impact > 0.05 {
-            let glow = min(ForgeStrikeGeometry.maxLocalizedGlow, 0.18 + 0.10 * pose.impact)
-            let r = s * (0.05 + 0.07 * pose.impact)
-            let flash = CGRect(x: face.x - r, y: top - r * 0.80, width: r * 2, height: r * 1.25)
-            context.fill(Path(ellipseIn: flash), with: .color(Color(hex: "FFE7B0").opacity(glow)))
-            let coreR = r * 0.34
-            let core = CGRect(x: face.x - coreR, y: top - coreR * 0.65, width: coreR * 2, height: coreR * 1.25)
-            context.fill(Path(ellipseIn: core), with: .color(Color(hex: "FFF4C8").opacity(glow * 1.4)))
+            let glow = min(ForgeStrikeGeometry.maxLocalizedGlow, 0.16 + 0.12 * pose.impact)
+            let r = s * (0.055 + 0.045 * pose.impact)
+            let flash = CGRect(x: face.x - r, y: top - r * 0.72, width: r * 2, height: r * 1.18)
+            context.fill(
+                Path(ellipseIn: flash),
+                with: .radialGradient(
+                    Gradient(colors: [
+                        Color(hex: "FFE7B0").opacity(glow),
+                        Color(hex: "FFB45A").opacity(glow * 0.35),
+                        Color.clear
+                    ]),
+                    center: CGPoint(x: face.x, y: top),
+                    startRadius: 0,
+                    endRadius: r
+                )
+            )
         }
     }
 
@@ -577,17 +604,19 @@ private enum ForgeStrikeCanvas {
             width: s * 0.96,
             height: s * (0.48 + 0.50 * pose.flameScale)
         )
-        context.drawLayer { layer in
-            layer.addFilter(.blur(radius: s * 0.07))
-            layer.fill(
-                Path(ellipseIn: bloom),
-                with: .color(Color.ember.opacity(0.08 + 0.20 * pose.heat * min(pose.flameScale, 1.15)))
-            )
-        }
-        let inner = bloom.insetBy(dx: bloom.width * 0.22, dy: bloom.height * 0.18)
+        let heat = min(pose.heat, 1) * min(pose.flameScale, 1.15)
         context.fill(
-            Path(ellipseIn: inner),
-            with: .color(Color.ember.opacity(0.06 + 0.12 * pose.heat))
+            Path(ellipseIn: bloom),
+            with: .radialGradient(
+                Gradient(colors: [
+                    Color.ember.opacity(0.16 + 0.14 * heat),
+                    Color.ember.opacity(0.05 + 0.06 * heat),
+                    Color.clear
+                ]),
+                center: CGPoint(x: face.x, y: top - s * 0.08),
+                startRadius: s * 0.04,
+                endRadius: s * 0.46
+            )
         )
     }
 
@@ -673,43 +702,20 @@ private enum ForgeStrikeCanvas {
         top: CGFloat,
         s: CGFloat
     ) {
-        let shadow = CGRect(x: face.x - s * 0.28, y: top + s * 0.30, width: s * 0.56, height: s * 0.08)
-        context.drawLayer { layer in
-            layer.addFilter(.blur(radius: s * 0.03))
-            layer.fill(Path(ellipseIn: shadow), with: .color(Color.black.opacity(0.42)))
-        }
-    }
-
-    private static func drawHeatShimmer(
-        context: inout GraphicsContext,
-        face: CGPoint,
-        top: CGFloat,
-        s: CGFloat,
-        pose: ForgeStrikePose,
-        time: Double,
-        reduceMotion: Bool
-    ) {
-        guard !reduceMotion else { return }
-        let flickerT = ForgeFireGeometry.flickerTime(time)
-        let lift = 0.34 + 0.16 * pose.flameScale
-        for band in 0..<4 {
-            let phase = Double(band) * 1.71
-            let xOff = 0.034 * sin(flickerT * 1.55 + phase)
-            let yOff = 0.016 * sin(flickerT * 1.12 + phase * 0.7)
-            let rect = CGRect(
-                x: face.x + s * CGFloat(-0.15 + Double(band) * 0.085 + xOff),
-                y: top - s * CGFloat(lift + yOff),
-                width: s * 0.048,
-                height: s * (0.22 + 0.10 * pose.flameScale)
+        let shadow = CGRect(x: face.x - s * 0.30, y: top + s * 0.30, width: s * 0.60, height: s * 0.09)
+        context.fill(
+            Path(ellipseIn: shadow),
+            with: .radialGradient(
+                Gradient(colors: [
+                    Color.black.opacity(0.38),
+                    Color.black.opacity(0.10),
+                    Color.clear
+                ]),
+                center: CGPoint(x: face.x, y: shadow.midY),
+                startRadius: s * 0.02,
+                endRadius: s * 0.30
             )
-            context.drawLayer { layer in
-                layer.addFilter(.blur(radius: s * 0.038))
-                layer.fill(
-                    Path(ellipseIn: rect),
-                    with: .color(Color(hex: "FFE7B0").opacity(0.028 + 0.022 * pose.heat))
-                )
-            }
-        }
+        )
     }
 
     private static func drawFaceHeat(
@@ -737,10 +743,10 @@ private enum ForgeStrikeCanvas {
     ) {
         let scale = max(0.18, pose.flameScale)
         let flickerT = reduceMotion ? 0.18 : ForgeFireGeometry.flickerTime(time)
-        let lean = reduceMotion ? 0 : 0.012 * sin(flickerT * .pi * 2 * 2.4)
-        let pulse = reduceMotion ? 1 : 0.94 + 0.06 * sin(flickerT * .pi * 2 * 3.1)
+        // Lean only — no brightness pumping. Heat drives intensity smoothly.
+        let lean = reduceMotion ? 0 : 0.010 * sin(flickerT * .pi * 2 * 1.6)
         let width = s * 0.42
-        let height = s * 0.62 * scale * pulse
+        let height = s * 0.62 * scale
         let base = CGRect(
             x: face.x - width / 2 + CGFloat(lean) * s,
             y: top - height,
@@ -748,13 +754,19 @@ private enum ForgeStrikeCanvas {
             height: height
         )
 
-        context.drawLayer { bloom in
-            bloom.addFilter(.blur(radius: s * 0.045))
-            bloom.fill(
-                Path(ellipseIn: base.insetBy(dx: -s * 0.04, dy: s * 0.02)),
-                with: .color(Color.ember.opacity(0.22 + 0.18 * pose.heat))
+        context.fill(
+            Path(ellipseIn: base.insetBy(dx: -s * 0.02, dy: s * 0.04)),
+            with: .radialGradient(
+                Gradient(colors: [
+                    Color.ember.opacity(0.20 + 0.16 * pose.heat),
+                    Color.ember.opacity(0.04),
+                    Color.clear
+                ]),
+                center: CGPoint(x: face.x, y: top - height * 0.28),
+                startRadius: s * 0.02,
+                endRadius: s * 0.28
             )
-        }
+        )
 
         fillFlame(
             context: &context,
@@ -780,7 +792,7 @@ private enum ForgeStrikeCanvas {
 
         let lickW = width * 0.22
         let lickH = height * 0.42
-        let lickLean = reduceMotion ? 0 : 0.018 * sin(flickerT * 5.1 + 1.2)
+        let lickLean = reduceMotion ? 0 : 0.012 * sin(flickerT * 2.4 + 1.2)
         let lick = CGRect(
             x: face.x + width * 0.12 + CGFloat(lickLean) * s,
             y: top - lickH * 0.92,
@@ -861,13 +873,6 @@ private enum ForgeStrikeCanvas {
             let y = top - sin(-chip.angle) * dist * 0.85 + CGFloat(ForgeSparkBurst.gravity) * s * 0.05 * CGFloat(t * t)
             let w = s * 0.018 * CGFloat(chip.size) * (1 - 0.35 * t)
             let h = w * 2.4
-            var chipPath = Path()
-            chipPath.move(to: CGPoint(x: 0, y: -h / 2))
-            chipPath.addQuadCurve(to: CGPoint(x: w / 2, y: 0), control: CGPoint(x: w * 0.42, y: -h * 0.18))
-            chipPath.addQuadCurve(to: CGPoint(x: 0, y: h / 2), control: CGPoint(x: w * 0.32, y: h * 0.22))
-            chipPath.addQuadCurve(to: CGPoint(x: -w / 2, y: 0), control: CGPoint(x: -w * 0.32, y: h * 0.22))
-            chipPath.addQuadCurve(to: CGPoint(x: 0, y: -h / 2), control: CGPoint(x: -w * 0.42, y: -h * 0.18))
-            chipPath.closeSubpath()
 
             if t > 0.04 {
                 let trail = min(0.12, t)
@@ -887,9 +892,10 @@ private enum ForgeStrikeCanvas {
             var transform = CGAffineTransform.identity
             transform = transform.translatedBy(x: x, y: y)
             transform = transform.rotated(by: chip.spin * t)
+            transform = transform.scaledBy(x: w, y: h)
             context.fill(
-                chipPath.applying(transform),
-                with: .color(Color(hex: "FFE7B0").opacity(0.88 * fade))
+                unitChip.applying(transform),
+                with: .color(Color(hex: "FFE7B0").opacity(0.70 * fade))
             )
         }
     }
@@ -903,6 +909,7 @@ private enum ForgeStrikeCanvas {
         headDepth: CGFloat,
         opacity: Double,
         impact: Double,
+        stretch: Double,
         ghost: Bool
     ) {
         let face = point(grip: grip, reach: reach, angle: angle)
@@ -931,19 +938,19 @@ private enum ForgeStrikeCanvas {
             )
         }
 
-        context.drawLayer { layer in
-            layer.translateBy(x: face.x, y: face.y)
-            layer.rotate(by: .radians(-angle))
-            layer.opacity = opacity
-            paintHead(
-                context: &layer,
-                width: headWidth,
-                depth: headDepth,
-                handleWidth: handleEnd,
-                impact: impact,
-                ghost: ghost
-            )
-        }
+        var head = context
+        head.translateBy(x: face.x, y: face.y)
+        head.rotate(by: .radians(-angle))
+        head.scaleBy(x: 1 + (1 - stretch) * 0.08, y: stretch)
+        head.opacity = opacity
+        paintHead(
+            context: &head,
+            width: headWidth,
+            depth: headDepth,
+            handleWidth: handleEnd,
+            impact: impact,
+            ghost: ghost
+        )
     }
 
     private static func paintHead(
@@ -1093,7 +1100,7 @@ private enum ForgeStrikeCanvas {
         let len = max(hypot(dx, dy), 0.001)
         let nx = -dy / len * startWidth * 0.16
         let ny = dx / len * startWidth * 0.16
-        for grain in 0..<3 {
+        for grain in 0..<1 {
             let t = CGFloat(0.22 + Double(grain) * 0.22)
             let a = CGPoint(x: grip.x + dx * t + nx, y: grip.y + dy * t + ny)
             let b = CGPoint(x: grip.x + dx * min(1, t + 0.18) + nx, y: grip.y + dy * min(1, t + 0.18) + ny)
@@ -1167,6 +1174,19 @@ private enum ForgeStrikeCanvas {
         path.closeSubpath()
         return path
     }
+
+    /// Unit diamond chip in [-0.5, 0.5]. Scaled per spark so we do not
+    /// rebuild a path for every chip on every frame.
+    private static let unitChip: Path = {
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: -0.5))
+        path.addQuadCurve(to: CGPoint(x: 0.5, y: 0), control: CGPoint(x: 0.42, y: -0.18))
+        path.addQuadCurve(to: CGPoint(x: 0, y: 0.5), control: CGPoint(x: 0.32, y: 0.22))
+        path.addQuadCurve(to: CGPoint(x: -0.5, y: 0), control: CGPoint(x: -0.32, y: 0.22))
+        path.addQuadCurve(to: CGPoint(x: 0, y: -0.5), control: CGPoint(x: -0.42, y: -0.18))
+        path.closeSubpath()
+        return path
+    }()
 
     private static func point(grip: CGPoint, reach: CGFloat, angle: Double) -> CGPoint {
         CGPoint(
