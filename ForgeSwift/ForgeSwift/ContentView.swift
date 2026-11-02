@@ -23,9 +23,9 @@ struct ContentView: View {
             Group {
                 if !revealRoot {
                     LaunchBrandField()
-                } else if !store.isAuthenticated {
+                } else if store.launchRootDestination == .authWelcome {
                     AuthWelcomeView()
-                } else if !store.isOnboarded {
+                } else if store.launchRootDestination == .onboarding {
                     OnboardingView()
                 } else if !showSplash {
                     MainTabView()

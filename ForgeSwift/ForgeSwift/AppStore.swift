@@ -512,29 +512,52 @@ final class AppStore: ObservableObject {
         AriaForgePrepHandoff.needsPrep(isOnboarded: isOnboarded, isAuthenticated: isAuthenticated)
     }
 
+    /// Same switch `ContentView` uses after first paint. Leftover fail-open
+    /// without a session must stay on auth, never Home.
+    enum LaunchRootDestination: Equatable {
+        case authWelcome
+        case onboarding
+        case home
+    }
+
+    var launchRootDestination: LaunchRootDestination {
+        if !isAuthenticated { return .authWelcome }
+        if !isOnboarded { return .onboarding }
+        return .home
+    }
+
     func markOnboardingInterviewComplete() {
         AriaForgePrepHandoff.markInterviewComplete()
     }
 
     func finishForgePrep() {
-        isOnboarded = true
+        // Leftover timeout may fire with no session (auth restore lagged).
+        // Clear the prep hang so the launch gate is not stuck; do not mark
+        // onboarded and skip sign-in.
+        if isAuthenticated {
+            isOnboarded = true
+            UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
+        }
         AriaForgePrepHandoff.clearInterviewComplete()
-        UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
         UserDefaults.standard.set(false, forKey: AriaForgePrepHandoff.interviewCompleteKey)
         UserDefaults.standard.synchronize()
         let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
-        CFPreferencesSetAppValue(
-            Self.onboardedDefaultsKey as CFString,
-            kCFBooleanTrue,
-            app
-        )
+        if isAuthenticated {
+            CFPreferencesSetAppValue(
+                Self.onboardedDefaultsKey as CFString,
+                kCFBooleanTrue,
+                app
+            )
+        }
         CFPreferencesSetAppValue(
             AriaForgePrepHandoff.interviewCompleteKey as CFString,
             kCFBooleanFalse,
             app
         )
         CFPreferencesAppSynchronize(app)
-        refreshTutorialOpeningFromProfile()
+        if isAuthenticated {
+            refreshTutorialOpeningFromProfile()
+        }
     }
 
     /// First-launch tutorial uses the onboarding experience/goal signal so

@@ -140,11 +140,41 @@ final class LaunchStabilityGateTests: XCTestCase {
 
         AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
         let deadline = Date().addingTimeInterval(2)
-        while !store.isOnboarded && Date() < deadline {
+        while AriaForgePrepHandoff.isInterviewComplete && Date() < deadline {
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertTrue(store.isOnboarded)
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
+        XCTAssertFalse(store.isOnboarded)
+        XCTAssertEqual(store.launchRootDestination, .authWelcome)
+    }
+
+    func testLeftoverTimeoutWithoutSessionDoesNotSkipAuth() async {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        defer { AriaForgePrep.resetLeftoverSessionForTests() }
+
+        let store = AppStore()
+        store.isAuthenticated = false
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertEqual(store.launchRootDestination, .authWelcome)
+
+        // Injected duration — not the 55s product cap.
+        AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
+        let deadline = Date().addingTimeInterval(2)
+        while AriaForgePrepHandoff.isInterviewComplete && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
+        XCTAssertFalse(store.isAuthenticated)
+        XCTAssertFalse(store.isOnboarded)
+        XCTAssertFalse(store.needsForgePrep)
+        XCTAssertEqual(
+            store.launchRootDestination,
+            .authWelcome,
+            "Leftover fail-open must clear the prep hang, not skip sign-in"
+        )
+        XCTAssertNotEqual(store.launchRootDestination, .home)
     }
 
     func testLeftoverTimeoutFinishesWhenHoldNeverStarts() async {

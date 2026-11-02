@@ -272,10 +272,9 @@ extension AriaForgePrep {
         leftoverIngestTask = nil
     }
 
-    /// Fail-open: if the hold or ingest is still pending at `cap`, open
-    /// the shell and flush the handoff the launch gate reads. Arms on the
-    /// leftover interview flag even when auth restore lagged — the gate
-    /// keys are interview/completed, not the session flag.
+    /// Fail-open: if the hold or ingest is still pending at `cap`, flush
+    /// the interview handoff. With a session this finishes onboarding;
+    /// without one it only clears the hang — sign-in stays up.
     @MainActor
     static func armLeftoverTimeout(
         store: AppStore,
