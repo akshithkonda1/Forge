@@ -224,7 +224,14 @@ final class AriaContextStore: ObservableObject {
             let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
             guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
             let domain = CyclePhaseCoachingDirective.classifyDomain(from: query ?? "")
-            let text = CyclePhaseCoachingDirective.directive(for: phase, domain: domain)
+            let cycle = MenstrualHealthStore.shared
+            let text = CyclePhaseCoachingDirective.directive(
+                for: phase,
+                domain: domain,
+                confidence: cycle.snapshot.confidence,
+                lutealDays: cycle.settings.effectiveLutealDays,
+                ovulationMethod: cycle.snapshot.ovulationMethod
+            )
             return text.isEmpty ? nil : text
         }()
         // Life Context — Reminders counts, shared-conversation facts, and the

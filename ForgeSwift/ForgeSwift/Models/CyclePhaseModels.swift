@@ -148,7 +148,7 @@ enum MenstrualPhase: String, Codable, CaseIterable, Identifiable {
         case .follicular: return "Often a strong window for progressive overload and skill work."
         case .fertileWindow: return "Power and intensity can feel available — mind hydration and sleep."
         case .ovulation: return "Peak force potential for many; watch joint stiffness and warm up thoroughly."
-        case .luteal: return "Volume and heat tolerance may dip; quality over ego, more recovery buffer."
+        case .luteal: return "Volume and heat tolerance may dip; quality over ego, more rest buffer."
         }
     }
 }
@@ -252,7 +252,7 @@ enum CycleCondition: String, Codable, CaseIterable, Identifiable {
         case .pcos:
             return "Long and variable cycles count as real history, not errors. The irregularity flag stays quiet unless variance is extreme — patterns emerge over many cycles, not one."
         case .endometriosis:
-            return "Pain and pelvic symptoms feed recovery guidance. Cycle timing still personalizes from your logs; pain that disrupts daily life is worth raising with a clinician."
+            return "Pain and pelvic symptoms feed rest guidance. Cycle timing still personalizes from your logs; pain that disrupts daily life is worth raising with a clinician."
         case .perimenopause:
             return "Fertile-window and ovulation labels are withheld because they aren’t reliable here. Period timing stays a range, not a fixed date."
         case .thyroid:

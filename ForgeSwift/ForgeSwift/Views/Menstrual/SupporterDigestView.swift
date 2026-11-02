@@ -58,7 +58,7 @@ struct SupporterDigestView: View {
     private func banner(icon: String, text: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ForgeFont.sans(14, weight: .semibold, relativeTo: .subheadline))
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)
             Text(text)
@@ -168,7 +168,7 @@ struct SupporterDigestView: View {
             Circle()
                 .fill(accent.opacity(0.18))
             Image(systemName: phaseIcon)
-                .font(.system(size: diameter * 0.39, weight: .semibold))
+                .font(ForgeFont.sans(diameter * 0.39, weight: .semibold, relativeTo: .title3))
                 .foregroundStyle(accent)
         }
         .frame(width: diameter, height: diameter)
@@ -194,7 +194,7 @@ struct SupporterDigestView: View {
     private func supportCardQuote(_ card: String) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: "heart.text.square.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(ForgeFont.sans(16, weight: .semibold, relativeTo: .callout))
                 .foregroundStyle(Color.indigo)
                 .accessibilityHidden(true)
             Text(card)
@@ -287,7 +287,7 @@ struct SupporterDigestView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeCardHeader(title: PartnerSupportLens.Section.whatYouCannotSee.title) {
                 Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ForgeFont.sans(13, weight: .semibold, relativeTo: .footnote))
                     .foregroundStyle(Color.textTertiary)
                     .accessibilityHidden(true)
             }

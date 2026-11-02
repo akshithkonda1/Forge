@@ -94,7 +94,7 @@ struct CycleRhythmReportView: View {
                     .accessibilityAddTraits(.isHeader)
                 ForgeVibeChip(label: "Apple Cycle", energy: Color.vitality)
             }
-            Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Share the PDF via Mail, Files, or MyChart. A temporary private link is optional and expires in a day — nothing is stored in a Forge database.")
+            Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Share the PDF via Mail, Files, or MyChart. A temporary private link is optional and expires in a day — nothing is stored in a Forge database. Cycle context is shared with ARIA only if you turn on share with ARIA, and with supporters only if you invite them, per person.")
                 .font(HomeType.body)
                 .foregroundStyle(Color.textSecondary)
                 .forgeWrapping()
@@ -321,7 +321,7 @@ private struct ReportActionLabel: View {
     private var primaryBody: some View {
         HStack(spacing: FDS.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .font(ForgeFont.sans(ForgeUX.icon, weight: .semibold, relativeTo: .callout))
                 .accessibilityHidden(true)
             Text(title)
                 .font(HomeType.cta)
@@ -329,7 +329,7 @@ private struct ReportActionLabel: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: FDS.Spacing.sm)
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold))
+                .font(ForgeFont.sans(14, weight: .bold, relativeTo: .subheadline))
                 .accessibilityHidden(true)
         }
         .foregroundColor(.white)
@@ -349,7 +349,7 @@ private struct ReportActionLabel: View {
     private var secondaryBody: some View {
         HStack(spacing: FDS.Spacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .font(ForgeFont.sans(ForgeUX.icon, weight: .semibold, relativeTo: .callout))
                 .accessibilityHidden(true)
             Text(title)
                 .font(HomeType.label)

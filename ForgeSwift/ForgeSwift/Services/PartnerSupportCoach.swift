@@ -192,7 +192,7 @@ enum PartnerSupportCoach {
                 "Offer to handle logistics (dinner, dishes, errands) without making it a big speech.",
                 "Believe pain reports; don't minimize cramps or fatigue.",
                 "Keep plans flexible — early exit from social events is a win, not a fail.",
-                "If she trains, support technique/recovery sessions over ego lifts.",
+                "If she trains, support technique and rest sessions over ego lifts.",
             ]
             avoid = [
                 "Don't police mood or say \"it's just hormones\" as a dismissive line.",

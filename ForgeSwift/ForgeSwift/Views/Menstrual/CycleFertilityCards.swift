@@ -90,7 +90,7 @@ private struct CycleChoiceTile: View {
             Spacer(minLength: FDS.Spacing.sm)
             if selected {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ForgeFont.sans(14, weight: .semibold, relativeTo: .subheadline))
                     .accessibilityHidden(true)
             }
         }
