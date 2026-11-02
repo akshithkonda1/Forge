@@ -281,8 +281,7 @@ extension AriaForgePrep {
     /// from process start — not from when OnboardingView happens to appear.
     @MainActor
     private static var leftoverTimeoutArmed = false
-    @MainActor
-    private static var leftoverTimeoutTask: Task<Void, Never>?
+    private static var leftoverTimeoutWork: DispatchWorkItem?
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
 
@@ -297,8 +296,8 @@ extension AriaForgePrep {
         bootstrapUptime = ProcessInfo.processInfo.systemUptime
         testClockOrigin = Date()
         leftoverTimeoutArmed = false
-        leftoverTimeoutTask?.cancel()
-        leftoverTimeoutTask = nil
+        leftoverTimeoutWork?.cancel()
+        leftoverTimeoutWork = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
     }
@@ -310,8 +309,8 @@ extension AriaForgePrep {
         testClockOrigin = nil
         bootstrapUptime = ProcessInfo.processInfo.systemUptime
         leftoverTimeoutArmed = false
-        leftoverTimeoutTask?.cancel()
-        leftoverTimeoutTask = nil
+        leftoverTimeoutWork?.cancel()
+        leftoverTimeoutWork = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
     }
@@ -345,21 +344,26 @@ extension AriaForgePrep {
         leftoverTimeoutArmed = true
         let authenticated = store.isAuthenticated
         let elapsed = elapsedSinceProcessStart()
+        // Product cap is 55s. Fail-open must still beat PREP_WATCHDOG_S
+        // (60s from simctl) after origin slop and a 2s harness poll.
         let remaining = seconds < 1
             ? max(0, seconds)
-            : max(0.05, seconds - elapsed)
-        leftoverTimeoutTask = Task.detached(priority: .userInitiated) { [store] in
-            let ns = UInt64((remaining * 1_000_000_000).rounded())
-            try? await Task.sleep(nanoseconds: ns)
-            guard !Task.isCancelled else { return }
+            : max(0.05, min(seconds, watchdog - 12) - elapsed)
+        leftoverTimeoutWork?.cancel()
+        let work = DispatchWorkItem { [store] in
             // Harness reads the container plist. Flush it here so a busy
             // MainActor leftover ingest cannot miss PREP_WATCHDOG_S.
             AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
-            await MainActor.run {
+            Task { @MainActor in
                 if store.isOnboarded, !AriaForgePrepHandoff.isInterviewComplete { return }
                 store.finishForgePrep()
             }
         }
+        leftoverTimeoutWork = work
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + remaining,
+            execute: work
+        )
     }
 
     /// Start Health / plan / cloud ingest once, off the first-frame path.
