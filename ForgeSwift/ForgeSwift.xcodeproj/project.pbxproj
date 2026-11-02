@@ -367,6 +367,7 @@
 		1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04500000000000000A /* ForgeSplashFireTests.swift */; };
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
+		1TEST08200000000000000A /* HealthKitObserverCompletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST08100000000000000A /* HealthKitObserverCompletionTests.swift */; };
 		1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */; };
 		1MEM06000000000000000A /* AriaMemoryControlsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */; };
 		1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03700000000000000A /* SleepNightGroupingTests.swift */; };
@@ -584,6 +585,7 @@
 		1TEST04500000000000000A /* ForgeSplashFireTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSplashFireTests.swift; sourceTree = "<group>"; };
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
 		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
+		1TEST08100000000000000A /* HealthKitObserverCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitObserverCompletionTests.swift; sourceTree = "<group>"; };
 		1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
 		1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsViewModelTests.swift; sourceTree = "<group>"; };
 		1TEST04100000000000000A /* TrainSleepUsableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainSleepUsableTests.swift; sourceTree = "<group>"; };
@@ -1409,6 +1411,7 @@
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
+				1TEST08100000000000000A /* HealthKitObserverCompletionTests.swift */,
 				1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */,
 				1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */,
 				1TEST03700000000000000A /* SleepNightGroupingTests.swift */,
@@ -2068,6 +2071,7 @@
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
+				1TEST08200000000000000A /* HealthKitObserverCompletionTests.swift in Sources */,
 				1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */,
 				1MEM06000000000000000A /* AriaMemoryControlsViewModelTests.swift in Sources */,
 				1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */,

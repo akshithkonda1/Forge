@@ -182,4 +182,23 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         defaults?.set(data, forKey: StandByMetricsStore.key)
         XCTAssertEqual(StandByMetricsStore.load(), [.sleep, .hydration])
     }
+
+    func testLifestyleWidgetMissingSnapshotIsEmptyNotZeroQOL() {
+        XCTAssertEqual(LifestyleWidgetContent.decode(nil), .empty)
+        XCTAssertNil(LifestyleWidgetContent.decode(nil).snapshot)
+    }
+
+    func testLifestyleWidgetDecodeFailureIsEmptyNotZeroQOL() {
+        let garbage = Data("{not-json".utf8)
+        XCTAssertEqual(LifestyleWidgetContent.decode(garbage), .empty)
+        XCTAssertNil(LifestyleWidgetContent.decode(garbage).snapshot)
+    }
+
+    func testLifestyleWidgetValidSnapshotLoadsQOL() {
+        let snap = LifestyleWidgetSnapshot.preview
+        let data = try? JSONEncoder().encode(snap)
+        let content = LifestyleWidgetContent.decode(data)
+        XCTAssertEqual(content.snapshot?.qol, snap.qol)
+        XCTAssertEqual(content.snapshot?.topTitle, snap.topTitle)
+    }
 }
