@@ -192,7 +192,7 @@ struct AIRecommendation: Identifiable, Codable {
     }
 
     static var sampleRecommendations: [AIRecommendation] {[
-        AIRecommendation(title: "Increase protein by 30g", description: "Muscle recovery improves with 180g daily. You're averaging 150g — add a serving of Greek yogurt or chicken after training.", impact: .high, category: .nutrition),
+        AIRecommendation(title: "Increase protein by 30g", description: "Muscle rebuilds better with 180g daily. You're averaging 150g — add a serving of Greek yogurt or chicken after training.", impact: .high, category: .nutrition),
         AIRecommendation(title: "Earlier bedtime (9:30 PM)", description: "Your deep sleep increases by 18% when asleep before 10 PM. Oura data across 47 nights confirms this pattern.", impact: .high, category: .sleep),
         AIRecommendation(title: "10 min morning sunlight", description: "Cortisol regulation and circadian rhythm improve with early light. Best before 9 AM.", impact: .medium, category: .wellbeing),
         AIRecommendation(title: "No caffeine after 2 PM", description: "Late caffeine correlates with 40 fewer minutes of deep sleep in your personal data.", impact: .medium, category: .sleep),

@@ -29,7 +29,9 @@ public enum SecureStoreMigration {
         // Reproductive health — the most consequential of these
         "forge.cycle.sharing.digest",
         "forge.menstrual.quiet.sync.at",
-        // Health profiles
+        // Health profiles. Pharmacy names and the people directory have
+        // dedicated vaults — do not scoop those keys here or a second
+        // Keychain write can delete the plaintext before the vault migrates.
         "forge.user.profile.v1",
         "forge.sleep.userProfile",
         "forge.watch.context.profile",

@@ -162,6 +162,7 @@ let package = Package(
                 "Security/SecureStoreMigration.swift",
                 "Security/CycleVault.swift",
                 "Security/LifeContextVault.swift",
+                "Security/PharmacyVault.swift",
                 "Utils/CompanionConfig.swift",
                 "Utils/PhoneDependency.swift",
                 "Utils/PublishGate.swift",
@@ -294,6 +295,7 @@ let package = Package(
                 "RemindersWorkloadTests.swift",
                 "LifeContextVaultTests.swift",
                 "LifeOpsDigestTests.swift",
+                "PharmacyVaultTests.swift",
             ]
         ),
     ],

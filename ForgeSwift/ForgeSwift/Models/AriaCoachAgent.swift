@@ -36,7 +36,7 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .aria:      return "ARIA"
         case .workout:   return "Workout"
-        case .recovery:  return "Recovery"
+        case .recovery:  return "Readiness"
         case .sleep:     return "Sleep"
         case .lifestyle: return "Lifestyle"
         case .progress:  return "Progress"
@@ -97,7 +97,7 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
         case .workout:
             return "You are ARIA’s Workout agent. Write today’s session from readiness. No XP, no quests."
         case .recovery:
-            return "You are ARIA’s Recovery agent. HRV and soreness first. Protect recovery when the numbers are soft."
+            return "You are ARIA’s Readiness agent. HRV and soreness first. Protect rest when the numbers are soft."
         case .sleep:
             return "You are ARIA’s Sleep agent. Debt, consistency, and bedtime — not just last night’s number."
         case .lifestyle:
@@ -108,7 +108,7 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
             return """
             You are ARIA’s Cycle agent. You read cycle context on this iPhone — never from a Forge database. \
             Wearables land in Apple Health; you read that ledger locally. \
-            Lifestyle coaching: training, recovery, healthy sex, safe sex, positions, period sex, \
+            Lifestyle coaching: training, rest, healthy sex, safe sex, positions, period sex, \
             and how a partner can help. Not medical care. Not contraception. \
             Never invent fertility timing, flow, or symptoms. \
             If they asked how to support someone, coach the supporter, not the diary. \

@@ -54,7 +54,7 @@ struct MedicationContextEntry: Hashable, Sendable, Codable, Identifiable {
     var line: String {
         let names = [brand, generic].compactMap { $0 }.filter { !$0.isEmpty }
         let shown = names.isEmpty ? name : names.joined(separator: " / ")
-        return "\(shown) · \(archetype) · \(disease)"
+        return "\(shown) · \(archetype)"
     }
 }
 
@@ -73,14 +73,13 @@ struct MedicationContextLayer: Hashable, Sendable, Codable, Equatable {
     var all: [MedicationContextEntry] { onFile + mentioned }
 
     var constraintLines: [String] {
-        all.prefix(16).map { "med:\($0.source):\($0.archetype):\($0.disease):\($0.generic)" }
+        all.prefix(16).map { "med:\($0.source):\($0.archetype):\($0.generic)" }
     }
 
     var tags: [String] {
         var tags: [String] = []
         for entry in all {
             tags.append("med_archetype:\(entry.archetype)")
-            tags.append("med_disease:\(entry.disease)")
             if entry.source == "health" || entry.source == "saved" {
                 tags.append("med_onfile:\(entry.generic)")
             }
@@ -118,9 +117,9 @@ struct MedicationContextLayer: Hashable, Sendable, Codable, Equatable {
 
     var planNote: String {
         guard !isEmpty else { return "" }
-        let needs = inferredNeeds.prefix(4).joined(separator: ", ")
-        let pictured = needs.isEmpty ? archetypes.prefix(3).joined(separator: ", ") : needs
-        return "Built for you from what you already take (\(pictured)). Training and lifestyle flex around your data — not a general-population template. No prescription. No dose."
+        let pictured = archetypes.prefix(3).joined(separator: ", ")
+        let domain = pictured.isEmpty ? "" : " (\(pictured))"
+        return "Built for you from what you already take\(domain). Training and lifestyle flex around your data — not a general-population template. No prescription. No dose."
     }
 
     var promptBlock: String {
@@ -131,7 +130,7 @@ struct MedicationContextLayer: Hashable, Sendable, Codable, Equatable {
             """
         }
         var lines = [
-            "Medication context layer — what they already take, filed by brand, generic, archetype, and disease.",
+            "Medication context layer — what they already take, filed by brand, generic, and care domain.",
             Self.hardRules,
         ]
         if !onFile.isEmpty {
@@ -140,9 +139,9 @@ struct MedicationContextLayer: Hashable, Sendable, Codable, Equatable {
         if !mentioned.isEmpty {
             lines.append("Mentioned this turn: " + mentioned.prefix(8).map(\.line).joined(separator: "; "))
         }
-        if !inferredNeeds.isEmpty {
-            lines.append("From what they put in, the catalog files these needs: " + inferredNeeds.joined(separator: ", ") + ".")
-            lines.append("Treat that as their picture — A, B, C for this person — not a diagnosis and not a population average.")
+        if !archetypes.isEmpty {
+            lines.append("Coach around these care domains: " + archetypes.joined(separator: ", ") + ".")
+            lines.append("Treat that as their picture — not a diagnosis and not a population average.")
         }
         if !lifestyleMutations.isEmpty {
             lines.append("Lifestyle is mutable around that picture:")
@@ -162,7 +161,7 @@ enum MedicationLifestyleBias {
         let set = Set(archetypes)
         var lines: [String] = []
         if set.contains(MedicationArchetype.neurology.rawValue) {
-            lines.append("Neurology — keep sessions predictable and recovery-honest. No hero intensity if they feel off.")
+            lines.append("Neurology — keep sessions predictable and rest-honest. No hero intensity if they feel off. Check with their clinician if anything feels off.")
         }
         if set.contains(MedicationArchetype.cardiovascular.rawValue) {
             lines.append("Cardiovascular — mutate intensity and volume to their readiness, not a population heart-rate target.")
@@ -186,10 +185,10 @@ enum MedicationLifestyleBias {
             lines.append("Rehabilitation — controlled patterns, shorter sets, build on what they can already do.")
         }
         if set.contains(MedicationArchetype.hematology.rawValue) {
-            lines.append("Hematology — keep contact and max-strain work off the table unless they ask for something gentle.")
+            lines.append("Hematology — keep contact and max-strain work optional. Check with their clinician before max-effort work.")
         }
         if set.contains(MedicationArchetype.oncology.rawValue) || set.contains(MedicationArchetype.rareDisease.rawValue) {
-            lines.append("Serious-care picture — recovery-first sessions from their own library. Presence over performance.")
+            lines.append("Serious-care picture — rest-first sessions from their own library. Presence over performance. Check with their clinician if they feel unwell.")
         }
         if set.contains(MedicationArchetype.obstetrics.rawValue) {
             lines.append("Obstetrics — soft, opted-in movement only. Never medical or obstetric advice.")

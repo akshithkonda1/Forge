@@ -879,16 +879,19 @@ extension AppStore {
             roster.first(where: { $0.settings.partnerName == person.settings.partnerName
                 && $0.settings.supportRole == person.settings.supportRole })
         } ?? roster.first
-        let healthNames: [String] = {
-            guard HealthKitManager.shared.hasStructuredRecordsAccess,
-                  let summary = HealthKitManager.shared.clinicalSummary else { return [] }
-            return summary.ariaDomain().medications
+        let medicationLayer: MedicationContextLayer = {
+            guard MedicationPharmacy.shareWithAria else { return .empty }
+            let healthNames: [String] = {
+                guard HealthKitManager.shared.hasStructuredRecordsAccess,
+                      let summary = HealthKitManager.shared.clinicalSummary else { return [] }
+                return summary.ariaDomain().medications
+            }()
+            return MedicationContext.resolve(
+                query: query,
+                healthNames: healthNames,
+                savedNames: MedicationPharmacy.savedNames()
+            )
         }()
-        let medicationLayer = MedicationContext.resolve(
-            query: query,
-            healthNames: healthNames,
-            savedNames: MedicationPharmacy.savedNames()
-        )
         return TrainerContext(
             userProfile: userProfile,
             readiness: readiness,
@@ -906,12 +909,21 @@ extension AppStore {
                     goals: userProfile.fitnessGoals.map(\.rawValue) + userProfile.fitnessGoals.map(\.label),
                     engagement: min(1, Double(chatMessages.count) / 40.0)
                 )]
-                + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
+                + clinicalConstraintLinesForAria(),
             cycleSnapshot: cycle,
             partnerCycleSnapshot: activePerson?.snapshot,
             partnerCycleSettings: activePerson?.settings,
             supportedPeople: roster,
             medicationLayer: medicationLayer
         )
+    }
+
+    /// Medicine names stay off the trainer path until Share medicine with ARIA is on.
+    private func clinicalConstraintLinesForAria() -> [String] {
+        let lines = HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []
+        guard MedicationPharmacy.shareWithAria else {
+            return lines.filter { !$0.hasPrefix("clinical:medication:") }
+        }
+        return lines
     }
 }

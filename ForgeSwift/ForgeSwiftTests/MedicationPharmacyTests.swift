@@ -5,6 +5,9 @@ final class MedicationPharmacyTests: XCTestCase {
 
     override func setUp() async throws {
         await MedicationPharmacy.prepare()
+        let store = InMemorySecureStore()
+        let defaults = UserDefaults(suiteName: "forge.pharmacy.app-tests.\(UUID().uuidString)")!
+        MedicationPharmacy.useVaultForTests(PharmacyVault(store: store, defaults: defaults))
     }
 
     func testCatalogExceedsTenThousand() {
@@ -146,10 +149,75 @@ final class MedicationPharmacyTests: XCTestCase {
 
     func testEnsureSavedDoesNotToggleOff() {
         let name = "Xcopri 100 mg Tablet"
-        MedicationPharmacy.ensureSaved(name: name)
-        MedicationPharmacy.ensureSaved(name: name)
+        XCTAssertEqual(MedicationPharmacy.ensureSaved(name: name), .added)
+        XCTAssertEqual(MedicationPharmacy.ensureSaved(name: name), .added)
         let names = MedicationPharmacy.savedNames()
         XCTAssertEqual(names.filter { $0.caseInsensitiveCompare(name) == .orderedSame }.count, 1)
+    }
+
+    func testToggleSavedUsesStableCatalogId() {
+        let lipitor = MedicationPharmacy.search("lipitor", limit: 1).items.first
+        XCTAssertNotNil(lipitor)
+        let med = try XCTUnwrap(lipitor)
+        XCTAssertEqual(MedicationPharmacy.toggleSaved(med), .added)
+        XCTAssertTrue(MedicationPharmacy.isSaved(med))
+        XCTAssertEqual(MedicationPharmacy.toggleSaved(id: med.id, name: "Lipitor 20 mg"), .removed)
+        XCTAssertFalse(MedicationPharmacy.isSaved(med))
+    }
+
+    func testSavedCapWarnsAndKeepsExisting() {
+        for i in 1...MedicationPharmacy.savedCap {
+            XCTAssertEqual(MedicationPharmacy.ensureSaved(id: "cap-\(i)", name: "Med \(i)"), .added)
+        }
+        XCTAssertEqual(MedicationPharmacy.ensureSaved(id: "cap-overflow", name: "Overflow"), .atCap)
+        XCTAssertTrue(MedicationPharmacy.lastDidHitCap)
+        XCTAssertEqual(MedicationPharmacy.savedItems().count, MedicationPharmacy.savedCap)
+        XCTAssertFalse(MedicationPharmacy.savedNames().contains("Overflow"))
+    }
+
+    @MainActor
+    func testShareWithAriaDefaultsOffAndGatesChatMentions() {
+        XCTAssertFalse(MedicationPharmacy.shareWithAria)
+        let mentioned = MedicationContext.resolve(query: "I take xcopri")
+        XCTAssertFalse(mentioned.mentioned.isEmpty)
+
+        MedicationPharmacy.shareWithAria = false
+        AriaContextStore.shared.applyMedicationLayer(query: "I take xcopri")
+        let gated = AriaContextStore.shared.applyMedicationLayer(query: "I take xcopri")
+        XCTAssertTrue(gated.isEmpty)
+
+        MedicationPharmacy.shareWithAria = true
+        _ = MedicationPharmacy.ensureSaved(name: "Lipitor")
+        let open = AriaContextStore.shared.applyMedicationLayer(query: "I take xcopri")
+        XCTAssertFalse(open.isEmpty)
+    }
+
+    func testDiseaseLabelsStayOutOfAriaFacingCopy() {
+        let layer = MedicationContext.resolve(query: "xcopri", savedNames: ["Lipitor"])
+        XCTAssertTrue(layer.inferredNeeds.contains("Epilepsy"))
+        let block = layer.promptBlock.lowercased()
+        XCTAssertFalse(block.contains("epilepsy"))
+        XCTAssertFalse(block.contains("high cholesterol"))
+        XCTAssertTrue(layer.all.allSatisfy { !$0.line.localizedCaseInsensitiveContains("epilepsy") })
+        XCTAssertTrue(layer.constraintLines.allSatisfy { !$0.contains("Epilepsy") && !$0.contains("High cholesterol") })
+        XCTAssertFalse(layer.tags.contains { $0.hasPrefix("med_disease:") })
+        XCTAssertTrue(layer.lifestyleMutations.contains { $0.localizedCaseInsensitiveContains("check with their clinician") })
+        XCTAssertFalse(layer.lifestyleMutations.joined().localizedCaseInsensitiveContains("recovery"))
+    }
+
+    func testRefreshFailureSetsOfflineNote() {
+        MedicationPharmacy.vault.setRefreshOutcome(failed: true)
+        XCTAssertTrue(MedicationPharmacy.lastRefreshFailed)
+        XCTAssertTrue(MedicationPharmacy.lastRefreshLabel().localizedCaseInsensitiveContains("bundled"))
+        MedicationPharmacy.vault.setRefreshOutcome(failed: false)
+        XCTAssertFalse(MedicationPharmacy.lastRefreshFailed)
+    }
+
+    func testEmptyCatalogSearchIsSafe() {
+        let empty = MedicationPharmacy.search("zzz-not-a-real-drug-xyz", limit: 8)
+        XCTAssertEqual(empty.total, 0)
+        XCTAssertTrue(empty.items.isEmpty)
+        XCTAssertTrue(empty.groups.isEmpty)
     }
 
     func testClinicalSummaryEmptyIsSafe() {
@@ -195,6 +263,8 @@ final class MedicationPharmacyTests: XCTestCase {
         XCTAssertFalse(block.contains("take 1"))
         XCTAssertTrue(layer.planNote.lowercased().contains("no prescription"))
         XCTAssertTrue(layer.planNote.lowercased().contains("no dose"))
+        XCTAssertFalse(layer.planNote.localizedCaseInsensitiveContains("epilepsy"))
+        XCTAssertFalse(layer.planNote.localizedCaseInsensitiveContains("high cholesterol"))
         XCTAssertTrue(MedicationContextLayer.hardRules.lowercased().contains("never starts, stops, or changes"))
     }
 

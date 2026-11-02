@@ -34,7 +34,7 @@ enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
     var description: String {
         switch self {
         case .pushHard:   return "High intensity when you're ready. Clear standards."
-        case .balanced:   return "Smart training — push when ready, recover when needed."
+        case .balanced:   return "Smart training — push when ready, rest when needed."
         case .patient:    return "Encouraging, supportive, and habit-focused."
         case .dataDriven: return "Optimized by metrics. Numbers guide everything."
         case .ultraElite: return "Athlete-grade detail — numbers and personal data guide every step."
@@ -138,6 +138,24 @@ enum Gender: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum MeasurementSystem: String, Codable, CaseIterable, Identifiable {
+    case imperial
+    case metric
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .imperial: return "US"
+        case .metric: return "Metric"
+        }
+    }
+
+    var weightLabel: String { self == .imperial ? "lbs" : "kg" }
+    var heightPrimaryLabel: String { self == .imperial ? "ft" : "cm" }
+    var heightSecondaryLabel: String? { self == .imperial ? "in" : nil }
+}
+
 enum BiologicalSex: String, Codable, CaseIterable, Identifiable {
     case female = "Female"
     case male = "Male"
@@ -231,6 +249,8 @@ struct UserProfile: Codable {
     var coachingPersonality: ForgeCoachingPersonality.Choice
     /// Whole-life weights, social/relational fields, health constraints.
     var lifestyleProfile: ForgeLifestyleProfile.Snapshot
+    /// Display units for weight and height. Stored internally as kg / cm.
+    var measurementSystem: MeasurementSystem
 
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
@@ -242,7 +262,7 @@ struct UserProfile: Codable {
         case schedulePlanningMode, weeklySplit
         case age, weight, height, trainingTheme, interestTags
         case biologicalSex, educationalCycleMode, avatarFileName
-        case coachingPersonality, lifestyleProfile
+        case coachingPersonality, lifestyleProfile, measurementSystem
     }
 
     init(
@@ -267,7 +287,8 @@ struct UserProfile: Codable {
         educationalCycleMode: Bool = false,
         avatarFileName: String? = nil,
         coachingPersonality: ForgeCoachingPersonality.Choice = .init(),
-        lifestyleProfile: ForgeLifestyleProfile.Snapshot = .init()
+        lifestyleProfile: ForgeLifestyleProfile.Snapshot = .init(),
+        measurementSystem: MeasurementSystem = .imperial
     ) {
         self.name = name
         self.gender = gender
@@ -291,6 +312,7 @@ struct UserProfile: Codable {
         self.avatarFileName = avatarFileName
         self.coachingPersonality = coachingPersonality
         self.lifestyleProfile = lifestyleProfile
+        self.measurementSystem = measurementSystem
     }
 
     init(from decoder: Decoder) throws {
@@ -325,6 +347,10 @@ struct UserProfile: Codable {
             ForgeLifestyleProfile.Snapshot.self,
             forKey: .lifestyleProfile
         ) ?? .init()
+        measurementSystem = try c.decodeIfPresent(
+            MeasurementSystem.self,
+            forKey: .measurementSystem
+        ) ?? .imperial
     }
 
     func encode(to encoder: Encoder) throws {
@@ -351,6 +377,7 @@ struct UserProfile: Codable {
         try c.encodeIfPresent(avatarFileName, forKey: .avatarFileName)
         try c.encode(coachingPersonality, forKey: .coachingPersonality)
         try c.encode(lifestyleProfile, forKey: .lifestyleProfile)
+        try c.encode(measurementSystem, forKey: .measurementSystem)
     }
 
     static func defaultPersonality(for style: CoachingStyle) -> ForgeCoachingPersonality.Preset {

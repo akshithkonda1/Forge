@@ -34,6 +34,7 @@ struct SettingsPageView: View {
     @State private var showAbout = false
     @State private var showLocalPrivacy = false
     @State private var confirmSignOut = false
+    @State private var confirmDeleteAccount = false
     @State private var backendURLDraft = AriaService.shared.baseURL.absoluteString
     @State private var briefSettings: BriefNotificationSettings
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
@@ -67,32 +68,19 @@ struct SettingsPageView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                // Identity hero: avatar, signature stats, readiness, actions.
+                // Context at a glance: who you are, and how Forge should behave.
                 ProfileHeroHeader(
                     onEdit: { showProfileEditor = true },
                     onShare: { showShareSheet = true }
                 )
 
-                allPagesGroup
-                ariaGroup
-                workoutGroup
-                nutritionGroup
-
-                PeopleSettingsSection()
-
-                // Life Context: Reminders and shared conversations, off by default.
-                LifeContextSettingsSection()
-
-                devicesGroup
-                appleHealthGroup
-                clinicalGroup
-                cyclePrivacyGroup
-                cycleGroup
-                notificationsGroup
-                dataPrivacyGroup
+                aboutYouGroup
+                ariaCoachGroup
+                dataAndPrivacyGroup
+                preferencesGroup
                 accountGroup
-                moreGroup
                 logOutButton
+                deleteAccountButton
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .forgeScreenInsets(top: ForgeLayout.screenTop, bottom: ForgeLayout.scrollBottomClearance)
@@ -175,8 +163,17 @@ struct SettingsPageView: View {
                 store.signOut()
             }
             Button("Cancel", role: .cancel) { }
-        } message: {
+        }         message: {
             Text(ForgePrivacyCopy.healthStaysOnDevice)
+        }
+        .confirmationDialog("Delete data on this iPhone?", isPresented: $confirmDeleteAccount, titleVisibility: .visible) {
+            Button("Delete local data", role: .destructive) {
+                ForgeHaptics.play(.warning)
+                store.deleteLocalAccount()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This erases profile, medicine, people, and session data on this iPhone and signs you out. Forge has no remote account chart to erase.")
         }
         .onChange(of: briefSettings) { _, updated in
             ForgePersistence.saveBriefNotificationSettings(updated)
@@ -242,25 +239,85 @@ struct SettingsPageView: View {
 
     // MARK: - Groups
 
-    private var allPagesGroup: some View {
+    private var aboutYouGroup: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader(
-                "All pages",
-                subtitle: "The rooms. Open one when you need to log or override — ARIA already reads them."
+                "About you",
+                subtitle: "Who you are, and the long-term context Forge uses."
             )
-            ForgeExploreDestinationsGrid()
+            SectionCard {
+                settingsLink(
+                    icon: "person.crop.circle",
+                    iconColor: .ember,
+                    label: "Edit profile",
+                    trailingText: store.userProfile.experienceLevel.label
+                ) { showProfileEditor = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "target",
+                    iconColor: .ember,
+                    label: "Goals",
+                    trailingText: store.userProfile.fitnessGoals.isEmpty
+                        ? "Add"
+                        : "\(store.userProfile.fitnessGoals.count)"
+                ) { showGoalsEditor = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "heart.text.square",
+                    iconColor: .steel,
+                    label: "Health conditions",
+                    trailingText: store.userProfile.lifestyleProfile.healthConstraints.isEmpty
+                        ? "None"
+                        : "\(store.userProfile.lifestyleProfile.healthConstraints.count)",
+                    footnote: "Optional. On this iPhone unless you opt in."
+                ) { showWhatIKnow = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "pills.fill",
+                    iconColor: .steel,
+                    label: "Medicine & records",
+                    trailingText: clinicalTrailingText,
+                    footnote: MedicationPharmacy.shareWithAria
+                        ? "ARIA may use names you save or type."
+                        : "Private until you share medicine with ARIA."
+                ) { store.openClinicalData() }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "house.fill",
+                    iconColor: .aurora,
+                    label: "Cycle Health",
+                    trailingText: "Open"
+                ) { store.openCycleHealth() }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "person.2.fill",
+                    iconColor: .indigo,
+                    label: "Cycle Support",
+                    trailingText: "Partner"
+                ) { store.openCycleHealth(pane: "partner") }
+            }
+
+            PeopleSettingsSection()
         }
     }
 
-    private var ariaGroup: some View {
+    private var ariaCoachGroup: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("ARIA")
+            sectionHeader(
+                "How ARIA should coach you",
+                subtitle: "Tone, voice, and the plan she builds around."
+            )
             SectionCard {
                 settingsLink(
                     icon: "folder.fill",
                     iconColor: .ember,
-                    label: "Aria's memory",
-                    footnote: "This is what Aria remembers. Add or remove anything."
+                    label: "ARIA's memory",
+                    footnote: "What ARIA remembers. Add or remove anything."
                 ) { showWhatIKnow = true }
 
                 SettingsHairline()
@@ -311,22 +368,44 @@ struct SettingsPageView: View {
                 leadCoachBlock
 
                 SettingsHairline()
-                settingsLink(
-                    icon: "text.bubble",
-                    iconColor: .aurora,
-                    label: "Meet ARIA again",
-                    hint: "Replays the ARIA introduction"
-                ) { store.replayAriaUseOnboarding() }
+                preferredTypesRow
 
                 SettingsHairline()
                 settingsLink(
-                    icon: "square.grid.2x2",
-                    iconColor: .vitality,
-                    label: "Replay Health tutorial",
-                    hint: "Unused Health → personal indexes → ARIA → mosaic win"
-                ) { store.replayMosaicTutorial() }
+                    icon: "dumbbell.fill",
+                    iconColor: .ember,
+                    label: "Training schedule",
+                    trailingText: scheduleDays.isEmpty ? "Set days" : nil,
+                    footnote: scheduleDays.isEmpty ? nil : scheduleDays
+                ) { showScheduleEditor = true }
 
-                trainingGoalsBlock
+                SettingsHairline()
+                settingsLink(
+                    icon: store.userProfile.trainingEquipment.icon,
+                    iconColor: .steel,
+                    label: "Gym and equipment",
+                    trailingText: store.userProfile.trainingEquipment.rawValue
+                ) { showEquipmentPicker = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "fork.knife",
+                    iconColor: .amber,
+                    label: "Nutrition targets",
+                    trailingText: nutritionTargetsAreCustom ? "Custom" : "Recommended"
+                ) { showNutritionTargetsEditor = true }
+
+                SettingsHairline()
+                toggleRow(
+                    icon: "fork.knife",
+                    iconColor: .amber,
+                    label: "Metabolic Health",
+                    isOn: Binding(
+                        get: { store.metabolicHealthEnabled },
+                        set: { store.metabolicHealthEnabled = $0 }
+                    )
+                )
+                rowFootnote("Meals ↔ glucose plus Apple Watch estimates. Turn it off to hide Metabolic everywhere.")
             }
         }
     }
@@ -389,7 +468,7 @@ struct SettingsPageView: View {
                         Spacer()
                         if AriaOperatingMode.current == mode {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(ForgeType.caption)
                                 .foregroundStyle(Color.paper)
                         }
                     }
@@ -410,58 +489,71 @@ struct SettingsPageView: View {
         #endif
     }
 
-    @ViewBuilder
-    private var trainingGoalsBlock: some View {
-        let goals = store.userProfile.fitnessGoals
-        if !goals.isEmpty {
-            SettingsHairline()
-            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
-                Text("Training Goals")
-                    .font(HomeType.status)
-                    .foregroundStyle(Color.textPrimary)
-                ForgeFlowLayout {
-                    ForEach(goals) { goal in
-                        ForgeChip(label: goal.label, energy: .ember, selected: true)
+    private var dataAndPrivacyGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(
+                "Your data & privacy",
+                subtitle: "What stays on this iPhone, and what ARIA may use."
+            )
+            SectionCard {
+                appleHealthRows
+
+                SettingsHairline()
+                toggleRow(
+                    icon: "pills.fill",
+                    iconColor: .steel,
+                    label: "Share medicine with ARIA",
+                    isOn: Binding(
+                        get: { MedicationPharmacy.shareWithAria },
+                        set: { value in
+                            MedicationPharmacy.shareWithAria = value
+                            AriaContextStore.shared.applyMedicationLayer()
+                            store.objectWillChange.send()
+                        }
+                    )
+                )
+                rowFootnote("Off by default. ARIA only sees medicine names you save or type after you turn this on — never a dose, and never a diagnosis.")
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "lock.shield.fill",
+                    iconColor: .steel,
+                    label: "ARIA data permissions",
+                    trailingText: "Manage"
+                ) { showDataPermissions = true }
+
+                SettingsHairline()
+                ShareLink(item: store.exportUserDataJSON()) {
+                    SettingsRow(
+                        icon: "square.and.arrow.up",
+                        iconColor: .ember,
+                        label: "Export my data",
+                        trailingText: "JSON",
+                        showChevron: true
+                    )
+                }
+                .buttonStyle(SettingsRowButtonStyle())
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "doc.text.fill",
+                    iconColor: .textSecondary,
+                    label: "Privacy Policy",
+                    trailingText: ForgeLegalConfig.privacyPolicyURL == nil ? "On this iPhone" : nil,
+                    showChevron: ForgeLegalConfig.privacyPolicyURL != nil,
+                    hint: "Opens the privacy policy"
+                ) {
+                    if let privacyPolicyURL = ForgeLegalConfig.privacyPolicyURL {
+                        openURL(privacyPolicyURL)
+                    } else {
+                        showLocalPrivacy = true
                     }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, SettingsMetrics.rowInset)
-            .padding(.vertical, FDS.Spacing.md)
-        }
-    }
+            ingestErrorBanner
 
-    private var workoutGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Workout Preferences")
-            SectionCard {
-                settingsLink(
-                    icon: "target",
-                    iconColor: .ember,
-                    label: "Training Goals",
-                    trailingText: "\(store.userProfile.fitnessGoals.count)"
-                ) { showGoalsEditor = true }
-
-                SettingsHairline()
-                preferredTypesRow
-
-                SettingsHairline()
-                settingsLink(
-                    icon: "dumbbell.fill",
-                    iconColor: .ember,
-                    label: "Training Schedule",
-                    trailingText: scheduleDays.isEmpty ? "Set days" : nil,
-                    footnote: scheduleDays.isEmpty ? nil : scheduleDays
-                ) { showScheduleEditor = true }
-
-                SettingsHairline()
-                settingsLink(
-                    icon: store.userProfile.trainingEquipment.icon,
-                    iconColor: .steel,
-                    label: "Gym and equipment",
-                    trailingText: store.userProfile.trainingEquipment.rawValue
-                ) { showEquipmentPicker = true }
-            }
+            cyclePrivacyGroup
+            LifeContextSettingsSection()
         }
     }
 
@@ -494,35 +586,95 @@ struct SettingsPageView: View {
         .accessibilityHint("Opens Preferred Types")
     }
 
-    private var nutritionGroup: some View {
+    private var preferencesGroup: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Nutrition")
+            sectionHeader(
+                "Preferences",
+                subtitle: "Notifications, units, devices, and how the page should feel."
+            )
             SectionCard {
+                toggleRow(
+                    icon: "moon.fill",
+                    iconColor: .steel,
+                    label: "Quiet mode",
+                    isOn: Binding(
+                        get: { store.quietMode },
+                        set: { store.setQuietMode($0) }
+                    )
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "figure.run",
+                    iconColor: .ember,
+                    label: "Workout reminders",
+                    isOn: notificationBinding(\.workoutReminders)
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "text.bubble",
+                    iconColor: .aurora,
+                    label: "ARIA proactive briefs",
+                    isOn: Binding(
+                        get: { store.briefNotificationsEnabled },
+                        set: { store.setBriefNotificationsEnabled($0) }
+                    )
+                )
+                briefTimeRows
+                SettingsHairline()
                 settingsLink(
-                    icon: "fork.knife",
-                    iconColor: .amber,
-                    label: "Nutrition Targets",
-                    trailingText: nutritionTargetsAreCustom ? "Custom" : "Recommended"
-                ) { showNutritionTargetsEditor = true }
+                    icon: "calendar.badge.clock",
+                    iconColor: .ember,
+                    label: "Weekly ARIA evaluation",
+                    trailingText: weeklyReview.isDue ? "Due" : "Done"
+                ) { weeklyReview.showSheet = true }
 
                 SettingsHairline()
                 toggleRow(
-                    icon: "fork.knife",
-                    iconColor: .amber,
-                    label: "Metabolic Health",
-                    isOn: Binding(
-                        get: { store.metabolicHealthEnabled },
-                        set: { store.metabolicHealthEnabled = $0 }
-                    )
+                    icon: "heart.fill",
+                    iconColor: .steel,
+                    label: "Sleep alerts",
+                    isOn: notificationBinding(\.recoveryAlerts)
                 )
-                rowFootnote("Meals ↔ glucose plus Apple Watch estimates. Turn it off to hide Metabolic everywhere.")
-            }
-        }
-    }
+                SettingsHairline()
+                toggleRow(
+                    icon: "calendar",
+                    iconColor: .textSecondary,
+                    label: "Weekly summary",
+                    isOn: notificationBinding(\.weeklySummary)
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "drop.fill",
+                    iconColor: .steel,
+                    label: "Lifestyle reminders",
+                    isOn: notificationBinding(\.lifestyleReminders)
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "moon.zzz.fill",
+                    iconColor: .steel,
+                    label: "Quiet week",
+                    isOn: notificationBinding(\.sleepQuietWeek)
+                )
 
-    private var devicesGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Connected Devices")
+                SettingsHairline()
+                unitsBlock
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "accessibility",
+                    iconColor: .steel,
+                    label: "Accessibility",
+                    trailingText: "iOS",
+                    footnote: "Dynamic Type and Reduce Motion follow iPhone Settings. Forge does not change type size on its own."
+                ) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        openURL(url)
+                    }
+                }
+            }
+
+            sectionHeader("Connected devices")
             SectionCard {
                 Color.clear.frame(width: 0, height: 0).hidden().id(catalogRevision)
                 connectedDeviceRows
@@ -540,6 +692,42 @@ struct SettingsPageView: View {
                     label: "Customize StandBy face"
                 ) { showStandBySheet = true }
             }
+
+            sectionHeader(
+                "Pages",
+                subtitle: "Open a room when you need to log or override."
+            )
+            ForgeExploreDestinationsGrid()
+        }
+    }
+
+    private var unitsBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow(
+                icon: "ruler",
+                iconColor: .steel,
+                label: "Units",
+                trailingText: store.userProfile.measurementSystem.label
+            )
+            ForgeSegmentedControl(
+                MeasurementSystem.allCases.map { ForgeSegmentOption(value: $0, title: $0.label) },
+                selection: Binding(
+                    get: { store.userProfile.measurementSystem },
+                    set: { store.updateProfile(measurementSystem: $0) }
+                ),
+                accent: .steel,
+                bleed: SettingsMetrics.rowInset
+            )
+            .padding(.horizontal, SettingsMetrics.rowInset)
+            .padding(.top, FDS.Spacing.xs)
+            Text("Weight and height on You. Stored as kg and cm on this iPhone.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, SettingsMetrics.rowInset)
+                .padding(.top, ForgeLayout.rowGap)
+                .padding(.bottom, FDS.Spacing.md)
         }
     }
 
@@ -575,48 +763,43 @@ struct SettingsPageView: View {
         .accessibilityHint("Opens your devices")
     }
 
-    private var appleHealthGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Apple Health")
-            SectionCard {
-                SettingsRow(
-                    icon: "heart.text.square.fill",
-                    iconColor: store.healthKitLive ? Color.vitality : Color.warning,
-                    label: "Apple Health",
-                    trailingText: store.isHealthKitPulling
-                        ? "Pulling…"
-                        : (store.healthKitLive ? "Connected" : "Offline")
-                ) {
-                    if store.isHealthKitPulling {
-                        ProgressView().controlSize(.mini)
-                    }
-                }
-                .accessibilityElement(children: .combine)
-
-                SettingsHairline()
-                settingsLink(
-                    icon: "arrow.triangle.2.circlepath",
-                    iconColor: .ember,
-                    label: store.healthKitLive ? "Resync Apple Health" : "Reconnect Apple Health",
-                    trailingText: "Now",
-                    hint: "Pulls your latest Apple Health data"
-                ) {
-                    Task {
-                        await store.reconnectHealthKit()
-                        ForgeHaptics.play(store.healthKitLive ? .success : .warning)
-                    }
-                }
-
-                SettingsHairline()
-                staticRow(
-                    icon: "calendar.badge.clock",
-                    iconColor: .steel,
-                    label: "Cycle quiet sync",
-                    trailingText: "Weekly"
-                )
+    @ViewBuilder
+    private var appleHealthRows: some View {
+        SettingsRow(
+            icon: "heart.text.square.fill",
+            iconColor: store.healthKitLive ? Color.vitality : Color.warning,
+            label: "Apple Health",
+            trailingText: store.isHealthKitPulling
+                ? "Pulling…"
+                : (store.healthKitLive ? "Connected" : "Offline")
+        ) {
+            if store.isHealthKitPulling {
+                ProgressView().controlSize(.mini)
             }
-            ingestErrorBanner
         }
+        .accessibilityElement(children: .combine)
+
+        SettingsHairline()
+        settingsLink(
+            icon: "arrow.triangle.2.circlepath",
+            iconColor: .ember,
+            label: store.healthKitLive ? "Resync Apple Health" : "Reconnect Apple Health",
+            trailingText: "Now",
+            hint: "Pulls your latest Apple Health data"
+        ) {
+            Task {
+                await store.reconnectHealthKit()
+                ForgeHaptics.play(store.healthKitLive ? .success : .warning)
+            }
+        }
+
+        SettingsHairline()
+        staticRow(
+            icon: "calendar.badge.clock",
+            iconColor: .steel,
+            label: "Cycle quiet sync",
+            trailingText: "Weekly"
+        )
     }
 
     @ViewBuilder
@@ -624,7 +807,7 @@ struct SettingsPageView: View {
         if let ingestError = store.lastLifeIngestError, !ingestError.isEmpty {
             HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(HomeType.label)
                     .foregroundStyle(Color.warning)
                     .accessibilityHidden(true)
                 Text(ingestError)
@@ -637,20 +820,6 @@ struct SettingsPageView: View {
             .padding(.top, ForgeLayout.rowGap)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(ingestError)
-        }
-    }
-
-    private var clinicalGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Clinical Data (Non PHI)")
-            SectionCard {
-                settingsLink(
-                    icon: "pills.fill",
-                    iconColor: .steel,
-                    label: "Medicine & records",
-                    trailingText: clinicalTrailingText
-                ) { store.openClinicalData() }
-            }
         }
     }
 
@@ -681,6 +850,23 @@ struct SettingsPageView: View {
                     isOn: Binding(
                         get: { cycleStore.settings.shareWithAria },
                         set: { v in cycleStore.updateSettings { $0.shareWithAria = v } }
+                    )
+                )
+                SettingsHairline()
+                staticRow(
+                    icon: "chart.line.uptrend.xyaxis",
+                    iconColor: .ember,
+                    label: "Prediction accuracy",
+                    trailingText: predictionAccuracyText
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "scope",
+                    iconColor: .aurora,
+                    label: "High-accuracy mode",
+                    isOn: Binding(
+                        get: { cycleStore.settings.highAccuracyMode },
+                        set: { v in cycleStore.updateSettings { $0.highAccuracyMode = v } }
                     )
                 )
             }
@@ -760,118 +946,6 @@ struct SettingsPageView: View {
         return "Learning"
     }
 
-    private var cycleGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Cycle")
-            SectionCard {
-                settingsLink(
-                    icon: "house.fill",
-                    iconColor: .aurora,
-                    label: "Open Cycle Health",
-                    trailingText: "My cycle"
-                ) { store.openCycleHealth() }
-
-                SettingsHairline()
-                settingsLink(
-                    icon: "person.2.fill",
-                    iconColor: .indigo,
-                    label: "Open Support",
-                    trailingText: "Partner"
-                ) { store.openCycleHealth(pane: "partner") }
-
-                SettingsHairline()
-                staticRow(
-                    icon: "chart.line.uptrend.xyaxis",
-                    iconColor: .ember,
-                    label: "Prediction accuracy",
-                    trailingText: predictionAccuracyText
-                )
-
-                SettingsHairline()
-                toggleRow(
-                    icon: "scope",
-                    iconColor: .aurora,
-                    label: "High-accuracy mode",
-                    isOn: Binding(
-                        get: { cycleStore.settings.highAccuracyMode },
-                        set: { v in cycleStore.updateSettings { $0.highAccuracyMode = v } }
-                    )
-                )
-            }
-        }
-    }
-
-    private var notificationsGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Notifications")
-            SectionCard {
-                toggleRow(
-                    icon: "moon.fill",
-                    iconColor: .steel,
-                    label: "Quiet mode",
-                    isOn: Binding(
-                        get: { store.quietMode },
-                        set: { store.setQuietMode($0) }
-                    )
-                )
-                SettingsHairline()
-                toggleRow(
-                    icon: "figure.run",
-                    iconColor: .ember,
-                    label: "Workout Reminders",
-                    isOn: notificationBinding(\.workoutReminders)
-                )
-                SettingsHairline()
-                toggleRow(
-                    icon: "text.bubble",
-                    iconColor: .aurora,
-                    label: "ARIA Proactive Briefs",
-                    isOn: Binding(
-                        get: { store.briefNotificationsEnabled },
-                        set: { store.setBriefNotificationsEnabled($0) }
-                    )
-                )
-                briefTimeRows
-                SettingsHairline()
-                settingsLink(
-                    icon: "calendar.badge.clock",
-                    iconColor: .ember,
-                    label: "Weekly ARIA evaluation",
-                    trailingText: weeklyReview.isDue ? "Due" : "Done"
-                ) { weeklyReview.showSheet = true }
-
-                SettingsHairline()
-                toggleRow(
-                    icon: "heart.fill",
-                    iconColor: .steel,
-                    label: "Sleep alerts",
-                    isOn: notificationBinding(\.recoveryAlerts)
-                )
-                SettingsHairline()
-                toggleRow(
-                    icon: "calendar",
-                    iconColor: .textSecondary,
-                    label: "Weekly Summary",
-                    isOn: notificationBinding(\.weeklySummary)
-                )
-                SettingsHairline()
-                toggleRow(
-                    icon: "drop.fill",
-                    iconColor: .steel,
-                    label: "Lifestyle Reminders",
-                    isOn: notificationBinding(\.lifestyleReminders)
-                )
-                SettingsHairline()
-                toggleRow(
-                    icon: "moon.zzz.fill",
-                    iconColor: .steel,
-                    label: "Quiet week",
-                    isOn: notificationBinding(\.sleepQuietWeek)
-                )
-            }
-        }
-    }
-
     @ViewBuilder
     private var briefTimeRows: some View {
         if store.briefNotificationsEnabled {
@@ -891,32 +965,6 @@ struct SettingsPageView: View {
                 hour: $briefSettings.eveningHour,
                 minute: $briefSettings.eveningMinute
             )
-        }
-    }
-
-    private var dataPrivacyGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Data & Privacy")
-            SectionCard {
-                settingsLink(
-                    icon: "lock.shield.fill",
-                    iconColor: .steel,
-                    label: "ARIA Data Permissions",
-                    trailingText: "Manage"
-                ) { showDataPermissions = true }
-
-                SettingsHairline()
-                ShareLink(item: store.exportUserDataJSON()) {
-                    SettingsRow(
-                        icon: "square.and.arrow.up",
-                        iconColor: .ember,
-                        label: "Export my data",
-                        trailingText: "JSON",
-                        showChevron: true
-                    )
-                }
-                .buttonStyle(SettingsRowButtonStyle())
-            }
         }
     }
 
@@ -944,44 +992,6 @@ struct SettingsPageView: View {
                     label: "Last sync",
                     trailingText: lastSyncText
                 )
-            }
-        }
-    }
-
-    private var lastSyncText: String {
-        if let at = store.lastCloudSyncAt ?? store.lastMetricsRefresh {
-            return at.formatted(date: .omitted, time: .shortened)
-        }
-        return "Not yet"
-    }
-
-    private var moreGroup: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("More")
-            SectionCard {
-                settingsLink(
-                    icon: "lock.shield.fill",
-                    iconColor: .textSecondary,
-                    label: "Data & Privacy",
-                    trailingText: "Apple Health + ARIA"
-                ) { showDataPermissions = true }
-
-                SettingsHairline()
-                settingsLink(
-                    icon: "doc.text.fill",
-                    iconColor: .textSecondary,
-                    label: "Privacy Policy",
-                    trailingText: ForgeLegalConfig.privacyPolicyURL == nil ? "Required" : nil,
-                    showChevron: ForgeLegalConfig.privacyPolicyURL != nil,
-                    hint: "Opens the privacy policy"
-                ) {
-                    if let privacyPolicyURL = ForgeLegalConfig.privacyPolicyURL {
-                        openURL(privacyPolicyURL)
-                    } else {
-                        showLocalPrivacy = true
-                    }
-                }
-
                 SettingsHairline()
                 settingsLink(
                     icon: "doc.plaintext.fill",
@@ -989,7 +999,6 @@ struct SettingsPageView: View {
                     label: "Terms & Conditions",
                     trailingText: "Local-first"
                 ) { showTermsSheet = true }
-
                 SettingsHairline()
                 settingsLink(
                     icon: "creditcard.fill",
@@ -1002,9 +1011,7 @@ struct SettingsPageView: View {
                         voice: false
                     )
                 }
-
                 SettingsHairline()
-                // Opens a pre-addressed mail draft with the diagnostics a support reply needs.
                 settingsLink(
                     icon: "questionmark.circle.fill",
                     iconColor: .textSecondary,
@@ -1012,7 +1019,6 @@ struct SettingsPageView: View {
                     trailingText: "Email us",
                     hint: "Opens a pre-addressed email"
                 ) { openSupportEmail() }
-
                 SettingsHairline()
                 settingsLink(
                     icon: "info.circle.fill",
@@ -1020,7 +1026,20 @@ struct SettingsPageView: View {
                     label: "About Forge",
                     trailingText: ForgeAppInfo.shortVersion
                 ) { showAbout = true }
-
+                SettingsHairline()
+                settingsLink(
+                    icon: "text.bubble",
+                    iconColor: .aurora,
+                    label: "Meet ARIA again",
+                    hint: "Replays the ARIA introduction"
+                ) { store.replayAriaUseOnboarding() }
+                SettingsHairline()
+                settingsLink(
+                    icon: "square.grid.2x2",
+                    iconColor: .vitality,
+                    label: "Replay Health tutorial",
+                    hint: "Unused Health → personal indexes → ARIA → mosaic win"
+                ) { store.replayMosaicTutorial() }
                 SettingsHairline()
                 settingsLink(
                     icon: "server.rack",
@@ -1030,6 +1049,13 @@ struct SettingsPageView: View {
                 ) { showBackendURL = true }
             }
         }
+    }
+
+    private var lastSyncText: String {
+        if let at = store.lastCloudSyncAt ?? store.lastMetricsRefresh {
+            return at.formatted(date: .omitted, time: .shortened)
+        }
+        return "Not yet"
     }
 
     // Log Out: the last, quietest group. Confirmation dialog fires the destructive haptic.
@@ -1043,6 +1069,18 @@ struct SettingsPageView: View {
         }
         .accessibilityHint("Asks you to confirm before logging out")
         .padding(.top, SettingsMetrics.sectionTop)
+    }
+
+    private var deleteAccountButton: some View {
+        ForgeSecondaryButton(
+            title: "Delete local data",
+            icon: "trash",
+            accent: Color.danger
+        ) {
+            confirmDeleteAccount = true
+        }
+        .accessibilityHint("Asks you to confirm before erasing data on this iPhone")
+        .padding(.top, ForgeLayout.rowGap)
     }
 
     // MARK: - Row builders
@@ -1297,7 +1335,7 @@ private struct SettingsDeviceRow: View {
                 .layoutPriority(1)
             status
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .font(ForgeType.caption)
                 .foregroundStyle(Color.textMuted)
                 .accessibilityHidden(true)
         }

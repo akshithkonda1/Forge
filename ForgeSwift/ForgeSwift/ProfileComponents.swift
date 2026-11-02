@@ -100,7 +100,7 @@ struct SettingsRow<Trailing: View>: View {
                     .fill(tint.opacity(0.14))
                     .frame(width: 32, height: 32)
                 Image(systemName: icon)
-                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .font(HomeType.label)
                     .foregroundStyle(tint)
             }
             .accessibilityHidden(true)
@@ -146,7 +146,7 @@ struct SettingsRow<Trailing: View>: View {
     private var chevron: some View {
         if showChevron {
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .font(ForgeType.caption)
                 .foregroundStyle(Color.textMuted)
                 .accessibilityHidden(true)
         }

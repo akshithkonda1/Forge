@@ -323,7 +323,7 @@ enum HomeARIABriefingBuilder {
             if store.dailyMetrics.hrv < 40 {
                 beats.append(.init(text: "Your system's still catching up — don't add a hero day on top.", priority: .urgent))
             } else if store.dailyMetrics.hrv >= 50 {
-                beats.append(.init(text: "Recovery is holding. You've got something to spend if you want it.", priority: .confirming))
+                beats.append(.init(text: "Readiness is holding. You've got something to spend if you want it.", priority: .confirming))
             }
         }
 

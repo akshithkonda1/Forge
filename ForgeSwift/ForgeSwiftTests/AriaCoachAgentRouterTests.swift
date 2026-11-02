@@ -238,7 +238,7 @@ final class AriaFirstHealthBriefingTests: XCTestCase {
         XCTAssertFalse(result.message.contains("HRV 52"))
         XCTAssertFalse(result.message.contains("readiness 78"))
         XCTAssertTrue(result.message.contains("Workout"))
-        XCTAssertTrue(result.message.contains("Recovery"))
+        XCTAssertTrue(result.message.contains("Readiness"))
         XCTAssertTrue(result.actions.contains("Who are you?"))
         XCTAssertTrue(result.actions.contains("What should I train?"))
     }

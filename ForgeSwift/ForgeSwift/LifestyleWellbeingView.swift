@@ -1124,19 +1124,16 @@ struct PeopleSettingsSection: View {
     @EnvironmentObject var store: AppStore
     @State private var directory = PeopleDirectoryStore.load()
     @State private var showSheet = false
+    @State private var confirmForget = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Your people")
-                .forgeSectionLabel()
-                .padding(.top, FDS.Spacing.xl)
-                .padding(.bottom, FDS.Spacing.md)
-                .accessibilityAddTraits(.isHeader)
-            Text(honesty)
-                .font(HomeType.body)
-                .foregroundStyle(Color.textTertiary)
-                .forgeWrapping()
-                .padding(.bottom, FDS.Spacing.md)
+            ForgeSectionHeader(
+                title: "Your people",
+                subtitle: honesty
+            )
+            .padding(.top, FDS.Spacing.xl)
+            .padding(.bottom, FDS.Spacing.md)
             SectionCard {
                 SettingsRow(
                     icon: "person.2.fill",
@@ -1153,9 +1150,7 @@ struct PeopleSettingsSection: View {
                 .buttonStyle(.plain)
                 Divider().background(Color.borderColor)
                 Button {
-                    PeopleDirectoryStore.forget()
-                    directory = PeopleDirectoryStore.load()
-                    store.objectWillChange.send()
+                    confirmForget = true
                 } label: {
                     SettingsRow(icon: "trash", iconColor: Color.alert, label: "Forget your people", trailingText: "On this iPhone")
                 }
@@ -1173,6 +1168,16 @@ struct PeopleSettingsSection: View {
         }
         .sheet(isPresented: $showSheet, onDismiss: { directory = PeopleDirectoryStore.load() }) {
             YourPeopleSheet().environmentObject(store)
+        }
+        .confirmationDialog("Forget your people?", isPresented: $confirmForget, titleVisibility: .visible) {
+            Button("Forget", role: .destructive) {
+                PeopleDirectoryStore.forget()
+                directory = PeopleDirectoryStore.load()
+                store.objectWillChange.send()
+            }
+            Button("Keep them", role: .cancel) {}
+        } message: {
+            Text("Removes first names and labels from this iPhone. Contacts permission is unchanged.")
         }
         .onAppear { directory = PeopleDirectoryStore.load() }
     }
@@ -1294,7 +1299,7 @@ struct YourPeopleSheet: View {
                     .font(HomeType.label)
                     .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(ForgeType.caption)
                     .accessibilityHidden(true)
             }
             .foregroundStyle(Color.textPrimary)
@@ -1331,7 +1336,7 @@ struct YourPeopleSheet: View {
                                 .lineLimit(2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Image(systemName: "plus.circle")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(HomeType.status)
                                 .foregroundStyle(Color.vitality)
                                 .accessibilityHidden(true)
                         }
