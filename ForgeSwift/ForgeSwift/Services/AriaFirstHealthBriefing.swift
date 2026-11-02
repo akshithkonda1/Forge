@@ -68,7 +68,7 @@ enum AriaFirstHealthBriefing {
     }
 
     static func identityShort() -> String {
-        "I’m ARIA, your lifestyle coach. I bring in Workout, Recovery, Sleep, Lifestyle, and Progress when a question needs them. Cycle only if you share that with me. I’m not a doctor."
+        "I’m ARIA, your lifestyle coach. I bring in Workout, Readiness, Sleep, Lifestyle, and Progress when a question needs them. Cycle only if you share that with me. I’m not a doctor."
     }
 
     static func welcome(name: String, healthConnected: Bool, snapshot: Snapshot) -> Result {
@@ -116,7 +116,7 @@ enum AriaFirstHealthBriefing {
         I’m a lifestyle coach inside Forge, not a game and not a clinic. One of me, several specialists:
 
         • Workout — today’s session from how you slept and how ready you are
-        • Recovery — when to keep it easy, and whether last night paid you back
+        • Readiness — when to keep it easy, and whether last night paid you back
         • Sleep — last night, tonight’s setup, the trend behind it
         • Lifestyle — work, travel, food and water, the day you already have
         • Progress — the trend behind the numbers, not just today’s reading
@@ -151,7 +151,7 @@ enum AriaFirstHealthBriefing {
             }
         } else if let hrv = snapshot.hrvMs, hrv > 0 {
             if hrv < 40 { bits.append("your system's still catching up") }
-            else if hrv >= 55 { bits.append("recovery is holding") }
+            else if hrv >= 55 { bits.append("readiness is holding") }
         }
 
         if let workout = snapshot.lastWorkoutName, !workout.isEmpty {

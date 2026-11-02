@@ -68,7 +68,7 @@ private struct EditorOptionRow: View {
 
     private var indicator: some View {
         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-            .font(.system(size: 20, weight: .semibold))
+            .font(HomeType.status)
             .foregroundStyle(selected ? tint : Color.textMuted)
             .accessibilityHidden(true)
     }
@@ -162,7 +162,7 @@ private struct ScheduleMenuPill: View {
                 .foregroundStyle(Color.textPrimary)
                 .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
             Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 10, weight: .semibold))
+                .font(ForgeType.micro)
                 .foregroundStyle(Color.textTertiary)
                 .accessibilityHidden(true)
         }
@@ -472,7 +472,7 @@ struct AriaSoulPickerView: View {
                         }
                     }
                 }
-                Text("Takes effect on the next reply — no restart. If you don't pick, ARIA blends from experience, goals, and how you respond. Same rails for every blend: coach, not doctor; never shame, diagnose, push past comfort, or say recovery.")
+                Text("Takes effect on the next reply — no restart. If you don't pick, ARIA blends from experience, goals, and how you respond. Same rails for every blend: coach, not doctor; never shame, diagnose, push past comfort, or talk like a clinician.")
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
             }

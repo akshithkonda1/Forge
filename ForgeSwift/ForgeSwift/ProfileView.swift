@@ -26,85 +26,97 @@ struct ProfileTabView: View {
     }
 }
 
-/// The identity anchor for the Profile tab: one readiness-tinted hero plate
-/// (avatar, name, coaching identity, today's readiness, lifetime stats and
-/// quick actions), then the Lifetime link card.
-/// Replaces the old profile card that was buried beneath the Settings title.
+/// Pure snapshot for the You header so tests can check the glance copy
+/// without mounting SwiftUI.
+enum YouContextGlance {
+    struct Snapshot: Equatable {
+        var name: String
+        var coachingStyle: String
+        var personality: String
+        var voice: String
+        var goals: [String]
+        var healthConnected: Bool
+        var medicineShared: Bool
+        var medicineCount: Int
+        var cycleShared: Bool
+        var lifeContextOn: Bool
+        var units: String
+    }
+
+    static func subtitle(_ snap: Snapshot) -> String {
+        "How Forge behaves toward you"
+    }
+
+    static func sharingLine(_ snap: Snapshot) -> String {
+        let parts = [
+            snap.healthConnected ? "Health on" : "Health off",
+            snap.medicineShared
+                ? (snap.medicineCount == 1 ? "1 medicine shared" : "\(snap.medicineCount) medicines shared")
+                : "Medicine private",
+            snap.cycleShared ? "Cycle shared" : "Cycle private",
+            snap.lifeContextOn ? "Life context on" : "Life context off",
+        ]
+        return parts.joined(separator: " · ")
+    }
+
+    static func goalsLine(_ snap: Snapshot) -> String {
+        snap.goals.isEmpty ? "No goals yet" : snap.goals.joined(separator: ", ")
+    }
+}
+
+/// Context-at-a-glance header for You: identity plus how Forge should behave.
+/// Workout stats and readiness live on Progress and Home.
 struct ProfileHeroHeader: View {
     @EnvironmentObject var store: AppStore
     var onEdit: () -> Void
     var onShare: () -> Void
 
-    @ObservedObject private var lifestyle = LifestyleViewModel.shared
-    @ScaledMetric(relativeTo: .title3) private var readinessRingSize: CGFloat = 72
+    @ObservedObject private var soul = AriaSoulStore.shared
+    @ObservedObject private var voiceProfiles = AriaVoiceProfileStore.shared
+    @ObservedObject private var cycleStore = MenstrualHealthStore.shared
+    @ObservedObject private var messages = MessageContextStore.shared
+    @ObservedObject private var reminders = RemindersManager.shared
     @ScaledMetric(relativeTo: .largeTitle) private var avatarSize: CGFloat = 92
 
     private var profile: UserProfile { store.userProfile }
-    private var totalWorkouts: Int { store.workoutHistory.count }
-    private var totalPRs: Int { store.personalRecords.count }
-    private var totalVolume: Int { store.workoutHistory.reduce(0) { $0 + $1.volume } }
-
-    private var volumeCompact: String {
-        let v = Double(totalVolume)
-        if v >= 1_000_000 { return String(format: "%.1fM", v / 1_000_000) }
-        if v >= 1_000 { return String(format: "%.0fk", v / 1_000) }
-        return String(totalVolume)
-    }
 
     private var displayName: String {
         let trimmed = profile.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Your Profile" : trimmed
+        return trimmed.isEmpty ? "You" : trimmed
     }
 
-    private var hasReadiness: Bool { store.readiness.hasScore }
-    private var readinessScore: Int { hasReadiness ? store.readiness.overall : 0 }
-    private var heroEnergy: Color { ForgeProgressChrome.energy(for: readinessScore) }
-
-    private var readinessWord: String {
-        hasReadiness ? HomeReadiness.label(store.readiness.overall) : "Not measured yet"
-    }
-
-    private var trend: AppStore.ReadinessTrend { store.readinessTrend }
-
-    private var trendLabel: String {
-        switch trend {
-        case .improving: return "Trending up"
-        case .declining: return "Easing off"
-        case .stable:    return "Holding"
-        }
-    }
-
-    private var trendColor: Color {
-        switch trend {
-        case .improving: return .vitality
-        case .declining: return ForgeProgressChrome.miss
-        case .stable:    return .textSecondary
-        }
+    var glance: YouContextGlance.Snapshot {
+        YouContextGlance.Snapshot(
+            name: displayName,
+            coachingStyle: profile.coachingStyle.label,
+            personality: soul.config.blend.dominant.label,
+            voice: voiceProfiles.selectedLabel,
+            goals: profile.fitnessGoals.map(\.label),
+            healthConnected: store.healthKitLive,
+            medicineShared: MedicationPharmacy.shareWithAria,
+            medicineCount: MedicationPharmacy.savedNames().count,
+            cycleShared: cycleStore.settings.shareWithAria,
+            lifeContextOn: reminders.isEnabled || messages.settings.messagesEnabled,
+            units: profile.measurementSystem.label
+        )
     }
 
     var body: some View {
-        VStack(spacing: ForgeLayout.sectionGap) {
-            heroPlate
-            lifetimeStrip
-        }
-        .frame(maxWidth: .infinity)
+        glancePlate
+            .frame(maxWidth: .infinity)
     }
 
-    // MARK: Hero plate
-
-    private var heroPlate: some View {
-        VStack(spacing: ForgeLayout.heroGap) {
+    private var glancePlate: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
             identity
-            readinessWell
-            statGrid
+            contextChips
+            sharingWell
             actions
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
-
-    // MARK: Avatar + name + identity chips
 
     private var identity: some View {
         VStack(spacing: ForgeLayout.rowGap) {
@@ -118,10 +130,11 @@ struct ProfileHeroHeader: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
 
-                ForgeFlowLayout(alignment: .center) {
-                    ForgeChip(label: profile.experienceLevel.label, icon: "chart.bar.fill")
-                    ForgeChip(label: profile.coachingStyle.label, icon: profile.coachingStyle.icon)
-                }
+                Text(YouContextGlance.subtitle(glance))
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
             }
         }
         .frame(maxWidth: .infinity)
@@ -140,7 +153,7 @@ struct ProfileHeroHeader: View {
                     Circle().fill(Color.background).frame(width: 30, height: 30)
                     Circle().fill(Color.ember).frame(width: 26, height: 26)
                     Image(systemName: profile.avatarFileName == nil ? "camera.fill" : "pencil")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(ForgeType.micro)
                         .foregroundStyle(Color.white)
                 }
                 .offset(x: 3, y: 3)
@@ -152,159 +165,37 @@ struct ProfileHeroHeader: View {
         .accessibilityLabel(profile.avatarFileName == nil ? "Add profile photo" : "Edit profile")
     }
 
-    // MARK: Lifetime stats
-
-    private func statValue(_ count: Int) -> String {
-        count > 0 ? "\(count)" : "\u{2014}"
-    }
-
-    private var statGrid: some View {
-        ForgeStatGrid(columns: 4) {
-            ForgeStatTile(
-                label: "Days trained",
-                value: statValue(store.currentStreak),
-                energy: .ember,
-                icon: "checkmark.circle.fill"
-            )
-            ForgeStatTile(
-                label: "Workouts",
-                value: statValue(totalWorkouts),
-                energy: .ember,
-                icon: "figure.strengthtraining.traditional"
-            )
-            ForgeStatTile(
-                label: "PRs",
-                value: statValue(totalPRs),
-                energy: .ember,
-                icon: "trophy.fill"
-            )
-            ForgeStatTile(
-                label: "Lbs lifted",
-                value: totalVolume > 0 ? volumeCompact : "\u{2014}",
-                energy: .ember,
-                icon: "scalemass.fill"
-            )
+    private var contextChips: some View {
+        ForgeFlowLayout(alignment: .center) {
+            ForgeChip(label: glance.coachingStyle, icon: profile.coachingStyle.icon)
+            ForgeChip(label: glance.personality, icon: "face.smiling")
+            ForgeChip(label: glance.voice, icon: "waveform")
+            ForgeChip(label: glance.units, icon: "ruler")
         }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Coaching \(glance.coachingStyle), \(glance.personality), \(glance.voice), \(glance.units) units")
     }
 
-    // MARK: Lifetime — aging + metabolic one-liners
-
-    private var lifetimeAging: AgingSnapshot {
-        let sexFemale: Bool?
-        switch profile.biologicalSex {
-        case .female: sexFemale = true
-        case .male: sexFemale = false
-        default: sexFemale = nil
-        }
-        return AgingBridge.snapshot(
-            age: profile.age,
-            sexFemale: sexFemale,
-            stats: HealthKitManager.shared.todayStats
-        )
-    }
-
-    private var lifetimeMetabolic: MetabolicHealthSnapshot {
-        lifestyle.metabolicSnapshot
-    }
-
-    private var lifetimeOpenAccessory: some View {
-        HStack(spacing: FDS.Spacing.xs) {
-            Text("Open")
-                .font(HomeType.label)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
-        }
-        .foregroundStyle(Color.vitality)
-    }
-
-    @ViewBuilder
-    private var lifetimeStrip: some View {
-        let heart = lifetimeAging.oneBreathLine
-        let metabolic = lifetimeMetabolic.storyLine
-        if heart.isEmpty && metabolic.isEmpty {
-            EmptyView()
-        } else {
-            Button {
-                store.pendingLifestyleSegment = "lifetime"
-                store.activeTab = .lifestyle
-            } label: {
-                VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
-                    ForgeCardHeader(title: "Lifetime", tint: .textTertiary) {
-                        lifetimeOpenAccessory
-                    }
-                    VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
-                        if !heart.isEmpty {
-                            Text(heart)
-                                .font(HomeType.status)
-                                .foregroundStyle(Color.textPrimary)
-                                .multilineTextAlignment(.leading)
-                                .forgeWrapping()
-                        }
-                        if !metabolic.isEmpty {
-                            Text(metabolic)
-                                .font(HomeType.body)
-                                .foregroundStyle(Color.textSecondary)
-                                .multilineTextAlignment(.leading)
-                                .forgeWrapping()
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .forgeContentCard(accent: .vitality)
-            }
-            .buttonStyle(ForgePressStyle())
-            .accessibilityLabel([heart, metabolic].filter { !$0.isEmpty }.joined(separator: ". "))
-            .accessibilityHint("Opens Lifestyle Lifetime")
-        }
-    }
-
-    // MARK: Readiness
-
-    private var readinessRing: some View {
-        ForgeProgressRing(
-            progress: readinessScore,
-            energy: heroEnergy,
-            size: ForgeLayout.scaledCap(readinessRingSize, base: 72),
-            stroke: ForgeProgressChrome.compactStroke
-        ) {
-            Text(hasReadiness ? "\(store.readiness.overall)" : "\u{2014}")
-                .font(HomeType.metric)
-                .foregroundStyle(Color.textPrimary)
-                .forgeGlanceText()
-                .contentTransition(.numericText())
-        }
-    }
-
-    private var readinessText: some View {
+    private var sharingWell: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
-            Text("Readiness today")
+            Text("Shared with ARIA")
                 .font(HomeType.micro)
                 .foregroundStyle(Color.textTertiary)
-            Text(readinessWord)
-                .font(HomeType.status)
+            Text(YouContextGlance.sharingLine(glance))
+                .font(HomeType.body)
                 .foregroundStyle(Color.textPrimary)
-                .lineLimit(2)
-            if hasReadiness {
-                ForgeVibeChip(label: trendLabel, energy: trendColor)
-                    .padding(.top, ForgeLayout.pairGap)
-            }
-        }
-    }
-
-    private var readinessWell: some View {
-        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
-            readinessRing
-            readinessText
+                .forgeWrapping()
+            Text(YouContextGlance.goalsLine(glance))
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(hasReadiness
-            ? "Readiness today \(store.readiness.overall) out of 100, \(readinessWord), \(trendLabel)"
-            : "Readiness today not measured yet")
+        .accessibilityLabel("\(YouContextGlance.sharingLine(glance)). Goals: \(YouContextGlance.goalsLine(glance))")
     }
-
-    // MARK: Quick actions
 
     private var actions: some View {
         ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {

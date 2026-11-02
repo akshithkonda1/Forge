@@ -34,7 +34,7 @@ struct DataPermissionsView: View {
         let named: [PermissionCluster] = [
             PermissionCluster(
                 id: "body",
-                title: "Body & recovery",
+                title: "Body & rest",
                 tint: .steel,
                 domains: ["sleep", "readiness", "chronotype", "body"]
             ),
@@ -195,7 +195,7 @@ struct DataPermissionsView: View {
     private func syncNotice(_ message: String) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: "info.circle")
-                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .font(HomeType.label)
                 .foregroundStyle(Color.steel)
                 .accessibilityHidden(true)
             Text(message)

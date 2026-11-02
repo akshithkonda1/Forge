@@ -37,7 +37,7 @@ struct CoachingStylePickerView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
-                    Text("Choose how ARIA talks to you during training and recovery.")
+                    Text("Choose how ARIA talks to you during training and rest.")
                         .font(HomeType.body)
                         .foregroundStyle(Color.textSecondary)
                         .forgeWrapping()
@@ -102,7 +102,7 @@ struct CoachingStylePickerView: View {
                 .layoutPriority(1)
 
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .font(HomeType.label)
                     .foregroundStyle(selected ? tint(for: style) : Color.textMuted)
                     .frame(minHeight: ForgeLayout.iconWell)
                     .accessibilityHidden(true)
