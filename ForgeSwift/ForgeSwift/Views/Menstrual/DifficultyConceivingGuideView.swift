@@ -122,5 +122,6 @@ struct DifficultyConceivingGuideView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(when)")
     }
 }

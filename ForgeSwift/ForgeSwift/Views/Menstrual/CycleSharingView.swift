@@ -122,7 +122,7 @@ struct CycleSharingView: View {
                 }
             }
 
-            Text("They see how to help. They never see your log. If they use Forge, a Watch glance and a morning reminder stay lock-safe. You can stop at any time.")
+            Text("They see how to help. They never see your log. ARIA only sees cycle context if you turn on share with ARIA — this invite is separate, per person. If they use Forge, a Watch glance and a morning reminder stay lock-safe. You can stop at any time.")
                 .font(HomeType.body)
                 .foregroundStyle(Color.vitality)
                 .forgeWrapping()
@@ -134,6 +134,7 @@ struct CycleSharingView: View {
             }
         }
         .forgeContentCard(tint: .indigo)
+        .accessibilityElement(children: .contain)
     }
 
     private var rolePicker: some View {
@@ -279,6 +280,7 @@ struct CycleSharingView: View {
             .layoutPriority(1)
             Spacer(minLength: 0)
         }
+        .accessibilityElement(children: .combine)
     }
 
     /// The extension only holds an invite for 30 minutes. iMessage on

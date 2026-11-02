@@ -390,7 +390,7 @@ struct SexualHealthEntryCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
                 Image(systemName: flow == .difficultyConceiving ? "chevron.right" : "arrow.up.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(ForgeFont.sans(11, weight: .semibold, relativeTo: .caption2))
                     .foregroundStyle(Color.textMuted)
                     .accessibilityHidden(true)
             }
