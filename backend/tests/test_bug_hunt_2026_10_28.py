@@ -223,6 +223,7 @@ class HealthKitObserverSourceTests(unittest.TestCase):
 
     def test_ios_observer_uses_gate_not_completion_before_work(self):
         text = (REPO / "ForgeSwift" / "ForgeSwift" / "HealthKitManager.swift").read_text()
+        self.assertIn("handleObserverDelivery", text)
         self.assertIn("HealthKitObserverGate.run", text)
         self.assertIn("performObserverRefresh", text)
         self.assertIn("recordBackgroundDeliveryFailure", text)

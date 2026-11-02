@@ -1,8 +1,11 @@
 import XCTest
 import ForgeCore
+@testable import ForgeSwift
 
-/// Tess: run on Mac / Xcode. Locks BH-15 — completion after refresh work,
-/// exactly once when work throws. Linux CI cannot execute XCTest here.
+/// BH-15 call-site test. Must fail on main if HealthKitManager still calls
+/// `completion()` before `scheduleLiveRefresh` (~:695 on 0d1426ca).
+/// Exercising only HealthKitObserverGate is not enough — reverting the
+/// `startBidirectionalSync` handler must fail this class.
 final class HealthKitObserverCompletionTests: XCTestCase {
 
     override func setUp() {
@@ -10,26 +13,47 @@ final class HealthKitObserverCompletionTests: XCTestCase {
         HealthKitObserverGate.resetTestState()
     }
 
-    func testCompletionRunsAfterRefresh() async {
+    func testHealthKitManagerCallSiteDoesNotCompleteBeforeRefresh() throws {
+        let source = try HealthKitObserverCallSite.loadHealthKitManagerSource()
+        XCTAssertTrue(
+            HealthKitObserverCallSite.usesCompletionGate(source),
+            "startBidirectionalSync must await handleObserverDelivery / HealthKitObserverGate.run"
+        )
+        XCTAssertFalse(
+            HealthKitObserverCallSite.completesBeforeRefresh(source),
+            "completion() before scheduleLiveRefresh is the BH-15 bug on main"
+        )
+        let body = HealthKitObserverCallSite.startBidirectionalSyncBody(source)
+        XCTAssertTrue(
+            body.contains("handleObserverDelivery"),
+            "observer query must call HealthKitManager.handleObserverDelivery"
+        )
+        XCTAssertFalse(
+            body.contains("scheduleLiveRefresh()"),
+            "fire-and-forget scheduleLiveRefresh + completion() is the main bug"
+        )
+    }
+
+    func testManagerDeliveryRunsCompletionAfterRefresh() async {
         var order: [String] = []
-        await HealthKitObserverGate.run(
-            observerError: nil,
-            work: {
-                try await Task.sleep(nanoseconds: 10_000_000)
+        await HealthKitManager.shared.handleObserverDelivery(
+            error: nil,
+            completion: { order.append("completion") },
+            refresh: {
+                try await Task.sleep(nanoseconds: 15_000_000)
                 order.append("refresh")
-            },
-            completion: { order.append("completion") }
+            }
         )
         XCTAssertEqual(order, ["refresh", "completion"])
     }
 
-    func testCompletionRunsExactlyOnceOnThrow() async {
+    func testManagerDeliveryRunsCompletionExactlyOnceWhenWorkThrows() async {
         enum Probe: Error { case boom }
         var count = 0
-        await HealthKitObserverGate.run(
-            observerError: nil,
-            work: { throw Probe.boom },
-            completion: { count += 1 }
+        await HealthKitManager.shared.handleObserverDelivery(
+            error: nil,
+            completion: { count += 1 },
+            refresh: { throw Probe.boom }
         )
         XCTAssertEqual(count, 1)
     }

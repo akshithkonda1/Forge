@@ -694,11 +694,7 @@ class HealthKitManager: ObservableObject {
         for type in Self.bidirectionalSampleTypes {
             let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, error in
                 Task { @MainActor in
-                    await HealthKitObserverGate.run(
-                        observerError: error,
-                        work: { await self?.performObserverRefresh() },
-                        completion: completion
-                    )
+                    await self?.handleObserverDelivery(error: error, completion: completion)
                 }
             }
             healthStore.execute(query)
@@ -771,7 +767,30 @@ class HealthKitManager: ObservableObject {
         }
     }
 
+    /// Same path the `HKObserverQuery` handler uses. Tess/BH-15: a revert that
+    /// calls `completion()` before refresh must fail tests of this method and
+    /// of the call site in `startBidirectionalSync`.
+    func handleObserverDelivery(
+        error: Error?,
+        completion: @escaping () -> Void,
+        refresh: (() async throws -> Void)? = nil
+    ) async {
+        await HealthKitObserverGate.run(
+            observerError: error,
+            work: {
+                if let refresh {
+                    try await refresh()
+                } else {
+                    await self.performObserverRefresh()
+                }
+            },
+            completion: completion
+        )
+    }
+
     /// Debounced refresh that the observer awaits before calling completion (BH-15).
+    /// Cancels then awaits the prior task: a slow refresh can hold observer
+    /// completion past the 350ms debounce (watch launch-stability).
     private func performObserverRefresh() async {
         liveRefreshTask?.cancel()
         let task = Task { @MainActor in

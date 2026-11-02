@@ -45,3 +45,50 @@ public enum HealthKitObserverGate {
         }
     }
 }
+
+/// Source contract for the iPhone observer call site (BH-15).
+/// A revert of `HealthKitManager.startBidirectionalSync` to the 0d1426ca
+/// `scheduleLiveRefresh()` + immediate `completion()` pattern must fail tests
+/// that assert `completesBeforeRefresh` is false and `usesCompletionGate` is true.
+public enum HealthKitObserverCallSite {
+    public static func loadHealthKitManagerSource() throws -> String {
+        let gateFile = URL(fileURLWithPath: #filePath)
+        let forgeSwiftRoot = gateFile
+            .deletingLastPathComponent() // HealthKit
+            .deletingLastPathComponent() // ForgeCore
+            .deletingLastPathComponent() // Sources
+            .deletingLastPathComponent() // ForgeCore package
+            .deletingLastPathComponent() // ForgeSwift/
+        let url = forgeSwiftRoot.appendingPathComponent("ForgeSwift/HealthKitManager.swift")
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    public static func startBidirectionalSyncBody(_ source: String) -> String {
+        guard let start = source.range(of: "func startBidirectionalSync()") else {
+            return ""
+        }
+        let rest = source[start.lowerBound...]
+        if let end = rest.range(of: "\n    func stopBidirectionalSync()") {
+            return String(rest[..<end.lowerBound])
+        }
+        return String(rest.prefix(3_000))
+    }
+
+    /// True for the main/0d1426ca bug: `completion()` fires before refresh work.
+    public static func completesBeforeRefresh(_ source: String) -> Bool {
+        let body = startBidirectionalSyncBody(source)
+        if body.range(
+            of: #"scheduleLiveRefresh\(\)[\s\S]{0,160}completion\(\)"#,
+            options: .regularExpression
+        ) != nil {
+            return true
+        }
+        return body.range(of: #"(?<![:\w])completion\(\)"#, options: .regularExpression) != nil
+    }
+
+    public static func usesCompletionGate(_ source: String) -> Bool {
+        let body = startBidirectionalSyncBody(source)
+        return body.contains("HealthKitObserverGate.run")
+            || body.contains("handleObserverDelivery")
+    }
+}
