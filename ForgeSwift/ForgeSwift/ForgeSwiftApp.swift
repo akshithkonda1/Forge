@@ -4,7 +4,18 @@ import ForgeCore
 
 @main
 struct ForgeSwiftApp: App {
-    @StateObject private var store = ForgePerf.measure("AppStoreInit", category: .launch) { AppStore() }
+    /// Pin leftover fail-open before `@StateObject` constructs AppStore.
+    /// `ProcessInfo.systemUptime` is machine awake time; we only store it
+    /// as the origin so later remaining is process-relative.
+    private static let _pinPrepClock: Bool = {
+        AriaForgePrep.markProcessStart()
+        return true
+    }()
+
+    @StateObject private var store = ForgePerf.measure("AppStoreInit", category: .launch) {
+        _ = ForgeSwiftApp._pinPrepClock
+        return AppStore()
+    }
 
     // Exists so iOS has somewhere to hand a CloudKit share when a supporter
     // accepts a cycle invite; SwiftUI's App lifecycle exposes no other hook.

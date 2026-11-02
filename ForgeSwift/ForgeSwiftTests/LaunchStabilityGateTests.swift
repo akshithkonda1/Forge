@@ -67,6 +67,21 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(AriaForgePrepHandoff.onboardedKey, AppStore.onboardedDefaultsKey)
     }
 
+    func testLeftoverCapUsesProcessRelativeClockNotMachineUptime() {
+        AriaForgePrep.resetToProductionClockForTests()
+        defer { AriaForgePrep.resetLeftoverSessionForTests() }
+        let elapsed = AriaForgePrep.elapsedSinceProcessStartForTests()
+        XCTAssertLessThan(
+            elapsed,
+            2,
+            "Leftover remaining must be process-relative, not CI machine awake time"
+        )
+        let machine = ProcessInfo.processInfo.systemUptime
+        if machine > 5 {
+            XCTAssertLessThan(elapsed, machine - 2, "Machine systemUptime is not leftover elapsed")
+        }
+    }
+
     func testWatchdogCapFinishesEvenWhenWorkNeverReturns() async {
         let previousFlag = UserDefaults.standard.object(
             forKey: AriaForgePrepHandoff.interviewCompleteKey

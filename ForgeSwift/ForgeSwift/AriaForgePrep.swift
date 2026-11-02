@@ -229,6 +229,7 @@ enum AriaForgePrepHandoff {
 
     /// Launch-gate plist the harness reads. Safe off the main actor so
     /// leftover fail-open is not starved by leftover ingest.
+    /// Write false, do not tombstone: a missing key keeps the pre-launch YES.
     nonisolated static func flushHandoff(onboarded: Bool) {
         let defaults = UserDefaults.standard
         defaults.set(false, forKey: interviewCompleteKey)
@@ -268,11 +269,13 @@ enum AriaForgePrepHandoff {
 }
 
 extension AriaForgePrep {
-    /// Wall clock for leftover fail-open. First mark wins — AppStore.init
-    /// must not restart the 55s cap several seconds after `simctl launch`.
-    private static var processStart: Date?
-    /// XCTest only. Production leftover remaining uses process uptime so
-    /// the delay before AppStore.init still counts against the cap.
+    /// `ProcessInfo.systemUptime` at first mark. Elapsed is the delta —
+    /// never the machine's awake time (that is hours on CI and would
+    /// fire leftover fail-open in 50ms, skip the 45–55s hold, and run
+    /// HealthKit on the first sample window).
+    private static var bootstrapUptime: TimeInterval?
+    /// XCTest only. Production leftover remaining uses the process-
+    /// relative uptime delta from `markProcessStart`.
     private static var testClockOrigin: Date?
     /// One leftover-prep session per process. The timeout is wall-clock
     /// from process start — not from when OnboardingView happens to appear.
@@ -284,14 +287,14 @@ extension AriaForgePrep {
     private static var leftoverIngestTask: Task<Void, Never>?
 
     static func markProcessStart() {
-        if processStart == nil {
-            processStart = Date()
+        if bootstrapUptime == nil {
+            bootstrapUptime = ProcessInfo.processInfo.systemUptime
         }
     }
 
     @MainActor
     static func resetLeftoverSessionForTests() {
-        processStart = Date()
+        bootstrapUptime = ProcessInfo.processInfo.systemUptime
         testClockOrigin = Date()
         leftoverTimeoutArmed = false
         leftoverTimeoutTask?.cancel()
@@ -300,11 +303,32 @@ extension AriaForgePrep {
         leftoverIngestTask = nil
     }
 
+    /// Test hook: pin a production-style clock (no XCTest origin) so
+    /// leftover remaining cannot be confused with machine awake time.
+    @MainActor
+    static func resetToProductionClockForTests() {
+        testClockOrigin = nil
+        bootstrapUptime = ProcessInfo.processInfo.systemUptime
+        leftoverTimeoutArmed = false
+        leftoverTimeoutTask?.cancel()
+        leftoverTimeoutTask = nil
+        leftoverIngestTask?.cancel()
+        leftoverIngestTask = nil
+    }
+
+    static func elapsedSinceProcessStartForTests() -> TimeInterval {
+        elapsedSinceProcessStart()
+    }
+
     private static func elapsedSinceProcessStart() -> TimeInterval {
         if let testClockOrigin {
             return Date().timeIntervalSince(testClockOrigin)
         }
-        return ProcessInfo.processInfo.systemUptime
+        let origin = bootstrapUptime ?? ProcessInfo.processInfo.systemUptime
+        if bootstrapUptime == nil {
+            bootstrapUptime = origin
+        }
+        return max(0, ProcessInfo.processInfo.systemUptime - origin)
     }
 
     /// Fail-open: if the hold or ingest is still pending at `cap`, flush
