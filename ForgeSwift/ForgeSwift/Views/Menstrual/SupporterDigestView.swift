@@ -58,7 +58,7 @@ struct SupporterDigestView: View {
     private func banner(icon: String, text: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ForgeFont.sans(14, weight: .semibold, relativeTo: .subheadline))
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)
             Text(text)
@@ -69,6 +69,7 @@ struct SupporterDigestView: View {
         }
         .forgeContentCard(tint: tint, padding: ForgeLayout.compactCardPadding)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(text)
     }
 
     private var previewBanner: some View {
@@ -142,6 +143,13 @@ struct SupporterDigestView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeContentCard()
         .accessibilityElement(children: .contain)
+        .accessibilityLabel("Today at a glance for \(personName.isEmpty ? "them" : personName)")
+        .accessibilityValue({
+            var parts = [digest.phase.label]
+            if let day = digest.periodDay { parts.append("day \(day)") }
+            parts.append(digest.energy.label)
+            return parts.joined(separator: ", ")
+        }())
     }
 
     private var glanceHeader: some View {
@@ -168,7 +176,7 @@ struct SupporterDigestView: View {
             Circle()
                 .fill(accent.opacity(0.18))
             Image(systemName: phaseIcon)
-                .font(.system(size: diameter * 0.39, weight: .semibold))
+                .font(ForgeFont.sans(diameter * 0.39, weight: .semibold, relativeTo: .title3))
                 .foregroundStyle(accent)
         }
         .frame(width: diameter, height: diameter)
@@ -194,7 +202,7 @@ struct SupporterDigestView: View {
     private func supportCardQuote(_ card: String) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: "heart.text.square.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(ForgeFont.sans(16, weight: .semibold, relativeTo: .callout))
                 .foregroundStyle(Color.indigo)
                 .accessibilityHidden(true)
             Text(card)
@@ -206,6 +214,8 @@ struct SupporterDigestView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Support card")
+        .accessibilityValue(card)
     }
 
     private func nextPeriodRow(_ text: String) -> some View {
@@ -221,6 +231,7 @@ struct SupporterDigestView: View {
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(text)
     }
 
     // MARK: - Guidance cards
@@ -287,7 +298,7 @@ struct SupporterDigestView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeCardHeader(title: PartnerSupportLens.Section.whatYouCannotSee.title) {
                 Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ForgeFont.sans(13, weight: .semibold, relativeTo: .footnote))
                     .foregroundStyle(Color.textTertiary)
                     .accessibilityHidden(true)
             }
@@ -297,6 +308,9 @@ struct SupporterDigestView: View {
                 .forgeWrapping()
         }
         .forgeContentCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(PartnerSupportLens.Section.whatYouCannotSee.title)
+        .accessibilityValue(lens.withheldExplanation)
     }
 
     // ------------------------------------------------------------

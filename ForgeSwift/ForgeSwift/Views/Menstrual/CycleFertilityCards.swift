@@ -90,7 +90,7 @@ private struct CycleChoiceTile: View {
             Spacer(minLength: FDS.Spacing.sm)
             if selected {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ForgeFont.sans(14, weight: .semibold, relativeTo: .subheadline))
                     .accessibilityHidden(true)
             }
         }
@@ -392,6 +392,8 @@ struct TWWSectionCard: View {
                 .font(HomeType.body)
                 .foregroundStyle(Color.textTertiary)
                 .forgeWrapping()
+                .accessibilityLabel("Days until you can test")
+                .accessibilityValue("\(max(0, windowLength - daysElapsed))")
 
             ForgeTextLink(title: "Ask ARIA about the two-week wait", accent: .ember) {
                 onAskARIA()
