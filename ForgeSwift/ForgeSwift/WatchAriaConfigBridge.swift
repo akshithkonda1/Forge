@@ -61,6 +61,10 @@ enum WatchAriaConfigBridge {
         if let token = ForgeAuthClient.shared.session?.accessToken, !token.isEmpty {
             payload[Keys.authToken] = token
         }
+        payload[SleepNudgePolicy.quietWeekDefaultsKey] =
+            SleepNudgePolicy.isQuietWeek() ? "true" : "false"
+        payload[SleepNudgePolicy.phoneWindDownScheduledKey] =
+            SleepNudgePolicy.isPhoneWindDownScheduled() ? "true" : "false"
 
         // Persist non-secrets only. Auth tokens / user ids are secrets
         // (`CompanionConfig.secretKeys`) and must never land in App Group or
@@ -118,6 +122,8 @@ enum WatchAriaConfigBridge {
         // Merge with any in-flight workout context so we don't clobber Live Activity state.
         var merged = session.applicationContext
         merged[WC.config] = payload
+        merged[SleepNudgePolicy.quietWeekDefaultsKey] = SleepNudgePolicy.isQuietWeek()
+        merged[SleepNudgePolicy.phoneWindDownScheduledKey] = SleepNudgePolicy.isPhoneWindDownScheduled()
         do {
             try session.updateApplicationContext(merged)
         } catch {

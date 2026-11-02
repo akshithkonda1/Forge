@@ -21,6 +21,10 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
 
     public var sleepQualityScore: Int?
     public var sleepMinutes: Double?
+    /// Phone quiet-week flag. Optional so older snapshots still decode.
+    public var sleepQuietWeek: Bool?
+    /// Phone already scheduled tonight's wind-down. Watch is the fallback.
+    public var phoneWindDownScheduled: Bool?
 
     public var recommendedPractice: PracticeType?
     public var recommendedDuration: TimeInterval?
@@ -65,6 +69,8 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
             && tomorrowPosture == other.tomorrowPosture
             && sleepQualityScore == other.sleepQualityScore
             && sleepMinutes == other.sleepMinutes
+            && sleepQuietWeek == other.sleepQuietWeek
+            && phoneWindDownScheduled == other.phoneWindDownScheduled
             && recommendedPractice == other.recommendedPractice
             && recommendedDuration == other.recommendedDuration
             && recommendationReason == other.recommendationReason
@@ -131,6 +137,26 @@ public enum WatchSnapshotStore {
         var snapshot = load() ?? WatchSnapshot()
         mutate(&snapshot)
         snapshot.updatedAt = Date()
+        save(snapshot, reloadWidgets: reloadWidgets)
+    }
+
+    /// Quiet-week / phone-wind-down flags from the phone. Leaves `updatedAt`
+    /// alone so a companion sync does not look like a health refresh.
+    public static func applySleepNudgeFlags(
+        quietWeek: Bool?,
+        phoneWindDownScheduled: Bool?,
+        reloadWidgets: Bool = true
+    ) {
+        guard quietWeek != nil || phoneWindDownScheduled != nil else { return }
+        var snapshot = load() ?? WatchSnapshot()
+        let previousQuiet = snapshot.sleepQuietWeek
+        let previousPhone = snapshot.phoneWindDownScheduled
+        if let quietWeek { snapshot.sleepQuietWeek = quietWeek }
+        if let phoneWindDownScheduled { snapshot.phoneWindDownScheduled = phoneWindDownScheduled }
+        if snapshot.sleepQuietWeek == previousQuiet,
+           snapshot.phoneWindDownScheduled == previousPhone {
+            return
+        }
         save(snapshot, reloadWidgets: reloadWidgets)
     }
 }

@@ -52,6 +52,47 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         XCTAssertFalse(WatchSnapshotStore.watchWidgetKinds.contains(where: { $0.isEmpty }))
     }
 
+    func testWatchSnapshotSleepNudgeFlagsDecodeIfPresent() throws {
+        var old = WatchSnapshot()
+        old.readinessOverall = 70
+        old.updatedAt = Date(timeIntervalSince1970: 40)
+        var json = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(old)
+        ) as! [String: Any]
+        json.removeValue(forKey: "sleepQuietWeek")
+        json.removeValue(forKey: "phoneWindDownScheduled")
+        let decoded = try JSONDecoder().decode(
+            WatchSnapshot.self,
+            from: JSONSerialization.data(withJSONObject: json)
+        )
+        XCTAssertNil(decoded.sleepQuietWeek)
+        XCTAssertNil(decoded.phoneWindDownScheduled)
+        XCTAssertEqual(decoded.readinessOverall, 70)
+        XCTAssertEqual(decoded.updatedAt, Date(timeIntervalSince1970: 40))
+    }
+
+    func testApplySleepNudgeFlagsLeavesUpdatedAtAlone() {
+        var first = WatchSnapshot()
+        first.sleepMinutes = 400
+        first.updatedAt = Date(timeIntervalSince1970: 50)
+        WatchSnapshotStore.save(first, reloadWidgets: false)
+        WatchSnapshotStore.applySleepNudgeFlags(
+            quietWeek: true,
+            phoneWindDownScheduled: false,
+            reloadWidgets: false
+        )
+        let loaded = WatchSnapshotStore.load()
+        XCTAssertEqual(loaded?.updatedAt, Date(timeIntervalSince1970: 50))
+        XCTAssertEqual(loaded?.sleepQuietWeek, true)
+        XCTAssertEqual(loaded?.phoneWindDownScheduled, false)
+        XCTAssertEqual(loaded?.sleepMinutes, 400)
+        var flagged = first
+        flagged.sleepQuietWeek = true
+        flagged.phoneWindDownScheduled = false
+        XCTAssertTrue(loaded!.hasSameWidgetContent(as: flagged))
+        XCTAssertFalse(first.hasSameWidgetContent(as: flagged))
+    }
+
     func testSaveSkipsWhenContentIsEqual() {
         var first = HomeWidgetSnapshot.preview
         first.updatedAt = Date(timeIntervalSince1970: 1)

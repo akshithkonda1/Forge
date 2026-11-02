@@ -230,6 +230,7 @@ let package = Package(
                 "NonFiniteHealthInputTests.swift",
                 "SleepQueryCacheTests.swift",
                 "SleepWindDownNoticeTests.swift",
+                "SleepNudgePolicyTests.swift",
                 "HabitEngineTests.swift",
                 "HabitStreakTests.swift",
                 "OnboardingGraphTests.swift",

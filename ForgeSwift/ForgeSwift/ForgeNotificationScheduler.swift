@@ -63,6 +63,7 @@ enum ForgeNotificationScheduler {
             )
         }
 
+        SleepNudgePolicy.setQuietWeek(settings.sleepQuietWeek)
         if settings.lifestyleReminders {
             await scheduleInterval(
                 id: ID.lifestyleHydration,
@@ -90,6 +91,9 @@ enum ForgeNotificationScheduler {
                 quietWeek: settings.sleepQuietWeek,
                 lowEnergyDay: false
             )
+        } else {
+            SleepNudgePolicy.setPhoneWindDownScheduled(false)
+            WatchAriaConfigBridge.sync(force: true)
         }
 
         if briefEnabled {
@@ -136,8 +140,13 @@ enum ForgeNotificationScheduler {
 
     /// One phone wind-down. Replaces both the old 21:00 lifestyle id and
     /// LifestyleServices `sleep-wind-down`. Watch `WindDownScheduler` stays.
+    /// Quiet week is the App Group flag — never force it off from this path.
     static func schedulePhoneWindDown(bedtimeHour: Double?) async {
-        await scheduleSleepNudges(bedtimeHour: bedtimeHour, quietWeek: false, lowEnergyDay: false)
+        await scheduleSleepNudges(
+            bedtimeHour: bedtimeHour,
+            quietWeek: SleepNudgePolicy.isQuietWeek(),
+            lowEnergyDay: false
+        )
     }
 
     /// At most two sleep nudges a day: caffeine cutoff, then wind-down.
@@ -150,28 +159,41 @@ enum ForgeNotificationScheduler {
             + SleepWindDownNotice.retiredPhoneIdentifiers
         center.removePendingNotificationRequests(withIdentifiers: ids)
         SleepNudgePolicy.setQuietWeek(quietWeek)
-        guard !quietWeek else { return }
+        let requested = [
+            SleepWindDownNotice.phoneIdentifier,
+            SleepWindDownNotice.caffeineIdentifier,
+        ]
+        let allowed = SleepNudgePolicy.allowed(requested, quietWeek: quietWeek)
+        SleepNudgePolicy.setPhoneWindDownScheduled(
+            allowed.contains(SleepWindDownNotice.phoneIdentifier)
+        )
 
-        let wind = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
-        await scheduleDaily(
-            id: SleepWindDownNotice.phoneIdentifier,
-            hour: wind.hour,
-            minute: wind.minute,
-            title: "Wind Down",
-            body: SleepWindDownNotice.phoneBody(lowReadinessDay: lowEnergyDay),
-            destination: "forge://sleep/night",
-            interruptionLevel: .passive
-        )
-        let caffeine = SleepWindDownNotice.caffeineHourMinute(bedtimeHour: bedtimeHour)
-        await scheduleDaily(
-            id: SleepWindDownNotice.caffeineIdentifier,
-            hour: caffeine.hour,
-            minute: caffeine.minute,
-            title: "Last caffeine",
-            body: SleepWindDownNotice.caffeineBody(),
-            destination: "forge://sleep/night",
-            interruptionLevel: .passive
-        )
+        if allowed.contains(SleepWindDownNotice.phoneIdentifier) {
+            let wind = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
+            await scheduleDaily(
+                id: SleepWindDownNotice.phoneIdentifier,
+                hour: wind.hour,
+                minute: wind.minute,
+                title: "Wind Down",
+                body: SleepWindDownNotice.phoneBody(lowReadinessDay: lowEnergyDay),
+                destination: "forge://sleep/night",
+                interruptionLevel: .passive
+            )
+        }
+        if allowed.contains(SleepWindDownNotice.caffeineIdentifier) {
+            let caffeine = SleepWindDownNotice.caffeineHourMinute(bedtimeHour: bedtimeHour)
+            await scheduleDaily(
+                id: SleepWindDownNotice.caffeineIdentifier,
+                hour: caffeine.hour,
+                minute: caffeine.minute,
+                title: "Last caffeine",
+                body: SleepWindDownNotice.caffeineBody(),
+                destination: "forge://sleep/night",
+                interruptionLevel: .passive
+            )
+        }
+
+        WatchAriaConfigBridge.sync(force: true)
     }
 
     // MARK: - Cycle notifications
