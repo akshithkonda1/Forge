@@ -200,7 +200,7 @@ enum MenstrualCycleEngine {
                 guard let ns = nextStart else { return nil }
                 return CycleDayKey.addDays(ns, ovuDay - 1)
             }
-            return CycleDayKey.addDays(lastStart, (ovulation?.dayInCycle ?? 14) - 1)
+            return CycleDayKey.addDays(lastStart, ovuDay - 1)
         }()
 
         // Conditions like PCOS and perimenopause inherently produce irregular cycles —
@@ -540,7 +540,9 @@ enum MenstrualCycleEngine {
     }
 
     /// Classic fertility-awareness: 3 consecutive temps higher than prior 6 coverline.
-    private static func detectBBTShift(cycleLogs: [CycleDayLog], start: String) -> Int? {
+    /// Readings must sit on consecutive calendar days (at most one missing day
+    /// between adjacent samples). A multi-day hole is not a biphasic shift.
+    static func detectBBTShift(cycleLogs: [CycleDayLog], start: String) -> Int? {
         let series: [(day: Int, t: Double)] = cycleLogs.compactMap { log in
             guard let t = log.bbtCelsius, t > 35.0, t < 38.5,
                   let d = CycleDayKey.daysBetween(start, log.dayKey) else { return nil }
@@ -550,9 +552,11 @@ enum MenstrualCycleEngine {
         guard series.count >= 9 else { return nil }
 
         for i in 6..<(series.count - 2) {
-            let cover = series[(i - 6)..<i].map(\.t)
+            let window = Array(series[(i - 6)..<(i + 3)])
+            guard areCalendarConsecutive(window.map(\.day), maxGap: 1) else { continue }
+            let cover = window.prefix(6).map(\.t)
             let coverMax = cover.max() ?? 0
-            let next3 = series[i..<(i + 3)].map(\.t)
+            let next3 = window.suffix(3).map(\.t)
             // Shift if all 3 exceed coverline max by ≥0.1°C (slightly relaxed for wrist-adjacent noise)
             if next3.allSatisfy({ $0 >= coverMax + 0.10 }) {
                 // Ovulation typically day before sustained rise
@@ -560,6 +564,16 @@ enum MenstrualCycleEngine {
             }
         }
         return nil
+    }
+
+    /// Adjacent cycle-day numbers differ by 1 or 2 (a single skipped calendar day).
+    static func areCalendarConsecutive(_ days: [Int], maxGap: Int) -> Bool {
+        guard days.count >= 2 else { return true }
+        for i in 1..<days.count {
+            let step = days[i] - days[i - 1]
+            if step < 1 || step > maxGap + 1 { return false }
+        }
+        return true
     }
 
     // MARK: Phase
@@ -608,10 +622,10 @@ enum MenstrualCycleEngine {
             if day > (fertileEnd ?? ovu + 1) { return .luteal }
         }
 
-        // Fallback calendar windows on a personalized cycle
-        if day <= 11 { return .follicular }
-        if day <= 16 { return .fertileWindow }
-        return .luteal
+        // `estimateOvulation` always returns a day once a period start exists, so a
+        // period-anchored cycle never reaches here. Stay unknown rather than stamp
+        // a fixed 28-day cookie-cutter (day ≤ 11 follicular / ≤ 16 fertile).
+        return .unknown
     }
 
     // MARK: Cycle stage

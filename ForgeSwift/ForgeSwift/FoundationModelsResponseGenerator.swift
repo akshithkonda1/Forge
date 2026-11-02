@@ -173,7 +173,8 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
                 lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
             }
             let domain = CyclePhaseCoachingDirective.classifyDomain(from: input)
-            let phaseDirective = CyclePhaseCoachingDirective.directive(for: c.phase, domain: domain)
+            let lutealDays = MenstrualHealthStore.shared.settings.effectiveLutealDays
+            let phaseDirective = CyclePhaseCoachingDirective.directive(for: c.phase, domain: domain, lutealDays: lutealDays)
             if !phaseDirective.isEmpty {
                 lines.append("## Phase Coaching Directive\n\(phaseDirective)")
             }

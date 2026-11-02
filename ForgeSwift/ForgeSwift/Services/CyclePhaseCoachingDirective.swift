@@ -9,9 +9,13 @@ enum CoachingDomain {
 /// the model interpreting raw cycle tags.
 enum CyclePhaseCoachingDirective {
 
-    static func directive(for phase: MenstrualPhase, domain: CoachingDomain) -> String {
+    static func directive(
+        for phase: MenstrualPhase,
+        domain: CoachingDomain,
+        lutealDays: Int = CycleBiology.defaultLutealDays
+    ) -> String {
         switch domain {
-        case .workout:   return workoutDirective(for: phase)
+        case .workout:   return workoutDirective(for: phase, lutealDays: lutealDays)
         case .nutrition: return nutritionDirective(for: phase)
         case .sleep:     return sleepDirective(for: phase)
         case .stress:    return stressDirective(for: phase)
@@ -19,9 +23,18 @@ enum CyclePhaseCoachingDirective {
         }
     }
 
+    /// Early luteal is the first half of the person's effective luteal length;
+    /// late luteal is the remainder. A 14-day luteal keeps the historic 1–7 / 8–14 split.
+    static func lutealHalves(lutealDays: Int) -> (earlyEnd: Int, lateStart: Int, lateEnd: Int) {
+        let days = CycleBiology.clampLutealDays(lutealDays)
+        let earlyEnd = max(1, days / 2)
+        let lateStart = min(days, earlyEnd + 1)
+        return (earlyEnd, lateStart, days)
+    }
+
     // MARK: - Workout
 
-    private static func workoutDirective(for phase: MenstrualPhase) -> String {
+    private static func workoutDirective(for phase: MenstrualPhase, lutealDays: Int) -> String {
         switch phase {
         case .menstruation:
             return "The user is menstruating. Prostaglandins cause uterine cramping and may reduce performance. Recommend lower intensity: walking, yoga, gentle swimming. Avoid heavy PRs or max-effort sessions. Validate rest if needed — this is physiologically appropriate, not weakness."
@@ -32,7 +45,8 @@ enum CyclePhaseCoachingDirective {
         case .ovulation:
             return "The user is ovulating. Testosterone briefly spikes alongside the LH surge — peak power, aggression, and motivation. Best day for one-rep maxes or race efforts. Again flag ligament laxity risk: form over load."
         case .luteal:
-            return "The user is in the luteal phase. Progesterone rises, increasing core body temperature by ~0.3°C and raising RPE for the same effort. Early luteal (days 1–7 post-ovulation): maintain strength and moderate cardio. Late luteal (days 8–14): reduce intensity, prioritise sleep, watch for fatigue accumulation and PMS-driven motivation dips. Avoid scheduling major competitions in late luteal."
+            let split = lutealHalves(lutealDays: lutealDays)
+            return "The user is in the luteal phase. Progesterone rises, increasing core body temperature by ~0.3°C and raising RPE for the same effort. Early luteal (days 1–\(split.earlyEnd) post-ovulation): maintain strength and moderate cardio. Late luteal (days \(split.lateStart)–\(split.lateEnd)): reduce intensity, prioritise sleep, watch for fatigue accumulation and PMS-driven motivation dips. Avoid scheduling major competitions in late luteal."
         case .unknown:
             return ""
         }
