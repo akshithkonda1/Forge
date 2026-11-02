@@ -25,6 +25,9 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var sleepQuietWeek: Bool?
     /// Phone already scheduled tonight's wind-down. Watch is the fallback.
     public var phoneWindDownScheduled: Bool?
+    /// When the phone last claimed it scheduled wind-down. Optional so older
+    /// snapshots still decode; missing/stale means Watch fail-opens.
+    public var phoneWindDownScheduledAt: Date?
 
     public var recommendedPractice: PracticeType?
     public var recommendedDuration: TimeInterval?
@@ -71,6 +74,7 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
             && sleepMinutes == other.sleepMinutes
             && sleepQuietWeek == other.sleepQuietWeek
             && phoneWindDownScheduled == other.phoneWindDownScheduled
+            && phoneWindDownScheduledAt == other.phoneWindDownScheduledAt
             && recommendedPractice == other.recommendedPractice
             && recommendedDuration == other.recommendedDuration
             && recommendationReason == other.recommendationReason
@@ -145,16 +149,24 @@ public enum WatchSnapshotStore {
     public static func applySleepNudgeFlags(
         quietWeek: Bool?,
         phoneWindDownScheduled: Bool?,
+        phoneScheduledAt: Date? = nil,
         reloadWidgets: Bool = true
     ) {
-        guard quietWeek != nil || phoneWindDownScheduled != nil else { return }
+        guard quietWeek != nil || phoneWindDownScheduled != nil || phoneScheduledAt != nil else { return }
         var snapshot = load() ?? WatchSnapshot()
         let previousQuiet = snapshot.sleepQuietWeek
         let previousPhone = snapshot.phoneWindDownScheduled
+        let previousAt = snapshot.phoneWindDownScheduledAt
         if let quietWeek { snapshot.sleepQuietWeek = quietWeek }
-        if let phoneWindDownScheduled { snapshot.phoneWindDownScheduled = phoneWindDownScheduled }
+        if let phoneWindDownScheduled {
+            snapshot.phoneWindDownScheduled = phoneWindDownScheduled
+            snapshot.phoneWindDownScheduledAt = phoneWindDownScheduled ? phoneScheduledAt : nil
+        } else if let phoneScheduledAt {
+            snapshot.phoneWindDownScheduledAt = phoneScheduledAt
+        }
         if snapshot.sleepQuietWeek == previousQuiet,
-           snapshot.phoneWindDownScheduled == previousPhone {
+           snapshot.phoneWindDownScheduled == previousPhone,
+           snapshot.phoneWindDownScheduledAt == previousAt {
             return
         }
         save(snapshot, reloadWidgets: reloadWidgets)

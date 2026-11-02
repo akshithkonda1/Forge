@@ -61,12 +61,14 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         ) as! [String: Any]
         json.removeValue(forKey: "sleepQuietWeek")
         json.removeValue(forKey: "phoneWindDownScheduled")
+        json.removeValue(forKey: "phoneWindDownScheduledAt")
         let decoded = try JSONDecoder().decode(
             WatchSnapshot.self,
             from: JSONSerialization.data(withJSONObject: json)
         )
         XCTAssertNil(decoded.sleepQuietWeek)
         XCTAssertNil(decoded.phoneWindDownScheduled)
+        XCTAssertNil(decoded.phoneWindDownScheduledAt)
         XCTAssertEqual(decoded.readinessOverall, 70)
         XCTAssertEqual(decoded.updatedAt, Date(timeIntervalSince1970: 40))
     }

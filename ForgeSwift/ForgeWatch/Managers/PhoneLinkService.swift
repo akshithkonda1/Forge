@@ -169,9 +169,18 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         let flags = SleepNudgePolicy.nudgeFlags(from: message)
         WatchSnapshotStore.applySleepNudgeFlags(
             quietWeek: flags.quietWeek,
-            phoneWindDownScheduled: flags.phoneWindDownScheduled
+            phoneWindDownScheduled: flags.phoneWindDownScheduled,
+            phoneScheduledAt: flags.phoneScheduledAt
         )
-        if flags.quietWeek == true || flags.phoneWindDownScheduled == true {
+        let snapshot = WatchSnapshotStore.load()
+        let now = Date()
+        if !SleepNudgePolicy.watchMayFire(
+            windDownStart: snapshot?.tonightWindDown ?? now.addingTimeInterval(1),
+            now: now,
+            quietWeek: snapshot?.sleepQuietWeek == true,
+            phoneWindDownScheduled: snapshot?.phoneWindDownScheduled,
+            phoneScheduledAt: snapshot?.phoneWindDownScheduledAt
+        ) {
             UNUserNotificationCenter.current()
                 .removePendingNotificationRequests(
                     withIdentifiers: [SleepNudgePolicy.watchWindDownIdentifier]

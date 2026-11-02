@@ -31,13 +31,15 @@ enum WindDownScheduler {
         }
 
         let snapshot = WatchSnapshotStore.load()
-        guard plan.windDownStart > Date(),
-              snapshot?.sleepQuietWeek != true,
-              snapshot?.phoneWindDownScheduled != true
-        else {
-            if snapshot?.sleepQuietWeek == true || snapshot?.phoneWindDownScheduled == true {
-                center.removePendingNotificationRequests(withIdentifiers: [identifier])
-            }
+        let now = Date()
+        guard SleepNudgePolicy.watchMayFire(
+            windDownStart: plan.windDownStart,
+            now: now,
+            quietWeek: snapshot?.sleepQuietWeek == true,
+            phoneWindDownScheduled: snapshot?.phoneWindDownScheduled,
+            phoneScheduledAt: snapshot?.phoneWindDownScheduledAt
+        ) else {
+            center.removePendingNotificationRequests(withIdentifiers: [identifier])
             return false
         }
 

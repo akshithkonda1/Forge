@@ -2,8 +2,10 @@ import Foundation
 
 public enum SleepNudgePolicy: Sendable {
     public static let maxPerDay = 2
+    public static let maxPhoneScheduleAge: TimeInterval = 24 * 3600
     public static let quietWeekDefaultsKey = "forge.sleep.quietWeek"
     public static let phoneWindDownScheduledKey = "forge.sleep.phoneWindDownScheduled"
+    public static let phoneWindDownScheduledAtKey = "forge.sleep.phoneWindDownScheduledAt"
     /// Watch `WindDownScheduler` identifier. Third in priority: the fallback.
     public static let watchWindDownIdentifier = "forge.watch.winddown"
 
@@ -25,6 +27,28 @@ public enum SleepNudgePolicy: Sendable {
         return Array((ranked + rest).prefix(maxPerDay))
     }
 
+    /// Watch fallback. Fail-open when the phone flag is missing or stale —
+    /// we cannot trust that the phone actually scheduled. Skip only when
+    /// the phone sent an explicit, fresh `true`. Quiet week and a past
+    /// `windDownStart` still skip. Ranking and `maxPerDay` stay in `allowed()`.
+    public static func watchMayFire(
+        windDownStart: Date,
+        now: Date,
+        quietWeek: Bool,
+        phoneWindDownScheduled: Bool?,
+        phoneScheduledAt: Date?,
+        maxPhoneScheduleAge: TimeInterval = SleepNudgePolicy.maxPhoneScheduleAge
+    ) -> Bool {
+        guard windDownStart > now else { return false }
+        if quietWeek { return false }
+        if phoneWindDownScheduled == true,
+           let phoneScheduledAt,
+           now.timeIntervalSince(phoneScheduledAt) <= maxPhoneScheduleAge {
+            return false
+        }
+        return true
+    }
+
     public static func isQuietWeek(defaults: UserDefaults? = nil) -> Bool {
         store(defaults).bool(forKey: quietWeekDefaultsKey)
     }
@@ -37,8 +61,18 @@ public enum SleepNudgePolicy: Sendable {
         store(defaults).bool(forKey: phoneWindDownScheduledKey)
     }
 
-    public static func setPhoneWindDownScheduled(_ on: Bool, defaults: UserDefaults? = nil) {
-        store(defaults).set(on, forKey: phoneWindDownScheduledKey)
+    public static func setPhoneWindDownScheduled(_ on: Bool, at: Date = Date(), defaults: UserDefaults? = nil) {
+        let defaults = store(defaults)
+        defaults.set(on, forKey: phoneWindDownScheduledKey)
+        if on {
+            defaults.set(at, forKey: phoneWindDownScheduledAtKey)
+        } else {
+            defaults.removeObject(forKey: phoneWindDownScheduledAtKey)
+        }
+    }
+
+    public static func phoneWindDownScheduledAt(defaults: UserDefaults? = nil) -> Date? {
+        store(defaults).object(forKey: phoneWindDownScheduledAtKey) as? Date
     }
 
     /// Quiet-week / phone-wind-down flags from a WatchConnectivity payload.
@@ -47,7 +81,7 @@ public enum SleepNudgePolicy: Sendable {
     /// do not clear Watch snapshot fields.
     public static func nudgeFlags(
         from message: [String: Any]
-    ) -> (quietWeek: Bool?, phoneWindDownScheduled: Bool?) {
+    ) -> (quietWeek: Bool?, phoneWindDownScheduled: Bool?, phoneScheduledAt: Date?) {
         let nested = message[CompanionConfig.nestedKey] as? [String: String]
         func read(_ key: String) -> Bool? {
             if let nested, let raw = nested[key] {
@@ -55,7 +89,19 @@ public enum SleepNudgePolicy: Sendable {
             }
             return boolFlag(message[key])
         }
-        return (read(quietWeekDefaultsKey), read(phoneWindDownScheduledKey))
+        func readDate(_ key: String) -> Date? {
+            if let nested, let raw = nested[key] {
+                return dateFlag(raw)
+            }
+            if let date = message[key] as? Date { return date }
+            if let raw = message[key] as? String { return dateFlag(raw) }
+            return nil
+        }
+        return (
+            read(quietWeekDefaultsKey),
+            read(phoneWindDownScheduledKey),
+            readDate(phoneWindDownScheduledAtKey)
+        )
     }
 
     public static func boolFlag(_ value: Any?) -> Bool? {
@@ -68,6 +114,15 @@ public enum SleepNudgePolicy: Sendable {
             }
         }
         if let number = value as? NSNumber { return number.boolValue }
+        return nil
+    }
+
+    static func dateFlag(_ value: Any?) -> Date? {
+        if let date = value as? Date { return date }
+        if let raw = value as? String {
+            let formatter = ISO8601DateFormatter()
+            return formatter.date(from: raw)
+        }
         return nil
     }
 

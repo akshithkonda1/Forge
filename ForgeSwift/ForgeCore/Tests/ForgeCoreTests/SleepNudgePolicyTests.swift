@@ -18,6 +18,8 @@ final class SleepNudgePolicyTests: XCTestCase {
             .removeObject(forKey: SleepNudgePolicy.quietWeekDefaultsKey)
         UserDefaults(suiteName: WatchSnapshotStore.appGroupID)?
             .removeObject(forKey: SleepNudgePolicy.phoneWindDownScheduledKey)
+        UserDefaults(suiteName: WatchSnapshotStore.appGroupID)?
+            .removeObject(forKey: SleepNudgePolicy.phoneWindDownScheduledAtKey)
         try super.tearDownWithError()
     }
 
@@ -83,18 +85,98 @@ final class SleepNudgePolicyTests: XCTestCase {
         ])
         XCTAssertEqual(nested.quietWeek, true)
         XCTAssertEqual(nested.phoneWindDownScheduled, false)
+        XCTAssertNil(nested.phoneScheduledAt)
 
+        let stamped = Date(timeIntervalSince1970: 1_800_000_000)
         let topLevel = SleepNudgePolicy.nudgeFlags(from: [
             SleepNudgePolicy.quietWeekDefaultsKey: false,
             SleepNudgePolicy.phoneWindDownScheduledKey: true,
+            SleepNudgePolicy.phoneWindDownScheduledAtKey: stamped,
         ])
         XCTAssertEqual(topLevel.quietWeek, false)
         XCTAssertEqual(topLevel.phoneWindDownScheduled, true)
+        XCTAssertEqual(topLevel.phoneScheduledAt, stamped)
 
         let missing = SleepNudgePolicy.nudgeFlags(from: [
             CompanionConfig.nestedKey: ["forge.aria.baseURL": "https://example.com"],
         ])
         XCTAssertNil(missing.quietWeek)
         XCTAssertNil(missing.phoneWindDownScheduled)
+        XCTAssertNil(missing.phoneScheduledAt)
+    }
+
+    func testWatchMayFireWhenPhoneFlagMissing() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertTrue(
+            SleepNudgePolicy.watchMayFire(
+                windDownStart: now.addingTimeInterval(3_600),
+                now: now,
+                quietWeek: false,
+                phoneWindDownScheduled: nil,
+                phoneScheduledAt: nil
+            )
+        )
+        XCTAssertTrue(
+            SleepNudgePolicy.watchMayFire(
+                windDownStart: now.addingTimeInterval(3_600),
+                now: now,
+                quietWeek: false,
+                phoneWindDownScheduled: true,
+                phoneScheduledAt: nil
+            ),
+            "a true flag without a timestamp is untrusted — Watch fail-opens"
+        )
+    }
+
+    func testWatchMayFireWhenPhoneFlagStale() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertTrue(
+            SleepNudgePolicy.watchMayFire(
+                windDownStart: now.addingTimeInterval(3_600),
+                now: now,
+                quietWeek: false,
+                phoneWindDownScheduled: true,
+                phoneScheduledAt: now.addingTimeInterval(-(SleepNudgePolicy.maxPhoneScheduleAge + 1))
+            )
+        )
+    }
+
+    func testWatchMayFireSkipsWhenPhoneFlagFreshTrue() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertFalse(
+            SleepNudgePolicy.watchMayFire(
+                windDownStart: now.addingTimeInterval(3_600),
+                now: now,
+                quietWeek: false,
+                phoneWindDownScheduled: true,
+                phoneScheduledAt: now.addingTimeInterval(-60)
+            )
+        )
+    }
+
+    func testWatchMayFireSkipsDuringQuietWeek() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertFalse(
+            SleepNudgePolicy.watchMayFire(
+                windDownStart: now.addingTimeInterval(3_600),
+                now: now,
+                quietWeek: true,
+                phoneWindDownScheduled: nil,
+                phoneScheduledAt: nil
+            )
+        )
+    }
+
+    func testWatchMayFireSkipsPastWindDownStart() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertFalse(
+            SleepNudgePolicy.watchMayFire(
+                windDownStart: now.addingTimeInterval(-1),
+                now: now,
+                quietWeek: false,
+                phoneWindDownScheduled: nil,
+                phoneScheduledAt: nil
+            )
+        )
     }
 }
