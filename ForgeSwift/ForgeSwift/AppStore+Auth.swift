@@ -12,13 +12,14 @@ extension AppStore {
     func restoreOnboardingState() {
         ForgeAuthClient.shared.installTestReadySessionIfNeeded()
         AriaOperatingMode.refresh()
+        let harnessAuth = AriaForgePrepHandoff.readBool(Self.authDefaultsKey)
         if let session = ForgeAuthClient.shared.session {
             isAuthenticated = true
             authProvider = session.provider
             authEmail = session.email
             AriaContextStore.shared.configure(userId: session.userId)
         } else {
-            isAuthenticated = UserDefaults.standard.bool(forKey: Self.authDefaultsKey)
+            isAuthenticated = harnessAuth
             authProvider = UserDefaults.standard.string(forKey: Self.authProviderKey) ?? ""
             authEmail = UserDefaults.standard.string(forKey: Self.authEmailKey) ?? ""
         }
@@ -31,12 +32,17 @@ extension AppStore {
             authProvider = authProvider.isEmpty ? "legacy" : authProvider
         }
         guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else {
-            AriaForgePrepHandoff.validateFlag(
-                isOnboarded: false,
-                isAuthenticated: isAuthenticated
-            )
+            // Keep a leftover interview flag. Clearing it because auth
+            // restore lagged made the launch gate keep reading the
+            // pre-launch YES while the app never ran finishForgePrep.
             if AriaForgePrepHandoff.isInterviewComplete {
+                if !isAuthenticated, harnessAuth { isAuthenticated = true }
                 restoreUserProfileForCurrentUser()
+            } else {
+                AriaForgePrepHandoff.validateFlag(
+                    isOnboarded: false,
+                    isAuthenticated: isAuthenticated
+                )
             }
             return
         }

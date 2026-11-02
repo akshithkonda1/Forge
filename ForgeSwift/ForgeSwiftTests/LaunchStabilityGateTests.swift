@@ -128,6 +128,25 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(LaunchBrandField.markSide, 220)
     }
 
+    func testLeftoverTimeoutArmsWithoutRestoredAuth() async {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        defer { AriaForgePrep.resetLeftoverSessionForTests() }
+
+        let store = AppStore()
+        store.isAuthenticated = false
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertFalse(store.needsForgePrep)
+
+        AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
+        let deadline = Date().addingTimeInterval(2)
+        while !store.isOnboarded && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(store.isOnboarded)
+        XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
+    }
+
     func testLeftoverTimeoutFinishesWhenHoldNeverStarts() async {
         AriaForgePrep.resetLeftoverSessionForTests()
         defer { AriaForgePrep.resetLeftoverSessionForTests() }

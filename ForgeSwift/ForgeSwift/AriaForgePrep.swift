@@ -201,8 +201,20 @@ final class AriaForgePrepInstantClock: AriaForgePrepClock {
 enum AriaForgePrepHandoff {
     static let interviewCompleteKey = "forge.onboarding.interviewComplete"
 
+    /// UserDefaults can miss a pre-launch harness write; CFPreferences is
+    /// the same store `finishForgePrep` flushes and the launch gate reads.
+    static func readBool(_ key: String) -> Bool {
+        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
+        CFPreferencesAppSynchronize(app)
+        if let raw = CFPreferencesCopyAppValue(key as CFString, app) {
+            if let flag = raw as? Bool { return flag }
+            if let number = raw as? NSNumber { return number.boolValue }
+        }
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
     static var isInterviewComplete: Bool {
-        UserDefaults.standard.bool(forKey: interviewCompleteKey)
+        readBool(interviewCompleteKey)
     }
 
     static func markInterviewComplete() {
@@ -234,9 +246,11 @@ enum AriaForgePrepHandoff {
 }
 
 extension AriaForgePrep {
+    /// Wall clock for leftover fail-open. The 60s watchdog starts at
+    /// `simctl launch`; a late OnboardingView must not add another 55s.
+    private static var processStart = Date()
     /// One leftover-prep session per process. The timeout is wall-clock
-    /// from this arm — not from when OnboardingView happens to appear —
-    /// so a late root still leaves AriaForgePrep before `watchdog`.
+    /// from process start — not from when OnboardingView happens to appear.
     @MainActor
     private static var leftoverTimeoutArmed = false
     @MainActor
@@ -244,8 +258,13 @@ extension AriaForgePrep {
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
 
+    static func markProcessStart() {
+        processStart = Date()
+    }
+
     @MainActor
     static func resetLeftoverSessionForTests() {
+        processStart = Date()
         leftoverTimeoutArmed = false
         leftoverTimeoutTask?.cancel()
         leftoverTimeoutTask = nil
@@ -254,20 +273,28 @@ extension AriaForgePrep {
     }
 
     /// Fail-open: if the hold or ingest is still pending at `cap`, open
-    /// the shell and flush the handoff the launch gate reads.
+    /// the shell and flush the handoff the launch gate reads. Arms on the
+    /// leftover interview flag even when auth restore lagged — the gate
+    /// keys are interview/completed, not the session flag.
     @MainActor
     static func armLeftoverTimeout(
         store: AppStore,
         after seconds: TimeInterval = cap
     ) {
-        guard store.needsForgePrep, !leftoverTimeoutArmed else { return }
+        guard !leftoverTimeoutArmed else { return }
+        let leftover = AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded
+        guard leftover || store.needsForgePrep else { return }
         leftoverTimeoutArmed = true
-        leftoverTimeoutTask = Task { [store] in
-            let ns = UInt64((max(0, seconds) * 1_000_000_000).rounded())
+        let elapsed = Date().timeIntervalSince(processStart)
+        let remaining = seconds < 1
+            ? max(0, seconds)
+            : max(0.05, seconds - elapsed)
+        leftoverTimeoutTask = Task.detached { [store] in
+            let ns = UInt64((remaining * 1_000_000_000).rounded())
             try? await Task.sleep(nanoseconds: ns)
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                guard store.needsForgePrep || AriaForgePrepHandoff.isInterviewComplete else { return }
+                if store.isOnboarded, !AriaForgePrepHandoff.isInterviewComplete { return }
                 store.finishForgePrep()
             }
         }

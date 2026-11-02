@@ -337,6 +337,7 @@ final class AppStore: ObservableObject {
         // can trap or stall launch; probe it after paint, never in init.
         self.responseGenerator = RuleBasedResponseGenerator()
         self.aiModelAvailable = false
+        AriaForgePrep.markProcessStart()
         
         AriaContextStore.shared.configure()
         AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
@@ -367,7 +368,7 @@ final class AppStore: ObservableObject {
         // runSequence's 55s clock starts several seconds late and the
         // 60s launch watchdog still sees the handoff. Bound leftover
         // prep to process start — the product cap, not a gate change.
-        if needsForgePrep {
+        if needsForgePrep || (AriaForgePrepHandoff.isInterviewComplete && !isOnboarded) {
             AriaForgePrep.armLeftoverTimeout(store: self)
         }
         Task { @MainActor in

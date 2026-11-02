@@ -30,10 +30,13 @@ struct ForgeSwiftApp: App {
                     // WorkoutActivityCoordinator.activationDidCompleteWith.
                     Task {
                         await LaunchFirstFrame.afterPaint()
-                        // WCSession / Live Activity after the first commit.
+                        await Task.yield()
+                        // Un-onboarded / leftover prep: do not probe HealthKit
+                        // on the first sample window (kill-relaunch main-thread
+                        // was a 3s busy HK source catalog after first frame).
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
                         WorkoutActivityCoordinator.shared.activate()
                         HealthDeviceCatalogSync.shared.loadCached()
-                        guard !store.needsForgePrep else { return }
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }
