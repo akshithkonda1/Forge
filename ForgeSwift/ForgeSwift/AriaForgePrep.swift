@@ -200,6 +200,7 @@ final class AriaForgePrepInstantClock: AriaForgePrepClock {
 
 enum AriaForgePrepHandoff {
     static let interviewCompleteKey = "forge.onboarding.interviewComplete"
+    static let onboardedKey = "forge.onboarding.completed"
 
     /// UserDefaults can miss a pre-launch harness write; CFPreferences is
     /// the same store `finishForgePrep` flushes and the launch gate reads.
@@ -223,11 +224,32 @@ enum AriaForgePrepHandoff {
     }
 
     static func clearInterviewComplete() {
-        // Write false, do not tombstone. The launch gate reads the
-        // container plist and falls back to `simctl defaults`; a missing
-        // key keeps the pre-launch YES the harness wrote.
-        UserDefaults.standard.set(false, forKey: interviewCompleteKey)
-        UserDefaults.standard.synchronize()
+        flushHandoff(onboarded: false)
+    }
+
+    /// Launch-gate plist the harness reads. Safe off the main actor so
+    /// leftover fail-open is not starved by leftover ingest.
+    nonisolated static func flushHandoff(onboarded: Bool) {
+        let defaults = UserDefaults.standard
+        defaults.set(false, forKey: interviewCompleteKey)
+        if onboarded {
+            defaults.set(true, forKey: onboardedKey)
+        }
+        defaults.synchronize()
+        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
+        CFPreferencesSetAppValue(
+            interviewCompleteKey as CFString,
+            kCFBooleanFalse,
+            app
+        )
+        if onboarded {
+            CFPreferencesSetAppValue(
+                onboardedKey as CFString,
+                kCFBooleanTrue,
+                app
+            )
+        }
+        CFPreferencesAppSynchronize(app)
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
@@ -246,9 +268,12 @@ enum AriaForgePrepHandoff {
 }
 
 extension AriaForgePrep {
-    /// Wall clock for leftover fail-open. The 60s watchdog starts at
-    /// `simctl launch`; a late OnboardingView must not add another 55s.
-    private static var processStart = Date()
+    /// Wall clock for leftover fail-open. First mark wins — AppStore.init
+    /// must not restart the 55s cap several seconds after `simctl launch`.
+    private static var processStart: Date?
+    /// XCTest only. Production leftover remaining uses process uptime so
+    /// the delay before AppStore.init still counts against the cap.
+    private static var testClockOrigin: Date?
     /// One leftover-prep session per process. The timeout is wall-clock
     /// from process start — not from when OnboardingView happens to appear.
     @MainActor
@@ -259,17 +284,27 @@ extension AriaForgePrep {
     private static var leftoverIngestTask: Task<Void, Never>?
 
     static func markProcessStart() {
-        processStart = Date()
+        if processStart == nil {
+            processStart = Date()
+        }
     }
 
     @MainActor
     static func resetLeftoverSessionForTests() {
         processStart = Date()
+        testClockOrigin = Date()
         leftoverTimeoutArmed = false
         leftoverTimeoutTask?.cancel()
         leftoverTimeoutTask = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
+    }
+
+    private static func elapsedSinceProcessStart() -> TimeInterval {
+        if let testClockOrigin {
+            return Date().timeIntervalSince(testClockOrigin)
+        }
+        return ProcessInfo.processInfo.systemUptime
     }
 
     /// Fail-open: if the hold or ingest is still pending at `cap`, flush
@@ -284,14 +319,18 @@ extension AriaForgePrep {
         let leftover = AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded
         guard leftover || store.needsForgePrep else { return }
         leftoverTimeoutArmed = true
-        let elapsed = Date().timeIntervalSince(processStart)
+        let authenticated = store.isAuthenticated
+        let elapsed = elapsedSinceProcessStart()
         let remaining = seconds < 1
             ? max(0, seconds)
             : max(0.05, seconds - elapsed)
-        leftoverTimeoutTask = Task.detached { [store] in
+        leftoverTimeoutTask = Task.detached(priority: .userInitiated) { [store] in
             let ns = UInt64((remaining * 1_000_000_000).rounded())
             try? await Task.sleep(nanoseconds: ns)
             guard !Task.isCancelled else { return }
+            // Harness reads the container plist. Flush it here so a busy
+            // MainActor leftover ingest cannot miss PREP_WATCHDOG_S.
+            AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
             await MainActor.run {
                 if store.isOnboarded, !AriaForgePrepHandoff.isInterviewComplete { return }
                 store.finishForgePrep()

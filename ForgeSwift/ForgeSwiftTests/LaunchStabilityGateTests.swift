@@ -64,6 +64,7 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(AriaForgePrep.cap, 55)
         XCTAssertEqual(AriaForgePrep.watchdog, 60)
         XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
+        XCTAssertEqual(AriaForgePrepHandoff.onboardedKey, AppStore.onboardedDefaultsKey)
     }
 
     func testWatchdogCapFinishesEvenWhenWorkNeverReturns() async {
@@ -255,5 +256,38 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertFalse(store.needsForgePrep)
         XCTAssertTrue(store.isOnboarded)
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
+    }
+
+    func testLeftoverTimeoutFlushesHandoffOffMainActor() {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
+        defer {
+            AriaForgePrep.resetLeftoverSessionForTests()
+            if let previousOnboarded {
+                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
+            }
+            UserDefaults.standard.synchronize()
+        }
+
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(store.needsForgePrep)
+
+        AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
+        // Block the main thread so finishForgePrep cannot hop back.
+        // The detached fail-open must still flush the launch-gate plist.
+        Thread.sleep(forTimeInterval: 0.3)
+        XCTAssertFalse(
+            AriaForgePrepHandoff.isInterviewComplete,
+            "Leftover fail-open must flush CFPreferences without waiting on MainActor"
+        )
+        XCTAssertTrue(
+            AriaForgePrepHandoff.readBool(AppStore.onboardedDefaultsKey),
+            "Authenticated leftover fail-open marks onboarded on disk"
+        )
     }
 }

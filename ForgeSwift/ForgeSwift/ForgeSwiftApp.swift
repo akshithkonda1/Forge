@@ -11,6 +11,7 @@ struct ForgeSwiftApp: App {
     @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
 
     init() {
+        AriaForgePrep.markProcessStart()
         // One launch interval for the synchronous start work; AppStore's
         // init carries its own span. Durations only — see ForgePerf.
         ForgePerf.measure("appInit", category: .launch) {

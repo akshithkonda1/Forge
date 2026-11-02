@@ -538,23 +538,7 @@ final class AppStore: ObservableObject {
             isOnboarded = true
             UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
         }
-        AriaForgePrepHandoff.clearInterviewComplete()
-        UserDefaults.standard.set(false, forKey: AriaForgePrepHandoff.interviewCompleteKey)
-        UserDefaults.standard.synchronize()
-        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
-        if isAuthenticated {
-            CFPreferencesSetAppValue(
-                Self.onboardedDefaultsKey as CFString,
-                kCFBooleanTrue,
-                app
-            )
-        }
-        CFPreferencesSetAppValue(
-            AriaForgePrepHandoff.interviewCompleteKey as CFString,
-            kCFBooleanFalse,
-            app
-        )
-        CFPreferencesAppSynchronize(app)
+        AriaForgePrepHandoff.flushHandoff(onboarded: isAuthenticated)
         if isAuthenticated {
             refreshTutorialOpeningFromProfile()
         }
