@@ -794,7 +794,7 @@ class HealthKitManager: ObservableObject {
     private func performObserverRefresh() async {
         liveRefreshTask?.cancel()
         let task = Task { @MainActor in
-            try await Task.sleep(for: .milliseconds(350))
+            try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
             await self.performLiveRefresh()
         }

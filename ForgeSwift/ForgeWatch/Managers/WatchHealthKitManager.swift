@@ -346,7 +346,7 @@ final class WatchHealthKitManager {
     private func performObserverRefresh() async {
         liveRefreshTask?.cancel()
         let task = Task { @MainActor in
-            try await Task.sleep(for: .milliseconds(400))
+            try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             await self.refreshAll()
         }
