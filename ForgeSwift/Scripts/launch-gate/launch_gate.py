@@ -39,11 +39,12 @@ SAMPLER_STALL = (
 
 def load_thresholds():
     t = {}
-    for line in open(os.path.join(HERE, "thresholds.env")):
-        line = line.strip()
-        if line and not line.startswith("#"):
-            k, v = line.split("=", 1)
-            t[k] = float(v)
+    with open(os.path.join(HERE, "thresholds.env")) as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                t[k] = float(v)
     return t
 
 
@@ -258,36 +259,26 @@ def run_sample(pid, window, path, timeout):
     raise RuntimeError(f"sample failed after retries: {last}")
 
 
-def main_thread_busy_s(pid, window, tag, timeout):
-    path = f"{OUT}/sample-{tag}.txt"
-    last_err = "main thread not found in sample output"
-    text = ""
-    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
-        text = run_sample(pid, window, f"{path}.{attempt}", timeout)
-        # Main thread block runs until the next top-level "Thread_" line.
-        m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
-        if m:
-            break
-        last_err = "main thread not found in sample output"
-        print(f"    sample parse attempt {attempt} failed ({last_err})", flush=True)
-        if not pid_alive(pid):
-            raise RuntimeError(last_err)
-    else:
-        raise RuntimeError(last_err)
+def parse_main_thread_busy(text, window):
+    """Busy seconds on the main thread for one `sample` window.
+
+    Idle is a leaf mach_msg trap under the run loop wait, or under the
+    dyld notify that `sample` itself causes when it attaches. App hangs
+    (semaphore / HealthKit / SwiftUI commit) stay busy. Thresholds are
+    not applied here.
+    """
+    m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
+    if not m:
+        raise RuntimeError("main thread not found in sample output")
     total = int(m.group(2))
     rest = text[m.end():]
     nxt = re.search(r"^\s*\d+ Thread_\d+", rest, re.M)
     block = rest[:nxt.start()] if nxt else rest
-    # Parse the call tree: (indent column of the count, count, text).
     rows = []
     for line in block.splitlines():
         mm = re.match(r"^([\s+!:|]*)(\d+)\s+(.*)$", line)
         if mm:
             rows.append((len(mm.group(1)), int(mm.group(2)), mm.group(3)))
-    # Idle = LEAF frames (no deeper child next) that are the kernel mach_msg
-    # trap. Leaves never nest, so this cannot double-count.
-    # The trap only counts as idle when its ancestors include the run loop's
-    # port wait; a mach_msg/semaphore block from app code is a hang, not idle.
     idle, stack = 0, []
     for i, (ind, n, txt) in enumerate(rows):
         while stack and stack[-1][0] >= ind:
@@ -304,8 +295,24 @@ def main_thread_busy_s(pid, window, tag, timeout):
         raise RuntimeError("main thread total sample count is 0")
     if idle > total:
         raise RuntimeError(f"parser invariant broken: idle {idle} > main-thread total {total}")
-    busy_samples = total - idle
-    return busy_samples / total * window, total, idle
+    return (total - idle) / total * window, total, idle
+
+
+def main_thread_busy_s(pid, window, tag, timeout):
+    path = f"{OUT}/sample-{tag}.txt"
+    last_err = "main thread not found in sample output"
+    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
+        text = run_sample(pid, window, f"{path}.{attempt}", timeout)
+        try:
+            return parse_main_thread_busy(text, window)
+        except RuntimeError as e:
+            if "main thread not found" not in str(e):
+                raise
+            last_err = str(e)
+            print(f"    sample parse attempt {attempt} failed ({last_err})", flush=True)
+            if not pid_alive(pid):
+                raise RuntimeError(last_err)
+    raise RuntimeError(last_err)
 
 
 # ---------- scenario ----------
