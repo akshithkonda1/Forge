@@ -5,12 +5,7 @@ import ForgeCore
 
 /// Public Apple APIs this wake path is allowed to use.
 ///
-/// AlarmKit and Critical Alerts are real SDK surfaces, but they are **not**
-/// in the Forge entitlements tree (`ForgeSwift.entitlements` has HealthKit,
-/// CloudKit, MusicKit — not `com.apple.developer.alarmkit` or
-/// `com.apple.developer.usernotifications.critical-alerts`). Requesting those
-/// without the entitlement fails at runtime, so this wake stays on
-/// UserNotifications + AVAudioSession + background audio, which already ship.
+/// AlarmKit needs only NSAlarmKitUsageDescription plus requestAuthorization, not an entitlement.
 enum SleepAlarmAppleAPI: Sendable {
     static var authorizationOptions: UNAuthorizationOptions { [.alert, .sound, .badge] }
     static var interruptionLevel: UNNotificationInterruptionLevel { .timeSensitive }
