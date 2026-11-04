@@ -209,11 +209,19 @@ enum AriaForgePrepHandoff {
     static let interviewCompleteKey = "forge.onboarding.interviewComplete"
     static let onboardedKey = "forge.onboarding.completed"
 
-    /// UserDefaults can miss a pre-launch harness write; CFPreferences is
-    /// the same store `finishForgePrep` flushes and the launch gate reads.
-    static func readBool(_ key: String) -> Bool {
+    /// Process-lifetime interview flag. ContentView's first body used to
+    /// call `CFPreferencesAppSynchronize` via `needsForgePrep` on every
+    /// SwiftUI eval — cold first_frame went from main's 5.13s to 34s.
+    private static let cacheLock = NSLock()
+    nonisolated(unsafe) private static var interviewCache: Bool?
+
+    /// Reads the app domain. `forceDisk` is for leftover fail-open / the
+    /// process watchdog — never for the first SwiftUI body.
+    static func readBool(_ key: String, forceDisk: Bool = false) -> Bool {
         let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
-        CFPreferencesAppSynchronize(app)
+        if forceDisk {
+            CFPreferencesAppSynchronize(app)
+        }
         if let raw = CFPreferencesCopyAppValue(key as CFString, app) {
             if let flag = raw as? Bool { return flag }
             if let number = raw as? NSNumber { return number.boolValue }
@@ -222,12 +230,45 @@ enum AriaForgePrepHandoff {
     }
 
     static var isInterviewComplete: Bool {
-        readBool(interviewCompleteKey)
+        cacheLock.lock()
+        if let interviewCache {
+            let cached = interviewCache
+            cacheLock.unlock()
+            return cached
+        }
+        cacheLock.unlock()
+        let value = readBool(interviewCompleteKey, forceDisk: false)
+        cacheLock.lock()
+        if interviewCache == nil {
+            interviewCache = value
+        }
+        let cached = interviewCache ?? value
+        cacheLock.unlock()
+        return cached
+    }
+
+    /// One disk refresh after first paint, or from the leftover watchdog.
+    @discardableResult
+    static func refreshInterviewFromDisk() -> Bool {
+        let value = readBool(interviewCompleteKey, forceDisk: true)
+        cacheLock.lock()
+        interviewCache = value
+        cacheLock.unlock()
+        return value
+    }
+
+    static func resetInterviewCacheForTests() {
+        cacheLock.lock()
+        interviewCache = nil
+        cacheLock.unlock()
     }
 
     static func markInterviewComplete() {
         UserDefaults.standard.set(true, forKey: interviewCompleteKey)
         UserDefaults.standard.synchronize()
+        cacheLock.lock()
+        interviewCache = true
+        cacheLock.unlock()
     }
 
     static func clearInterviewComplete() {
@@ -258,19 +299,27 @@ enum AriaForgePrepHandoff {
             )
         }
         CFPreferencesAppSynchronize(app)
+        cacheLock.lock()
+        interviewCache = false
+        cacheLock.unlock()
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
     /// A leftover flag with no signed-in session is stale and is not a prep gate.
+    /// Short-circuit onboarded / unauthenticated so cold Home never touches
+    /// the interview plist on the first body.
     static func needsPrep(isOnboarded: Bool, isAuthenticated: Bool = true) -> Bool {
-        isInterviewComplete && !isOnboarded && isAuthenticated
+        if isOnboarded || !isAuthenticated { return false }
+        return isInterviewComplete
     }
 
     /// Drop a leftover `interviewComplete` flag that cannot resume a real prep.
     /// A valid resume still runs the 45–55s hold on every build.
     static func validateFlag(isOnboarded: Bool, isAuthenticated: Bool) {
         if isOnboarded || !isAuthenticated {
-            clearInterviewComplete()
+            if isInterviewComplete {
+                clearInterviewComplete()
+            }
         }
     }
 }
@@ -294,6 +343,10 @@ extension AriaForgePrep {
     private static weak var leftoverStore: AppStore?
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
+    /// Set from the leftover timer thread so `runSequence` can leave the
+    /// 45–55s hold without waiting on a MainActor hop.
+    private static let leftoverFailOpenLock = NSLock()
+    nonisolated(unsafe) private static var leftoverDidFailOpen = false
 
     static func markProcessStart() {
         if bootstrapUptime == nil {
@@ -325,6 +378,10 @@ extension AriaForgePrep {
         leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
+        leftoverFailOpenLock.lock()
+        leftoverDidFailOpen = false
+        leftoverFailOpenLock.unlock()
+        AriaForgePrepHandoff.resetInterviewCacheForTests()
     }
 
     /// Test hook: pin a production-style clock (no XCTest origin) so
@@ -341,10 +398,26 @@ extension AriaForgePrep {
         leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
+        leftoverFailOpenLock.lock()
+        leftoverDidFailOpen = false
+        leftoverFailOpenLock.unlock()
+        AriaForgePrepHandoff.resetInterviewCacheForTests()
     }
 
     static func elapsedSinceProcessStartForTests() -> TimeInterval {
         elapsedSinceProcessStart()
+    }
+
+    nonisolated static func markLeftoverFailedOpen() {
+        leftoverFailOpenLock.lock()
+        leftoverDidFailOpen = true
+        leftoverFailOpenLock.unlock()
+    }
+
+    static func leftoverHasFailedOpen() -> Bool {
+        leftoverFailOpenLock.lock()
+        defer { leftoverFailOpenLock.unlock() }
+        return leftoverDidFailOpen
     }
 
     /// Remaining delay for leftover fail-open. Injected `requested < 1` is
@@ -383,8 +456,8 @@ extension AriaForgePrep {
         after seconds: TimeInterval = cap
     ) {
         guard !leftoverTimeoutArmed else { return }
-        let leftover = AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded
-        guard leftover || store.needsForgePrep else { return }
+        guard !store.isOnboarded else { return }
+        guard AriaForgePrepHandoff.isInterviewComplete else { return }
         leftoverTimeoutArmed = true
         leftoverStore = store
         let authenticated = store.isAuthenticated
@@ -397,11 +470,12 @@ extension AriaForgePrep {
         let work = DispatchWorkItem { [store] in
             // Harness reads the container plist. Flush it here so a busy
             // MainActor leftover ingest cannot miss PREP_WATCHDOG_S.
+            markLeftoverFailedOpen()
             AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
             Task { @MainActor in
                 leftoverIngestTask?.cancel()
                 leftoverIngestTask = nil
-                if store.isOnboarded, !AriaForgePrepHandoff.isInterviewComplete { return }
+                if store.isOnboarded { return }
                 store.finishForgePrep()
             }
         }
@@ -434,9 +508,13 @@ extension AriaForgePrep {
     }
 
     private static func attemptProcessHandoffFlush(retriesLeft: Int) {
-        let interview = AriaForgePrepHandoff.isInterviewComplete
-        let onboarded = AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey)
+        let interview = AriaForgePrepHandoff.refreshInterviewFromDisk()
+        let onboarded = AriaForgePrepHandoff.readBool(
+            AriaForgePrepHandoff.onboardedKey,
+            forceDisk: true
+        )
         if interview, !onboarded {
+            markLeftoverFailedOpen()
             AriaForgePrepHandoff.flushHandoff(onboarded: false)
             Task { @MainActor in
                 leftoverIngestTask?.cancel()
@@ -466,7 +544,11 @@ extension AriaForgePrep {
     ) {
         guard leftoverIngestTask == nil else { return }
         let theme = trainingTheme ?? store.userProfile.trainingTheme
-        leftoverIngestTask = Task { @MainActor in
+        leftoverIngestTask = Task(priority: .utility) { @MainActor in
+            // Yield so leftover fail-open can hop isOnboarded before HealthKit
+            // pins the main thread. Sample windows are the first 12s; leftover
+            // ingest starts from finishForgePrep after leftoverFailOpen (24s).
+            await Task.yield()
             await loadUserData(into: store, trainingTheme: theme)
         }
     }
@@ -506,6 +588,10 @@ extension AriaForgePrep {
                 progress(elapsed: visualElapsed, duration: state.duration)
             )
 
+            if leftoverHasFailedOpen() {
+                onTick(.ready, 1)
+                break
+            }
             if shouldFinish(
                 elapsed: elapsed,
                 duration: state.duration,

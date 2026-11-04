@@ -87,7 +87,9 @@ struct ContentView: View {
             }
             await LaunchFirstFrame.afterPaint()
             revealRoot = true
-            if store.needsForgePrep || (AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded) {
+            // Disk refresh after the first commit — never on the first body
+            // (CFPreferencesAppSynchronize there made cold first_frame 34s).
+            if AriaForgePrepHandoff.refreshInterviewFromDisk(), !store.isOnboarded {
                 AriaForgePrep.armLeftoverTimeout(store: store)
             }
             guard showSplash else {

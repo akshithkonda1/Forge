@@ -368,7 +368,7 @@ final class AppStore: ObservableObject {
         // Leftover / wedged prep paints AriaForgePrep on the first SwiftUI
         // commit. Fail-open is leftoverFailOpen from process start so the
         // 60s launch watchdog still sees the handoff with real margin.
-        if needsForgePrep || (AriaForgePrepHandoff.isInterviewComplete && !isOnboarded) {
+        if !isOnboarded, AriaForgePrepHandoff.isInterviewComplete {
             AriaForgePrep.armLeftoverTimeout(store: self)
         }
         Task { @MainActor in
@@ -540,7 +540,13 @@ final class AppStore: ObservableObject {
         AriaForgePrepHandoff.flushHandoff(onboarded: isAuthenticated)
         if isAuthenticated {
             refreshTutorialOpeningFromProfile()
-            AriaForgePrep.startLeftoverIngest(into: self)
+            // HealthKit ingest is @MainActor. Do not start it on this hop —
+            // leftover fail-open must publish isOnboarded first, and leftover
+            // resume must not pin the 3s sample windows (prep_wedge 2.86s).
+            Task { @MainActor in
+                await Task.yield()
+                AriaForgePrep.startLeftoverIngest(into: self)
+            }
         }
     }
 

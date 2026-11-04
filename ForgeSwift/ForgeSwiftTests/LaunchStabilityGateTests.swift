@@ -163,6 +163,46 @@ final class LaunchStabilityGateTests: XCTestCase {
         )
     }
 
+    func testAriaPresenceNeverPlaysAppleFallbackVoice() {
+        let presence = AriaPresence.shared
+        presence.resetSynthesizerStorageForTests()
+        let previousMute = AriaSpokenMute.isMuted
+        AriaSpokenMute.isMuted = false
+        defer {
+            AriaSpokenMute.isMuted = previousMute
+            presence.resetSynthesizerStorageForTests()
+            presence.stopSpeaking()
+        }
+
+        XCTAssertFalse(
+            AriaPresence.appleFallbackPlaybackEnabled,
+            "Kokoro-82M is ARIA's only voice — AVSpeechSynthesizer must not play"
+        )
+        presence.speak("Kokoro-82M is the only voice.")
+        XCTAssertNil(
+            presence.synthesizerStorageForTests,
+            "speak() must not allocate AVSpeechSynthesizer as an Apple fallback"
+        )
+        XCTAssertFalse(presence.appleSynthesizerIsSpeaking)
+        presence.stopSpeaking()
+        XCTAssertNil(presence.synthesizerStorageForTests)
+    }
+
+    func testNeedsPrepShortCircuitsOnboardedWithoutInterviewPlist() {
+        AriaForgePrepHandoff.markInterviewComplete()
+        defer { AriaForgePrepHandoff.clearInterviewComplete() }
+        XCTAssertFalse(
+            AriaForgePrepHandoff.needsPrep(isOnboarded: true, isAuthenticated: true),
+            "Cold Home must not read the interview plist on the first body"
+        )
+        XCTAssertFalse(
+            AriaForgePrepHandoff.needsPrep(isOnboarded: false, isAuthenticated: false)
+        )
+        XCTAssertTrue(
+            AriaForgePrepHandoff.needsPrep(isOnboarded: false, isAuthenticated: true)
+        )
+    }
+
     func testLeftoverPrepFirstCommitIsForgePrepNotBrandField() {
         XCTAssertTrue(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: true))
         XCTAssertFalse(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: false))
@@ -345,12 +385,18 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertTrue(store.needsForgePrep)
 
         AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
+        // Flush clears interview off-actor so needsForgePrep goes false
+        // before finishForgePrep hops isOnboarded. Wait on isOnboarded;
+        // do not `await` inside XCTAssert (autoclosure) or to the right of `||`.
         let deadline = Date().addingTimeInterval(2)
-        while store.needsForgePrep && Date() < deadline {
+        var onboarded = false
+        while Date() < deadline {
+            onboarded = store.isOnboarded
+            if onboarded { break }
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
+        XCTAssertTrue(onboarded)
         XCTAssertFalse(store.needsForgePrep)
-        XCTAssertTrue(store.isOnboarded)
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
     }
 
