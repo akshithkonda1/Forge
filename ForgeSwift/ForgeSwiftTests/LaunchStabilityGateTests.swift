@@ -19,6 +19,29 @@ final class LaunchStabilityGateTests: XCTestCase {
         super.tearDown()
     }
 
+    func testDisabledCycleTrackingSkipsNotificationCenterOnLaunch() {
+        XCTAssertFalse(
+            ForgeNotificationScheduler.shouldTouchCycleNotificationCenter(
+                enabled: false,
+                previouslyScheduled: false
+            ),
+            "MenstrualHealthStore.init must not XPC UNUserNotificationCenter when cycle tracking was never on"
+        )
+        XCTAssertTrue(
+            ForgeNotificationScheduler.shouldTouchCycleNotificationCenter(
+                enabled: true,
+                previouslyScheduled: false
+            )
+        )
+        XCTAssertTrue(
+            ForgeNotificationScheduler.shouldTouchCycleNotificationCenter(
+                enabled: false,
+                previouslyScheduled: true
+            ),
+            "Turning tracking off still clears previously scheduled cycle ids"
+        )
+    }
+
     func testLaunchDoesNotPromptForNotificationPermission() {
         XCTAssertEqual(
             ForgeNotificationScheduler.authorizationIntent(

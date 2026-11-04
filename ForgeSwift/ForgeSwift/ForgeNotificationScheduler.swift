@@ -227,6 +227,20 @@ enum ForgeNotificationScheduler {
 
     // MARK: - Cycle notifications
 
+    /// True after we have actually talked to `UNUserNotificationCenter` for
+    /// cycle ids. Default-disabled launch must not hit that XPC.
+    private static var didScheduleCycleNotifications = false
+
+    /// Default-disabled `MenstrualHealthStore` init must not call
+    /// `removePendingNotificationRequests` (sync XPC). Disable-after-enable
+    /// still clears.
+    static func shouldTouchCycleNotificationCenter(
+        enabled: Bool,
+        previouslyScheduled: Bool
+    ) -> Bool {
+        enabled || previouslyScheduled
+    }
+
     static func syncCycleNotifications(
         settings: MenstrualTrackingSettings,
         snapshot: MenstrualCycleSnapshot
@@ -235,10 +249,22 @@ enum ForgeNotificationScheduler {
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
             ID.cyclePeriodReminder,
         ]
-        center.removePendingNotificationRequests(withIdentifiers: cycleIds)
-        center.removeDeliveredNotifications(withIdentifiers: cycleIds)
-
-        guard settings.enabled else { return }
+        // `removePendingNotificationRequests` is a synchronous XPC wait on
+        // `UNUserNotificationServiceConnection`. Calling it from MainActor
+        // during MenstrualHealthStore.init → recompute hid the main thread
+        // from `sample` (idle=missing) and stalled first layout.
+        if !shouldTouchCycleNotificationCenter(
+            enabled: settings.enabled,
+            previouslyScheduled: didScheduleCycleNotifications
+        ) {
+            return
+        }
+        await clearCycleRequests(cycleIds)
+        guard settings.enabled else {
+            didScheduleCycleNotifications = false
+            return
+        }
+        didScheduleCycleNotifications = true
         if settings.discretionMode == .stealth { return }
 
         let kind = settings.discretionMode == .kind
@@ -304,6 +330,16 @@ enum ForgeNotificationScheduler {
                 )
             }
         }
+    }
+
+    /// XPC off MainActor. `removePending` uses
+    /// `dispatch_lane_barrier_sync` + `xpc_connection_send_message_with_reply_sync`.
+    private static func clearCycleRequests(_ ids: [String]) async {
+        await Task.detached(priority: .utility) {
+            let center = UNUserNotificationCenter.current()
+            center.removePendingNotificationRequests(withIdentifiers: ids)
+            center.removeDeliveredNotifications(withIdentifiers: ids)
+        }.value
     }
 
     /// Morning “how to help” on the supporter's phone. Uses the lock-safe line
