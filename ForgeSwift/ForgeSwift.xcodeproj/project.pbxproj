@@ -175,6 +175,7 @@
 		1TEST07200000000000000A /* LaunchSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07100000000000000A /* LaunchSmokeTests.swift */; };
 		1TEST07400000000000000A /* LaunchBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07300000000000000A /* LaunchBootstrapTests.swift */; };
 		1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07500000000000000A /* OnboardingGateTests.swift */; };
+		B1348B71F8CA1E63CF8BC1B5 /* LaunchStabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D85CC079DF328E2C58ADCEB /* LaunchStabilityGateTests.swift */; };
 		1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */; };
 		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
@@ -275,6 +276,7 @@
 		1MED0A002F9FF867004091AA /* MedicationBottleScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED09002F9FF867004091AA /* MedicationBottleScanner.swift */; };
 		1MED06002F9FF867004091AA /* fda_pharmacy_catalog.deflate in Resources */ = {isa = PBXBuildFile; fileRef = 1MED05002F9FF867004091AA /* fda_pharmacy_catalog.deflate */; };
 		1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED03000000000000000A /* MedicationPharmacyTests.swift */; };
+		1PICK02000000000000000A /* ContactsPickerOnlyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PICK01000000000000000A /* ContactsPickerOnlyTests.swift */; };
 		AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9638727829C4D00A83E2F4 /* ProfileModels.swift */; };
 		B82A3D64CC815A754DC8A65D /* AppStore+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */; };
 		195FDA7D73290864DD73F5BC /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */; };
@@ -284,6 +286,7 @@
 		0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */; };
 		B597C4C352B4E207C245C9BA /* LifeContextSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C44B32AD7D873FEE4C2077 /* LifeContextSettingsView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
+		1LNCH0022F9FF867004091AA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1LNCH0012F9FF867004091AA /* LaunchScreen.storyboard */; };
 		F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000001 /* ForgeWatchApp.swift */; };
 		8DFBF2E9C6DAB939290C66BB /* ForgeWatchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */; };
 		241A6C4B8A83485794469DC2 /* ForgeWatchShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C2AC8DDA85F78F68054287 /* ForgeWatchShortcuts.swift */; };
@@ -367,6 +370,7 @@
 		1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04500000000000000A /* ForgeSplashFireTests.swift */; };
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
 		1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */; };
+		1TEST08200000000000000A /* HealthKitObserverCompletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST08100000000000000A /* HealthKitObserverCompletionTests.swift */; };
 		1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */; };
 		1MEM06000000000000000A /* AriaMemoryControlsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */; };
 		1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03700000000000000A /* SleepNightGroupingTests.swift */; };
@@ -468,6 +472,7 @@
 /* Begin PBXFileReference section */
 		AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitShareAcceptance.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B5 /* Info-Add.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Add.plist"; sourceTree = "<group>"; };
+		1LNCH0012F9FF867004091AA /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		AA00020000000000000000D1 /* SupporterGuidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupporterGuidance.swift; sourceTree = "<group>"; };
 		AA00020000000000000000D2 /* SupporterDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/SupporterDigestView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000D3 /* CycleSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Menstrual/CycleSharingView.swift"; sourceTree = "<group>"; };
@@ -566,6 +571,7 @@
 		1TEST07100000000000000A /* LaunchSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSmokeTests.swift; sourceTree = "<group>"; };
 		1TEST07300000000000000A /* LaunchBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchBootstrapTests.swift; sourceTree = "<group>"; };
 		1TEST07500000000000000A /* OnboardingGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGateTests.swift; sourceTree = "<group>"; };
+		6D85CC079DF328E2C58ADCEB /* LaunchStabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchStabilityGateTests.swift; sourceTree = "<group>"; };
 		1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDataNonFiniteTests.swift; sourceTree = "<group>"; };
 		1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryFilterTests.swift; sourceTree = "<group>"; };
 		1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthLaunchTests.swift; sourceTree = "<group>"; };
@@ -584,6 +590,7 @@
 		1TEST04500000000000000A /* ForgeSplashFireTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSplashFireTests.swift; sourceTree = "<group>"; };
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
 		1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitAuthorizationPlanTests.swift; sourceTree = "<group>"; };
+		1TEST08100000000000000A /* HealthKitObserverCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitObserverCompletionTests.swift; sourceTree = "<group>"; };
 		1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
 		1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsViewModelTests.swift; sourceTree = "<group>"; };
 		1TEST04100000000000000A /* TrainSleepUsableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainSleepUsableTests.swift; sourceTree = "<group>"; };
@@ -766,6 +773,7 @@
 		1MED09002F9FF867004091AA /* MedicationBottleScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationBottleScanner.swift; sourceTree = "<group>"; };
 		1MED05002F9FF867004091AA /* fda_pharmacy_catalog.deflate */ = {isa = PBXFileReference; lastKnownFileType = file; path = fda_pharmacy_catalog.deflate; sourceTree = "<group>"; };
 		1MED03000000000000000A /* MedicationPharmacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationPharmacyTests.swift; sourceTree = "<group>"; };
+		1PICK01000000000000000A /* ContactsPickerOnlyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsPickerOnlyTests.swift; sourceTree = "<group>"; };
 		BB9638727829C4D00A83E2F4 /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
 		D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Profile.swift"; sourceTree = "<group>"; };
 		5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileComponents.swift; sourceTree = "<group>"; };
@@ -1056,6 +1064,7 @@
 				AA000200000000000000F1A0 /* PrivacyInfo.xcprivacy */,
 				1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */,
 				AA00020000000000000000B5 /* Info-Add.plist */,
+				1LNCH0012F9FF867004091AA /* LaunchScreen.storyboard */,
 				AA0002000000000000000001 /* ForgeSwiftApp.swift */,
 				AA0002000000000000000002 /* Theme.swift */,
 				AA0002000000000000000003 /* Models.swift */,
@@ -1393,6 +1402,7 @@
 				1TEST07100000000000000A /* LaunchSmokeTests.swift */,
 				1TEST07300000000000000A /* LaunchBootstrapTests.swift */,
 				1TEST07500000000000000A /* OnboardingGateTests.swift */,
+				6D85CC079DF328E2C58ADCEB /* LaunchStabilityGateTests.swift */,
 				1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */,
 				1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */,
 				1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */,
@@ -1409,6 +1419,7 @@
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
+				1TEST08100000000000000A /* HealthKitObserverCompletionTests.swift */,
 				1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */,
 				1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */,
 				1TEST03700000000000000A /* SleepNightGroupingTests.swift */,
@@ -1420,6 +1431,7 @@
 				1TEST05100000000000000A /* HomeTodayProgressTests.swift */,
 				C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
+				1PICK01000000000000000A /* ContactsPickerOnlyTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1650,6 +1662,7 @@
 			files = (
 				AA000100000000000000F1A0 /* PrivacyInfo.xcprivacy in Resources */,
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
+				1LNCH0022F9FF867004091AA /* LaunchScreen.storyboard in Resources */,
 				1MED06002F9FF867004091AA /* fda_pharmacy_catalog.deflate in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2052,6 +2065,7 @@
 				1TEST07200000000000000A /* LaunchSmokeTests.swift in Sources */,
 				1TEST07400000000000000A /* LaunchBootstrapTests.swift in Sources */,
 				1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */,
+				B1348B71F8CA1E63CF8BC1B5 /* LaunchStabilityGateTests.swift in Sources */,
 				1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */,
 				1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */,
 				1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */,
@@ -2068,6 +2082,7 @@
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
+				1TEST08200000000000000A /* HealthKitObserverCompletionTests.swift in Sources */,
 				1TEST03600000000000000A /* AriaDummyOrchestratorTests.swift in Sources */,
 				1MEM06000000000000000A /* AriaMemoryControlsViewModelTests.swift in Sources */,
 				1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */,
@@ -2079,6 +2094,7 @@
 				1TEST05200000000000000A /* HomeTodayProgressTests.swift in Sources */,
 				5C953C07E2A3364865863079 /* ForgeChromeTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
+				1PICK02000000000000000A /* ContactsPickerOnlyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2370,7 +2386,6 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Forge uses Apple Music so you can play and control your music during workouts.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "Forge can read first names you pick so ARIA knows your people for social stretch and quieter weeks. Phone numbers, emails, and the rest of the address book stay in Contacts and are not uploaded. Lifestyle coaching only — not a medical read.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
@@ -2385,7 +2400,8 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = NO;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2418,7 +2434,6 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Forge uses Apple Music so you can play and control your music during workouts.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "Forge can read first names you pick so ARIA knows your people for social stretch and quieter weeks. Phone numbers, emails, and the rest of the address book stay in Contacts and are not uploaded. Lifestyle coaching only — not a medical read.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
@@ -2433,7 +2448,8 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = NO;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (

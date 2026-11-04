@@ -141,6 +141,20 @@ jobs:
       - name: Check usage strings
         run: python3 scripts/check-usage-strings.py
 
+  contacts-picker-only:
+    name: Contacts picker-only
+    needs: health-leak
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The people screen must never enumerate the address book. The system
+      # picker returns only tapped contacts and needs no usage string; a
+      # CNContactFetchRequest would silently reintroduce a full-book read.
+      - name: Check Contacts stay picker-only
+        run: python3 scripts/check-contacts-picker-only.py
+
   client-config:
     name: Client configuration consistency
     needs: health-leak
