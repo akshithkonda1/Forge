@@ -47,6 +47,11 @@ final class OnboardingCoordinator {
     var calendarState: HealthKitState = .unknown
     var calendarBusyToday: Int = 0
     var contactsState: HealthKitState = .unknown
+    /// Presents `CNContactPickerViewController` from the Health nest. No Contacts permission.
+    var showContactsPicker = false
+    /// True once a picker callback (pick or cancel) has been applied, so
+    /// `onDismiss` cannot double-speak ARIA.
+    private var contactsPickerSettled = false
     var remindersState: HealthKitState = .unknown
 
     // MARK: Presence
@@ -400,8 +405,9 @@ final class OnboardingCoordinator {
         guard step == .health else { return }
         interruptInterviewVoice()
         appendUser("Connect Contacts")
+        contactsPickerSettled = false
         contactsState = .requesting
-        Task { await requestContacts() }
+        showContactsPicker = true
     }
 
     func skipContacts() {
@@ -791,17 +797,29 @@ final class OnboardingCoordinator {
         ariaOrbState = .listening
     }
 
-    func requestContacts() async {
+    func requestContacts(picks: [(givenName: String, identifier: String)] = []) async {
+        contactsPickerSettled = true
+        showContactsPicker = false
         contactsState = .requesting
         ariaOrbState = .processing
-        let ok = await PeopleContactsBridge.requestAccess()
-        var directory = PeopleDirectoryStore.load()
-        directory.contactsAccess = ok ? .granted : .denied
-        if ok { directory.optedIn = true }
+        let directory = PeopleContactPicks.applying(picks, relation: .friend, to: PeopleDirectoryStore.load())
         PeopleDirectoryStore.save(directory)
+        let ok = !directory.coachingPeople.isEmpty
         contactsState = ok ? .authorized : .denied
         await ariaSay(AriaInterviewVoice.acknowledgeContacts(contactsState), mood: ok ? .energized : .calm)
         ariaOrbState = .listening
+    }
+
+    func cancelContactsPicker() {
+        showContactsPicker = false
+        guard !contactsPickerSettled else { return }
+        contactsPickerSettled = true
+        guard contactsState == .requesting else { return }
+        contactsState = .unknown
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeContacts(.denied), mood: .calm)
+            ariaOrbState = .listening
+        }
     }
 
     func requestReminders() async {
@@ -815,10 +833,11 @@ final class OnboardingCoordinator {
     }
 
     func refreshNestPermissionStates() {
-        switch PeopleContactsBridge.currentAccess() {
-        case .granted: contactsState = .authorized
-        case .denied: contactsState = .denied
-        case .notAsked: contactsState = .unknown
+        let directory = PeopleDirectoryStore.load()
+        if !directory.coachingPeople.isEmpty {
+            contactsState = .authorized
+        } else if contactsState == .authorized {
+            contactsState = .unknown
         }
         switch RemindersManager.shared.accessState {
         case .connected: remindersState = .authorized

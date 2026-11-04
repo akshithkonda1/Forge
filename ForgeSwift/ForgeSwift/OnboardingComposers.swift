@@ -675,6 +675,17 @@ struct HealthComposer: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $coordinator.showContactsPicker, onDismiss: {
+            coordinator.cancelContactsPicker()
+        }) {
+            ContactPickerView(
+                onPicks: { picks in
+                    Task { await coordinator.requestContacts(picks: picks) }
+                },
+                onCancel: { coordinator.cancelContactsPicker() }
+            )
+            .ignoresSafeArea()
+        }
     }
 
     /// One card, four agenda rows, no per-row boxes. The eyebrow is the one
