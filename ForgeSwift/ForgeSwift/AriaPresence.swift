@@ -188,7 +188,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
             return
         }
         if interrupt {
-            synthesizer.stopSpeaking(at: .immediate)
+            synthesizerStorage?.stopSpeaking(at: .immediate)
             AriaKokoroEngine.stop()
         }
         kokoroGeneration += 1
@@ -215,7 +215,23 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     func stopSpeaking() {
         kokoroGeneration += 1
         AriaKokoroEngine.stop()
-        synthesizer.stopSpeaking(at: .immediate)
+        synthesizerStorage?.stopSpeaking(at: .immediate)
+        isSpeaking = false
+    }
+
+    /// `AVSpeechSynthesizer.isSpeaking` without allocating. Nil storage is
+    /// a Kokoro-only session — never create the Apple engine to ask.
+    var appleSynthesizerIsSpeaking: Bool {
+        synthesizerStorage?.isSpeaking ?? false
+    }
+
+    /// XCTest: a Kokoro-only session must leave this nil after stop / isSpeaking.
+    var synthesizerStorageForTests: AVSpeechSynthesizer? { synthesizerStorage }
+
+    func resetSynthesizerStorageForTests() {
+        synthesizerStorage?.stopSpeaking(at: .immediate)
+        synthesizerStorage?.delegate = nil
+        synthesizerStorage = nil
         isSpeaking = false
     }
 
@@ -223,7 +239,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             // A queued interview line may still be in the synthesizer.
-            if !self.synthesizer.isSpeaking {
+            if !self.appleSynthesizerIsSpeaking {
                 self.isSpeaking = false
                 AriaVoiceSession.shared.mouthDidFinish()
             }
@@ -233,7 +249,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
+            if !self.appleSynthesizerIsSpeaking { self.isSpeaking = false }
         }
     }
 }

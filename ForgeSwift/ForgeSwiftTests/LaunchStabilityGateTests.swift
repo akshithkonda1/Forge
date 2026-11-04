@@ -144,6 +144,25 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(LaunchBrandField.markSide, 220)
     }
 
+    func testKokoroOnlyStopAndIsSpeakingDoNotAllocateSynthesizer() {
+        let presence = AriaPresence.shared
+        presence.resetSynthesizerStorageForTests()
+        XCTAssertNil(presence.synthesizerStorageForTests)
+
+        presence.stopSpeaking()
+        XCTAssertNil(
+            presence.synthesizerStorageForTests,
+            "stopSpeaking must use synthesizerStorage?, not the lazy getter"
+        )
+        XCTAssertFalse(presence.isSpeaking)
+
+        XCTAssertFalse(presence.appleSynthesizerIsSpeaking)
+        XCTAssertNil(
+            presence.synthesizerStorageForTests,
+            "isSpeaking must return false when storage is nil, without allocating"
+        )
+    }
+
     func testLeftoverPrepFirstCommitIsForgePrepNotBrandField() {
         XCTAssertTrue(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: true))
         XCTAssertFalse(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: false))
