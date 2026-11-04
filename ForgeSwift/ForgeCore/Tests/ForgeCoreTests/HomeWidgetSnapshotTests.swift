@@ -88,6 +88,40 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         XCTAssertEqual(rolled.hydrationTargetMl, snap.hydrationTargetMl)
     }
 
+    /// StandByNestProvider maps each timeline date through `asOf`, the same
+    /// way Home widgets do. A snapshot written yesterday keeps last night
+    /// until midnight, then readiness and sleep empty.
+    func testStandByTimelineRollsOverAtMidnight() {
+        let calendar = Calendar(identifier: .gregorian)
+        let yesterdayEvening = Date(timeIntervalSince1970: 1_800_000_000)
+        var snap = HomeWidgetSnapshot.preview
+        snap.updatedAt = yesterdayEvening
+
+        let sameDay = snap.asOf(yesterdayEvening, calendar: calendar)
+        XCTAssertEqual(sameDay.readiness, snap.readiness)
+        XCTAssertEqual(sameDay.sleepHours, snap.sleepHours)
+        XCTAssertEqual(sameDay.sleepScore, snap.sleepScore)
+
+        let midnight = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: calendar.startOfDay(for: yesterdayEvening)
+        )!
+        XCTAssertFalse(calendar.isDate(yesterdayEvening, inSameDayAs: midnight))
+
+        // Same mapping StandByNestProvider.getTimeline uses: one entry per date.
+        let dates = [yesterdayEvening, midnight]
+        let entries = dates.map { (date: $0, snapshot: snap.asOf($0, calendar: calendar)) }
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0].snapshot.readiness, 84)
+        XCTAssertEqual(entries[0].snapshot.sleepHours, 7.4)
+        XCTAssertEqual(entries[0].snapshot.sleepScore, 88)
+        XCTAssertFalse(entries[1].snapshot.hasReadiness)
+        XCTAssertEqual(entries[1].snapshot.sleepHours, 0)
+        XCTAssertNil(entries[1].snapshot.sleepScore)
+        XCTAssertEqual(entries[1].snapshot.cyclePhase, snap.cyclePhase)
+    }
+
     func testSameContentOnANewDayStillRefreshesUpdatedAt() {
         var first = HomeWidgetSnapshot.preview
         first.updatedAt = Date(timeIntervalSince1970: 1_800_000_000)
