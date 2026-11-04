@@ -540,6 +540,7 @@ final class AppStore: ObservableObject {
         AriaForgePrepHandoff.flushHandoff(onboarded: isAuthenticated)
         if isAuthenticated {
             refreshTutorialOpeningFromProfile()
+            AriaForgePrep.startLeftoverIngest(into: self)
         }
     }
 
