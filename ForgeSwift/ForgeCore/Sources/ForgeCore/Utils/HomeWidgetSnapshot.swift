@@ -155,6 +155,27 @@ public struct LifestyleWidgetSnapshot: Codable, Equatable {
     )
 }
 
+/// Empty/placeholder vs a decoded snapshot. Missing data and decode failures
+/// both become `.empty` so the widget never renders a silent "0 QOL" (BH-17).
+public enum LifestyleWidgetContent: Equatable {
+    case empty
+    case snapshot(LifestyleWidgetSnapshot)
+
+    public static func decode(_ data: Data?) -> LifestyleWidgetContent {
+        guard let data else { return .empty }
+        do {
+            return .snapshot(try JSONDecoder().decode(LifestyleWidgetSnapshot.self, from: data))
+        } catch {
+            return .empty
+        }
+    }
+
+    public var snapshot: LifestyleWidgetSnapshot? {
+        if case let .snapshot(value) = self { return value }
+        return nil
+    }
+}
+
 public enum HomeWidgetSnapshotStore {
     public static let appGroupID = WatchSnapshotStore.appGroupID
     public static let key = "forge.home.widget.snapshot.v1"

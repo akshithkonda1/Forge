@@ -289,16 +289,31 @@ final class WatchHealthKitManager {
         }
         isObserving = true
         for type in observed {
-            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, error in
                 Task { @MainActor in
-                    self?.scheduleLiveRefresh()
+                    await HealthKitObserverGate.run(
+                        observerError: error,
+                        work: { await self?.performObserverRefresh() },
+                        completion: completion
+                    )
                 }
-                completion()
             }
             store.execute(query)
             observerQueries.append(query)
             let frequency: HKUpdateFrequency = type == HKCategoryType(.sleepAnalysis) ? .hourly : .immediate
-            store.enableBackgroundDelivery(for: type, frequency: frequency) { _, _ in }
+            store.enableBackgroundDelivery(for: type, frequency: frequency) { success, deliveryError in
+                if let deliveryError {
+                    HealthKitObserverGate.recordBackgroundDeliveryFailure(
+                        typeIdentifier: type.identifier,
+                        error: deliveryError
+                    )
+                } else if !success {
+                    HealthKitObserverGate.recordBackgroundDeliveryFailure(
+                        typeIdentifier: type.identifier,
+                        error: nil
+                    )
+                }
+            }
         }
     }
 
@@ -327,13 +342,16 @@ final class WatchHealthKitManager {
         isObserving = false
     }
 
-    private func scheduleLiveRefresh() {
+    /// Debounced refresh that the observer awaits before calling completion (BH-16).
+    private func performObserverRefresh() async {
         liveRefreshTask?.cancel()
-        liveRefreshTask = Task { @MainActor in
+        let task = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            await refreshAll()
+            await self.refreshAll()
         }
+        liveRefreshTask = task
+        _ = await task.result
     }
 
     // MARK: ARIA context assembly

@@ -3,11 +3,16 @@ import ForgeCore
 
 /// Console-style first boot after the ARIA interview: load this person's
 /// profile, Health, history, plan, Watch, and reminders before the shell
-/// opens. Duration is 45 seconds to 3 minutes from how much data there is —
-/// like a quiet first boot — not a percent spinner.
+/// opens. Duration is 45–55 seconds from how much data there is. The cap
+/// is the product timeout: prep always finishes or fails open before
+/// `PREP_WATCHDOG_S` (60s) on every build — device, simulator, Debug,
+/// Release.
 enum AriaForgePrep: Sendable {
     static let floor: TimeInterval = 45
-    static let cap: TimeInterval = 180
+    /// Leave the console before the launch-stability watchdog (60s).
+    static let cap: TimeInterval = 55
+    /// Same number as `ForgeSwift/Scripts/launch-gate/thresholds.env`.
+    static let watchdog: TimeInterval = 60
     static let tick: TimeInterval = 0.25
 
     /// Prep copy is on-screen only. Spoken ARIA during this sequence is a fail
@@ -102,9 +107,9 @@ enum AriaForgePrep: Sendable {
         }
     }
 
-    /// 45s with nothing to ingest. Scales toward 3 minutes as Health history,
-    /// cycle, clinical records, and cloud chat show up. Never below floor,
-    /// never above cap.
+    /// 45s with nothing to ingest. Scales toward the 55s cap as Health
+    /// history, cycle, clinical records, and cloud chat show up. Never
+    /// below floor, never above cap.
     static func duration(for load: Load) -> TimeInterval {
         var extra: TimeInterval = 0
         if load.healthConnected { extra += 25 }
@@ -141,8 +146,10 @@ enum AriaForgePrep: Sendable {
     }
 
     /// Hold until the floor (console boot) even if loads finish early.
-    /// If loads run long, wait for them until the 3-minute cap, then open
-    /// the shell and let remaining cloud work finish in the background.
+    /// If loads run long, wait for them until the cap, then open the
+    /// shell and let remaining work finish in the background. The cap
+    /// is the graceful timeout — every build leaves AriaForgePrep before
+    /// the 60s watchdog.
     static func shouldFinish(
         elapsed: TimeInterval,
         duration: TimeInterval,
@@ -193,17 +200,57 @@ final class AriaForgePrepInstantClock: AriaForgePrepClock {
 
 enum AriaForgePrepHandoff {
     static let interviewCompleteKey = "forge.onboarding.interviewComplete"
+    static let onboardedKey = "forge.onboarding.completed"
+
+    /// UserDefaults can miss a pre-launch harness write; CFPreferences is
+    /// the same store `finishForgePrep` flushes and the launch gate reads.
+    static func readBool(_ key: String) -> Bool {
+        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
+        CFPreferencesAppSynchronize(app)
+        if let raw = CFPreferencesCopyAppValue(key as CFString, app) {
+            if let flag = raw as? Bool { return flag }
+            if let number = raw as? NSNumber { return number.boolValue }
+        }
+        return UserDefaults.standard.bool(forKey: key)
+    }
 
     static var isInterviewComplete: Bool {
-        UserDefaults.standard.bool(forKey: interviewCompleteKey)
+        readBool(interviewCompleteKey)
     }
 
     static func markInterviewComplete() {
         UserDefaults.standard.set(true, forKey: interviewCompleteKey)
+        UserDefaults.standard.synchronize()
     }
 
     static func clearInterviewComplete() {
-        UserDefaults.standard.removeObject(forKey: interviewCompleteKey)
+        flushHandoff(onboarded: false)
+    }
+
+    /// Launch-gate plist the harness reads. Safe off the main actor so
+    /// leftover fail-open is not starved by leftover ingest.
+    /// Write false, do not tombstone: a missing key keeps the pre-launch YES.
+    nonisolated static func flushHandoff(onboarded: Bool) {
+        let defaults = UserDefaults.standard
+        defaults.set(false, forKey: interviewCompleteKey)
+        if onboarded {
+            defaults.set(true, forKey: onboardedKey)
+        }
+        defaults.synchronize()
+        let app = (Bundle.main.bundleIdentifier ?? "com.forge.ForgeSwift") as CFString
+        CFPreferencesSetAppValue(
+            interviewCompleteKey as CFString,
+            kCFBooleanFalse,
+            app
+        )
+        if onboarded {
+            CFPreferencesSetAppValue(
+                onboardedKey as CFString,
+                kCFBooleanTrue,
+                app
+            )
+        }
+        CFPreferencesAppSynchronize(app)
     }
 
     /// Interview finished, shell not open yet — resume prep after a kill.
@@ -213,7 +260,7 @@ enum AriaForgePrepHandoff {
     }
 
     /// Drop a leftover `interviewComplete` flag that cannot resume a real prep.
-    /// Does not change the 45s–180s hold on a valid resume.
+    /// A valid resume still runs the 45–55s hold on every build.
     static func validateFlag(isOnboarded: Bool, isAuthenticated: Bool) {
         if isOnboarded || !isAuthenticated {
             clearInterviewComplete()
@@ -222,6 +269,167 @@ enum AriaForgePrepHandoff {
 }
 
 extension AriaForgePrep {
+    /// `ProcessInfo.systemUptime` at first mark. Elapsed is the delta —
+    /// never the machine's awake time (that is hours on CI and would
+    /// fire leftover fail-open in 50ms, skip the 45–55s hold, and run
+    /// HealthKit on the first sample window).
+    private static var bootstrapUptime: TimeInterval?
+    /// XCTest only. Production leftover remaining uses the process-
+    /// relative uptime delta from `markProcessStart`.
+    private static var testClockOrigin: Date?
+    /// One leftover-prep session per process. The timeout is wall-clock
+    /// from process start — not from when OnboardingView happens to appear.
+    @MainActor
+    private static var leftoverTimeoutArmed = false
+    private static var leftoverTimeoutWork: DispatchWorkItem?
+    private static var processWatchdogWork: DispatchWorkItem?
+    @MainActor
+    private static weak var leftoverStore: AppStore?
+    @MainActor
+    private static var leftoverIngestTask: Task<Void, Never>?
+
+    static func markProcessStart() {
+        if bootstrapUptime == nil {
+            bootstrapUptime = ProcessInfo.processInfo.systemUptime
+            // Do not depend on reading the harness interview flag during
+            // AppStore.init — if that read misses, leftover never arms and
+            // the 60s gate stays pending. XCTest must not get a 48s timer.
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                scheduleProcessHandoffWatchdog()
+            }
+        }
+    }
+
+    @MainActor
+    static func bindLeftoverStore(_ store: AppStore) {
+        leftoverStore = store
+    }
+
+    @MainActor
+    static func resetLeftoverSessionForTests() {
+        bootstrapUptime = ProcessInfo.processInfo.systemUptime
+        testClockOrigin = Date()
+        leftoverTimeoutArmed = false
+        leftoverTimeoutWork?.cancel()
+        leftoverTimeoutWork = nil
+        processWatchdogWork?.cancel()
+        processWatchdogWork = nil
+        leftoverStore = nil
+        leftoverIngestTask?.cancel()
+        leftoverIngestTask = nil
+    }
+
+    /// Test hook: pin a production-style clock (no XCTest origin) so
+    /// leftover remaining cannot be confused with machine awake time.
+    @MainActor
+    static func resetToProductionClockForTests() {
+        testClockOrigin = nil
+        bootstrapUptime = ProcessInfo.processInfo.systemUptime
+        leftoverTimeoutArmed = false
+        leftoverTimeoutWork?.cancel()
+        leftoverTimeoutWork = nil
+        processWatchdogWork?.cancel()
+        processWatchdogWork = nil
+        leftoverStore = nil
+        leftoverIngestTask?.cancel()
+        leftoverIngestTask = nil
+    }
+
+    static func elapsedSinceProcessStartForTests() -> TimeInterval {
+        elapsedSinceProcessStart()
+    }
+
+    private static func elapsedSinceProcessStart() -> TimeInterval {
+        if let testClockOrigin {
+            return Date().timeIntervalSince(testClockOrigin)
+        }
+        let origin = bootstrapUptime ?? ProcessInfo.processInfo.systemUptime
+        if bootstrapUptime == nil {
+            bootstrapUptime = origin
+        }
+        return max(0, ProcessInfo.processInfo.systemUptime - origin)
+    }
+
+    /// Fail-open: if the hold or ingest is still pending at `cap`, flush
+    /// the interview handoff. With a session this finishes onboarding;
+    /// without one it only clears the hang — sign-in stays up.
+    @MainActor
+    static func armLeftoverTimeout(
+        store: AppStore,
+        after seconds: TimeInterval = cap
+    ) {
+        guard !leftoverTimeoutArmed else { return }
+        let leftover = AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded
+        guard leftover || store.needsForgePrep else { return }
+        leftoverTimeoutArmed = true
+        leftoverStore = store
+        let authenticated = store.isAuthenticated
+        let elapsed = elapsedSinceProcessStart()
+        // Product cap is 55s. Fail-open must still beat PREP_WATCHDOG_S
+        // (60s from simctl) after origin slop and a 2s harness poll.
+        let remaining = seconds < 1
+            ? max(0, seconds)
+            : max(0.05, min(seconds, watchdog - 12) - elapsed)
+        leftoverTimeoutWork?.cancel()
+        let work = DispatchWorkItem { [store] in
+            // Harness reads the container plist. Flush it here so a busy
+            // MainActor leftover ingest cannot miss PREP_WATCHDOG_S.
+            AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
+            Task { @MainActor in
+                if store.isOnboarded, !AriaForgePrepHandoff.isInterviewComplete { return }
+                store.finishForgePrep()
+            }
+        }
+        leftoverTimeoutWork = work
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + remaining,
+            execute: work
+        )
+    }
+
+    /// Always-on fail-open from process start. The launch gate writes
+    /// `interviewComplete` before `simctl launch`; AppStore.init can miss
+    /// that read and skip `armLeftoverTimeout`. This timer re-reads the
+    /// plist at `watchdog-12` and flushes if still pending.
+    private static func scheduleProcessHandoffWatchdog() {
+        processWatchdogWork?.cancel()
+        let remaining = max(0.05, watchdog - 12)
+        let work = DispatchWorkItem {
+            let interview = AriaForgePrepHandoff.isInterviewComplete
+            let onboarded = AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey)
+            guard interview, !onboarded else { return }
+            AriaForgePrepHandoff.flushHandoff(onboarded: false)
+            Task { @MainActor in
+                leftoverStore?.finishForgePrep()
+            }
+        }
+        processWatchdogWork = work
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + remaining,
+            execute: work
+        )
+    }
+
+    /// Start Health / plan / cloud ingest once, off the first-frame path.
+    /// The console hold and this task share the same work so a late
+    /// OnboardingView does not start a second refreshDailyData.
+    @MainActor
+    static func startLeftoverIngest(
+        into store: AppStore,
+        trainingTheme: AriaTrainingTheme? = nil
+    ) {
+        guard leftoverIngestTask == nil else { return }
+        let theme = trainingTheme ?? store.userProfile.trainingTheme
+        leftoverIngestTask = Task { @MainActor in
+            await loadUserData(into: store, trainingTheme: theme)
+        }
+    }
+
+    @MainActor
+    static func awaitLeftoverIngest() async {
+        await leftoverIngestTask?.value
+    }
+
     /// Runs `work` in parallel with the console hold. `onTick` is the only
     /// UI channel — this never speaks.
     @MainActor
@@ -271,7 +479,13 @@ extension AriaForgePrep {
     }
 
     @MainActor
-    static func loadUserData(into store: AppStore, trainingTheme: AriaTrainingTheme) async {
+    static func loadUserData(
+        into store: AppStore,
+        trainingTheme: AriaTrainingTheme
+    ) async {
+        // Yield so the first SwiftUI commit / prep tick can run. HealthKit,
+        // Kokoro, and cloud ingest stay on this task — never the first frame.
+        await Task.yield()
         await store.refreshDailyData()
 
         if store.healthKitLive {
@@ -322,6 +536,16 @@ extension AriaForgePrep {
             clinicalLikely: clinical,
             chatHistoryLikely: !store.chatMessages.isEmpty || ForgeCloudSync.shared.isRemoteEligible
         )
+    }
+}
+
+/// Shared launch hop: the first SwiftUI commit stays a cheap field, then
+/// HealthKit, Kokoro, FoundationModels, and the destination tree start.
+/// Every build uses this — there is no simulator env and no 30s hide.
+enum LaunchFirstFrame {
+    @MainActor
+    static func afterPaint() async {
+        await Task.yield()
     }
 }
 
