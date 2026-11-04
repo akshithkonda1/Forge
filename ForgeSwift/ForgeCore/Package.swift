@@ -228,6 +228,7 @@ let package = Package(
                 "SleepCoachCopyTests.swift",
                 "SleepMorningSummaryTests.swift",
                 "DuplicateKeyCrashTests.swift",
+                "LaunchStabilityFixtureTests.swift",
                 "NonFiniteHealthInputTests.swift",
                 "SleepQueryCacheTests.swift",
                 "SleepWindDownNoticeTests.swift",
