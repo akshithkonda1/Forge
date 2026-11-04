@@ -446,6 +446,21 @@ extension AriaForgePrep {
         return max(0, ProcessInfo.processInfo.systemUptime - origin)
     }
 
+    /// Disk refresh off the main thread. SIGKILL mid-launch can leave the
+    /// prefs lock dirty; `CFPreferencesAppSynchronize` on MainActor then
+    /// pins kill_relaunch sample 0 at 3.00s.
+    @MainActor
+    static func refreshInterviewOffMainActor(store: AppStore) {
+        DispatchQueue.global(qos: .utility).async { [weak store] in
+            let interview = AriaForgePrepHandoff.refreshInterviewFromDisk()
+            guard interview, let store else { return }
+            Task { @MainActor in
+                guard !store.isOnboarded else { return }
+                armLeftoverTimeout(store: store)
+            }
+        }
+    }
+
     /// Fail-open: if the hold or ingest is still pending at
     /// `leftoverFailOpen`, flush the interview handoff. With a session this
     /// finishes onboarding with partial data; without one it only clears

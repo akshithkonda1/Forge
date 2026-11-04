@@ -87,10 +87,14 @@ struct ContentView: View {
             }
             await LaunchFirstFrame.afterPaint()
             revealRoot = true
-            // Disk refresh after the first commit — never on the first body
-            // (CFPreferencesAppSynchronize there made cold first_frame 34s).
-            if AriaForgePrepHandoff.refreshInterviewFromDisk(), !store.isOnboarded {
+            // Cheap cache only. CFPreferencesAppSynchronize on this hop
+            // pinned kill_relaunch sample 0 at 3.00s after SIGKILL.
+            // Leftover miss is recovered on a background queue; the process
+            // watchdog still fail-opens at leftoverFailOpen.
+            if store.needsForgePrep {
                 AriaForgePrep.armLeftoverTimeout(store: store)
+            } else if !store.isOnboarded {
+                AriaForgePrep.refreshInterviewOffMainActor(store: store)
             }
             guard showSplash else {
                 let gate = AriaNeuralVoiceGate.shared
