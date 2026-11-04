@@ -5,7 +5,9 @@ import ForgeCore
 
 /// Public Apple APIs this wake path is allowed to use.
 ///
-/// AlarmKit needs only NSAlarmKitUsageDescription plus requestAuthorization, not an entitlement.
+/// AlarmKit needs no entitlement, but NSAlarmKitUsageDescription still has to
+/// be added to the app Info.plist (`INFOPLIST_KEY_NSAlarmKitUsageDescription`)
+/// before AlarmKit works — that key is not present yet.
 enum SleepAlarmAppleAPI: Sendable {
     static var authorizationOptions: UNAuthorizationOptions { [.alert, .sound, .badge] }
     static var interruptionLevel: UNNotificationInterruptionLevel { .timeSensitive }
