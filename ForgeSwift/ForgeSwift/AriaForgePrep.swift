@@ -414,8 +414,9 @@ extension AriaForgePrep {
 
     /// Always-on fail-open from process start. The launch gate writes
     /// `interviewComplete` before `simctl launch`; AppStore.init can miss
-    /// that read and skip `armLeftoverTimeout`. This timer re-reads the
-    /// plist at `leftoverFailOpen` and flushes if still pending.
+    /// that read and skip `armLeftoverTimeout`. First attempt is at
+    /// `leftoverFailOpen`; if the plist read still misses, retry so a
+    /// one-shot miss cannot wait until `cap` (55s → ~57s observed).
     private static func scheduleProcessHandoffWatchdog() {
         processWatchdogWork?.cancel()
         let remaining = leftoverRemaining(
@@ -423,19 +424,34 @@ extension AriaForgePrep {
             elapsed: elapsedSinceProcessStart()
         )
         let work = DispatchWorkItem {
-            let interview = AriaForgePrepHandoff.isInterviewComplete
-            let onboarded = AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey)
-            guard interview, !onboarded else { return }
+            attemptProcessHandoffFlush(retriesLeft: 8)
+        }
+        processWatchdogWork = work
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + remaining,
+            execute: work
+        )
+    }
+
+    private static func attemptProcessHandoffFlush(retriesLeft: Int) {
+        let interview = AriaForgePrepHandoff.isInterviewComplete
+        let onboarded = AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey)
+        if interview, !onboarded {
             AriaForgePrepHandoff.flushHandoff(onboarded: false)
             Task { @MainActor in
                 leftoverIngestTask?.cancel()
                 leftoverIngestTask = nil
                 leftoverStore?.finishForgePrep()
             }
+            return
+        }
+        guard retriesLeft > 0 else { return }
+        let work = DispatchWorkItem {
+            attemptProcessHandoffFlush(retriesLeft: retriesLeft - 1)
         }
         processWatchdogWork = work
         DispatchQueue.global(qos: .userInitiated).asyncAfter(
-            deadline: .now() + remaining,
+            deadline: .now() + 2,
             execute: work
         )
     }

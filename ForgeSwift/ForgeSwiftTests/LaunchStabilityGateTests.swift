@@ -185,6 +185,8 @@ final class LaunchStabilityGateTests: XCTestCase {
         // watchdog-12 (48s) path ended near 57s.
         XCTAssertLessThan(AriaForgePrep.leftoverFailOpen + 8 + 2, AriaForgePrep.watchdog)
         XCTAssertLessThan(AriaForgePrep.leftoverFailOpen, AriaForgePrep.watchdog - 20)
+        // Process-handoff retries are 8 × 2s after leftoverFailOpen.
+        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen + 16 + 8, AriaForgePrep.watchdog)
 
         let atProcessStart = AriaForgePrep.leftoverRemaining(
             requested: AriaForgePrep.cap,

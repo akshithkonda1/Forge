@@ -380,14 +380,13 @@ final class AppStore: ObservableObject {
                 self.responseGenerator = foundationModelsGenerator
             }
             #endif
+            // Leftover ingest is started from resumePrep after AriaForgePrep
+            // has painted. Starting it here after one yield blocked the
+            // main thread before first layout — screenshots stalled and
+            // the first commit stayed Color.background #09090B.
+            if self.needsForgePrep { return }
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 self.restoreChatHistory()
-            }
-            // Sole launch owner for refreshDailyData. Leftover prep runs
-            // ingest here so a late OnboardingView is not the only start.
-            if self.needsForgePrep {
-                AriaForgePrep.startLeftoverIngest(into: self)
-                return
             }
             if !self.isOnboarded { return }
             await self.refreshDailyData()
