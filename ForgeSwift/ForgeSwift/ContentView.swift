@@ -13,15 +13,22 @@ struct ContentView: View {
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
-    /// First SwiftUI commit is the splash field only. AuthWelcome / interview
-    /// / Home attach after that paint — every build, not a simulator env.
+    /// First SwiftUI commit is the splash field only — except leftover /
+    /// wedged prep, which must paint AriaForgePrep on that commit.
+    /// AuthWelcome / interview / Home attach after that paint — every build,
+    /// not a simulator env.
     @State private var revealRoot = Self.didFinishSplash
     private static var didFinishSplash = false
 
     var body: some View {
+        let leftoverPrep = LaunchFirstCommit.leftoverPrepPending(
+            needsForgePrep: store.needsForgePrep
+        )
         ZStack {
             Group {
-                if !revealRoot {
+                if leftoverPrep {
+                    OnboardingView()
+                } else if !revealRoot {
                     LaunchBrandField()
                 } else if store.launchRootDestination == .authWelcome {
                     AuthWelcomeView()
@@ -36,7 +43,7 @@ struct ContentView: View {
             .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
             .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
-            if showSplash {
+            if showSplash && LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: leftoverPrep) {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
@@ -56,7 +63,28 @@ struct ContentView: View {
                 neuralVoiceGate?.refreshCatalog()
             }
         }
+        .onAppear {
+            if leftoverPrep {
+                revealRoot = true
+                showSplash = false
+                Self.didFinishSplash = true
+            }
+        }
         .task {
+            let leftoverPrep = LaunchFirstCommit.leftoverPrepPending(
+                needsForgePrep: store.needsForgePrep
+            )
+            if leftoverPrep {
+                revealRoot = true
+                showSplash = false
+                Self.didFinishSplash = true
+                AriaForgePrep.armLeftoverTimeout(store: store)
+                await LaunchFirstFrame.afterPaint()
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
             await LaunchFirstFrame.afterPaint()
             revealRoot = true
             if store.needsForgePrep || (AriaForgePrepHandoff.isInterviewComplete && !store.isOnboarded) {

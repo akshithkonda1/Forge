@@ -144,6 +144,66 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(LaunchBrandField.markSide, 220)
     }
 
+    func testLeftoverPrepFirstCommitIsForgePrepNotBrandField() {
+        XCTAssertTrue(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: true))
+        XCTAssertFalse(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: false))
+        XCTAssertEqual(
+            LaunchFirstCommit.surface(leftoverPrep: true, revealRoot: false),
+            .forgePrep,
+            "Wedged prep must draw AriaForgePrep before afterPaint / splash"
+        )
+        XCTAssertEqual(
+            LaunchFirstCommit.surface(leftoverPrep: false, revealRoot: false),
+            .brandField
+        )
+        XCTAssertEqual(
+            LaunchFirstCommit.surface(leftoverPrep: false, revealRoot: true),
+            .routed
+        )
+        XCTAssertFalse(
+            LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: true),
+            "ForgeSplashScreen is Color.background #09090B — it must not cover prep"
+        )
+        XCTAssertTrue(LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: false))
+
+        let coordinator = OnboardingCoordinator()
+        XCTAssertEqual(coordinator.prepStage, .profile)
+        XCTAssertEqual(coordinator.prepStage.eyebrow, "Prepping Forge")
+        XCTAssertFalse(coordinator.prepStage.headline.isEmpty)
+        XCTAssertFalse(coordinator.prepStage.detail(healthConnected: false).isEmpty)
+        XCTAssertEqual(AriaForgePrep.Stage.profile.eyebrow, "Prepping Forge")
+        XCTAssertEqual(AriaForgePrep.Stage.profile.headline, "Loading your profile")
+    }
+
+    func testLeftoverFailOpenBeatsWatchdogWithMargin() {
+        XCTAssertEqual(AriaForgePrep.floor, 45)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertEqual(AriaForgePrep.leftoverFailOpen, 24)
+        // Origin slop (dyld / AppStore init) plus the harness's 2s poll
+        // must still leave real margin under PREP_WATCHDOG_S. The old
+        // watchdog-12 (48s) path ended near 57s.
+        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen + 8 + 2, AriaForgePrep.watchdog)
+        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen, AriaForgePrep.watchdog - 20)
+
+        let atProcessStart = AriaForgePrep.leftoverRemaining(
+            requested: AriaForgePrep.cap,
+            elapsed: 0
+        )
+        XCTAssertEqual(atProcessStart, AriaForgePrep.leftoverFailOpen)
+        XCTAssertLessThan(atProcessStart, AriaForgePrep.watchdog)
+
+        let afterTenSeconds = AriaForgePrep.leftoverRemaining(
+            requested: AriaForgePrep.cap,
+            elapsed: 10
+        )
+        XCTAssertEqual(afterTenSeconds, AriaForgePrep.leftoverFailOpen - 10)
+        XCTAssertLessThan(afterTenSeconds + 10 + 8 + 2, AriaForgePrep.watchdog)
+
+        let injected = AriaForgePrep.leftoverRemaining(requested: 0.05, elapsed: 0)
+        XCTAssertEqual(injected, 0.05)
+    }
+
     func testLeftoverTimeoutArmsWithoutRestoredAuth() async {
         AriaForgePrep.resetLeftoverSessionForTests()
         defer { AriaForgePrep.resetLeftoverSessionForTests() }

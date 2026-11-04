@@ -365,10 +365,9 @@ final class AppStore: ObservableObject {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             return
         }
-        // ContentView defers OnboardingView until after first paint, so
-        // runSequence's 55s clock starts several seconds late and the
-        // 60s launch watchdog still sees the handoff. Bound leftover
-        // prep to process start — the product cap, not a gate change.
+        // Leftover / wedged prep paints AriaForgePrep on the first SwiftUI
+        // commit. Fail-open is leftoverFailOpen from process start so the
+        // 60s launch watchdog still sees the handoff with real margin.
         if needsForgePrep || (AriaForgePrepHandoff.isInterviewComplete && !isOnboarded) {
             AriaForgePrep.armLeftoverTimeout(store: self)
         }

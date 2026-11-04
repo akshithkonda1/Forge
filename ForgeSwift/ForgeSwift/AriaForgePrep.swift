@@ -13,6 +13,13 @@ enum AriaForgePrep: Sendable {
     static let cap: TimeInterval = 55
     /// Same number as `ForgeSwift/Scripts/launch-gate/thresholds.env`.
     static let watchdog: TimeInterval = 60
+    /// Leftover / wedge fail-open from process start. The 45–55s hold still
+    /// runs when ingest finishes; this deadline shows the shell with partial
+    /// data if the hold never starts or ingest hangs. `watchdog - 12` (48s)
+    /// plus dyld / AppStore-init origin slop and the harness's 2s poll landed
+    /// at ~57s against a 60s gate — not real margin. Does not change
+    /// `floor`, `cap`, or `watchdog`.
+    static let leftoverFailOpen: TimeInterval = 24
     static let tick: TimeInterval = 0.25
 
     /// Prep copy is on-screen only. Spoken ARIA during this sequence is a fail
@@ -293,7 +300,8 @@ extension AriaForgePrep {
             bootstrapUptime = ProcessInfo.processInfo.systemUptime
             // Do not depend on reading the harness interview flag during
             // AppStore.init — if that read misses, leftover never arms and
-            // the 60s gate stays pending. XCTest must not get a 48s timer.
+            // the 60s gate stays pending. XCTest must not get a leftover
+            // fail-open timer.
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 scheduleProcessHandoffWatchdog()
             }
@@ -339,6 +347,21 @@ extension AriaForgePrep {
         elapsedSinceProcessStart()
     }
 
+    /// Remaining delay for leftover fail-open. Injected `requested < 1` is
+    /// the XCTest hop (50ms); production remaining is `leftoverFailOpen`
+    /// minus process-relative elapsed — never `watchdog` and never machine
+    /// awake time.
+    static func leftoverRemaining(
+        requested: TimeInterval,
+        elapsed: TimeInterval,
+        failOpen: TimeInterval = leftoverFailOpen
+    ) -> TimeInterval {
+        if requested < 1 {
+            return max(0, requested)
+        }
+        return max(0.05, min(requested, failOpen) - elapsed)
+    }
+
     private static func elapsedSinceProcessStart() -> TimeInterval {
         if let testClockOrigin {
             return Date().timeIntervalSince(testClockOrigin)
@@ -350,9 +373,10 @@ extension AriaForgePrep {
         return max(0, ProcessInfo.processInfo.systemUptime - origin)
     }
 
-    /// Fail-open: if the hold or ingest is still pending at `cap`, flush
-    /// the interview handoff. With a session this finishes onboarding;
-    /// without one it only clears the hang — sign-in stays up.
+    /// Fail-open: if the hold or ingest is still pending at
+    /// `leftoverFailOpen`, flush the interview handoff. With a session this
+    /// finishes onboarding with partial data; without one it only clears
+    /// the hang — sign-in stays up.
     @MainActor
     static func armLeftoverTimeout(
         store: AppStore,
@@ -365,17 +389,18 @@ extension AriaForgePrep {
         leftoverStore = store
         let authenticated = store.isAuthenticated
         let elapsed = elapsedSinceProcessStart()
-        // Product cap is 55s. Fail-open must still beat PREP_WATCHDOG_S
-        // (60s from simctl) after origin slop and a 2s harness poll.
-        let remaining = seconds < 1
-            ? max(0, seconds)
-            : max(0.05, min(seconds, watchdog - 12) - elapsed)
+        // Product cap is 55s. Wedge fail-open is leftoverFailOpen (24s)
+        // so dyld / AppStore-init slop and the 2s harness poll still beat
+        // PREP_WATCHDOG_S with real margin. Does not change `watchdog`.
+        let remaining = leftoverRemaining(requested: seconds, elapsed: elapsed)
         leftoverTimeoutWork?.cancel()
         let work = DispatchWorkItem { [store] in
             // Harness reads the container plist. Flush it here so a busy
             // MainActor leftover ingest cannot miss PREP_WATCHDOG_S.
             AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
             Task { @MainActor in
+                leftoverIngestTask?.cancel()
+                leftoverIngestTask = nil
                 if store.isOnboarded, !AriaForgePrepHandoff.isInterviewComplete { return }
                 store.finishForgePrep()
             }
@@ -390,16 +415,21 @@ extension AriaForgePrep {
     /// Always-on fail-open from process start. The launch gate writes
     /// `interviewComplete` before `simctl launch`; AppStore.init can miss
     /// that read and skip `armLeftoverTimeout`. This timer re-reads the
-    /// plist at `watchdog-12` and flushes if still pending.
+    /// plist at `leftoverFailOpen` and flushes if still pending.
     private static func scheduleProcessHandoffWatchdog() {
         processWatchdogWork?.cancel()
-        let remaining = max(0.05, watchdog - 12)
+        let remaining = leftoverRemaining(
+            requested: leftoverFailOpen,
+            elapsed: elapsedSinceProcessStart()
+        )
         let work = DispatchWorkItem {
             let interview = AriaForgePrepHandoff.isInterviewComplete
             let onboarded = AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey)
             guard interview, !onboarded else { return }
             AriaForgePrepHandoff.flushHandoff(onboarded: false)
             Task { @MainActor in
+                leftoverIngestTask?.cancel()
+                leftoverIngestTask = nil
                 leftoverStore?.finishForgePrep()
             }
         }
@@ -546,6 +576,31 @@ enum LaunchFirstFrame {
     @MainActor
     static func afterPaint() async {
         await Task.yield()
+    }
+}
+
+/// First SwiftUI commit when leftover / wedged prep is pending. ContentView
+/// used to keep `revealRoot == false` until `.task { await afterPaint() }`
+/// and cover the tree with `ForgeSplashScreen` — a `Color.background`
+/// `#09090B` field (the launch gate's 87% rgb(9,9,11) blank) with no
+/// "Prepping Forge" copy. Prep content belongs on that first commit.
+enum LaunchFirstCommit: Equatable {
+    case forgePrep
+    case brandField
+    case routed
+
+    static func leftoverPrepPending(needsForgePrep: Bool) -> Bool {
+        needsForgePrep
+    }
+
+    static func surface(leftoverPrep: Bool, revealRoot: Bool) -> LaunchFirstCommit {
+        if leftoverPrep { return .forgePrep }
+        if !revealRoot { return .brandField }
+        return .routed
+    }
+
+    static func splashCoversFirstCommit(leftoverPrep: Bool) -> Bool {
+        !leftoverPrep
     }
 }
 
