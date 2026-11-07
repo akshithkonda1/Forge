@@ -81,6 +81,17 @@ class CommittedPlistShipGateTests(unittest.TestCase):
         self.assertEqual(parsed["FORGEEnvironment"], "dummy")
         self.assertEqual(parsed["FORGEAPIBaseURL"], "")
 
+    def test_committed_plist_ships_a_non_generated_launch_screen(self):
+        parsed = mod.parse_plist(PLIST.read_text(encoding="utf-8"))
+        launch = parsed.get("UILaunchScreen")
+        self.assertIsInstance(launch, dict)
+        self.assertEqual(launch.get("UIImageName"), "LaunchScreen")
+        image = (
+            ROOT / "ForgeSwift" / "ForgeSwift" / "Assets.xcassets"
+            / "LaunchScreen.imageset" / "LaunchScreen.png"
+        )
+        self.assertTrue(image.is_file(), image)
+
 
 class ValidateDummyOfflineTests(unittest.TestCase):
     def test_dummy_offline_empty_config_is_ok(self):
@@ -294,6 +305,28 @@ class RoadmapFlagAndSecretHygieneTests(unittest.TestCase):
         parsed["FORGEProviderRoutingEnabled"] = "true"
         problems = mod.hygiene_problems(parsed, _base(), source="Info-Add.plist")
         self.assertTrue(any("FORGEProviderRoutingEnabled" in p for p in problems))
+
+    def test_dummy_keeps_aws_live_unset_or_off(self):
+        parsed = dict(_base())
+        self.assertEqual(
+            mod.aws_live_problems(parsed, dummy=True, source="Info-Add.plist"),
+            [],
+        )
+        parsed["FORGEAWSLive"] = ""
+        self.assertEqual(
+            mod.aws_live_problems(parsed, dummy=True, source="Info-Add.plist"),
+            [],
+        )
+        parsed["FORGEAWSLive"] = "true"
+        problems = mod.aws_live_problems(parsed, dummy=True, source="Info-Add.plist")
+        self.assertTrue(any("FORGEAWSLive" in p and "TODO(aws)" in p for p in problems))
+
+    def test_live_env_may_set_aws_live(self):
+        parsed = {"FORGEEnvironment": "prod", "FORGEAWSLive": "true"}
+        self.assertEqual(
+            mod.aws_live_problems(parsed, dummy=False, source="Info-Add.plist"),
+            [],
+        )
 
 
 class TerraformAllowListTests(unittest.TestCase):

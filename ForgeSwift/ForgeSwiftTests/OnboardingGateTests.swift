@@ -2,6 +2,7 @@
 // Fails on main: skipPrepHold defaults to false even on the DEBUG simulator,
 // and a leftover interviewComplete flag still gates prep without a session.
 import XCTest
+import UserNotifications
 import ForgeCore
 @testable import ForgeSwift
 

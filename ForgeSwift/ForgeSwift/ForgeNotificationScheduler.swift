@@ -245,6 +245,7 @@ enum ForgeNotificationScheduler {
         settings: MenstrualTrackingSettings,
         snapshot: MenstrualCycleSnapshot
     ) async {
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         let cycleIds = [
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
             ID.cyclePeriodReminder,
@@ -346,6 +347,7 @@ enum ForgeNotificationScheduler {
     /// so a lock screen never names a period. Cleared when the share is empty,
     /// paused, or stale.
     static func syncPartnerSupport(_ glance: PartnerSupportGlance?) async {
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
         center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
         guard let glance, !glance.isPaused, !glance.isStale else { return }

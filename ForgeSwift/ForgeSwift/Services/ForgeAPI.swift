@@ -93,7 +93,12 @@ enum ForgeAPI {
         // than mutating the request inside the closure: a captured `var` cannot
         // be mutated from concurrently-executing code, and the inout version of
         // this does not compile.
-        let header = await MainActor.run { ForgeAuthClient.shared.authorizationHeader() }
+        let (header, awsLive) = await MainActor.run {
+            (ForgeAuthClient.shared.authorizationHeader(), ForgeAuthClient.shared.config.awsLiveEnabled)
+        }
+        // TODO(aws): unset FORGEAWSLive fails closed. No API Gateway / Cognito
+        // hop until a real stack apply turns that flag on.
+        guard awsLive else { throw Failure.notConfigured }
         var request = ForgeOutboundSanitizer.sanitize(original)
         if let header {
             request.setValue(header, forHTTPHeaderField: "Authorization")

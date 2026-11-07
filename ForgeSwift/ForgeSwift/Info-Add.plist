@@ -66,6 +66,11 @@
 	     cognito.userPoolId). Dummy-offline is: scripts/generate_client_config.py
 	     with the dummy-offline flag (zero stack outputs).
 
+	     TODO(aws): FORGEAWSLive is intentionally absent. ForgeAuthConfig
+	     treats a missing value as off, so Cognito and ForgeAPI fail closed
+	     until a real apply turns the flag on. Do not put AWS credentials
+	     in this plist.
+
 	     FORGEEnvironment is a control, not a label. dummy is the TestFlight
 	     Dummy path. ForgeAuthPolicy refuses the tester override when it is
 	     production-like, and ForgeAuthConfig treats any name it does not

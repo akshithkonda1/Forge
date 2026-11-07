@@ -14,6 +14,7 @@ struct AuthWelcomeView: View {
 
     @State private var page = 0
     @State private var appeared = false
+    @State private var revealWelcomeChrome = false
     @State private var showSignIn = false
     @State private var showSignUp = false
     @State private var autoAdvanceTask: Task<Void, Never>?
@@ -22,10 +23,15 @@ struct AuthWelcomeView: View {
 
     var body: some View {
         ZStack {
-            PremiumAtmosphere(
-                accent: pages[safe: page]?.accent ?? .ember,
-                secondary: pages[safe: page]?.frost ?? ForgeProgressChrome.plate
-            )
+            Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                .ignoresSafeArea()
+
+            if revealWelcomeChrome {
+                PremiumAtmosphere(
+                    accent: pages[safe: page]?.accent ?? .ember,
+                    secondary: pages[safe: page]?.frost ?? ForgeProgressChrome.plate
+                )
+            }
 
             VStack(spacing: 0) {
                 header
@@ -33,16 +39,20 @@ struct AuthWelcomeView: View {
                     .padding(.top, ForgeLayout.screenTop)
                     .premiumEntrance(index: 0, appeared: appeared)
 
-                TabView(selection: $page) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { index, hook in
-                        AuthHookPageView(page: hook, isActive: page == index)
-                            .tag(index)
+                if revealWelcomeChrome {
+                    TabView(selection: $page) {
+                        ForEach(Array(pages.enumerated()), id: \.offset) { index, hook in
+                            AuthHookPageView(page: hook, isActive: page == index)
+                                .tag(index)
+                        }
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .forgeAnimation(ForgeMotion.smooth, value: page)
-                .onChange(of: page) { _, _ in
-                    scheduleAutoAdvance()
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .forgeAnimation(ForgeMotion.smooth, value: page)
+                    .onChange(of: page) { _, _ in
+                        scheduleAutoAdvance()
+                    }
+                } else {
+                    Spacer()
                 }
 
                 bottomDock
@@ -59,7 +69,9 @@ struct AuthWelcomeView: View {
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
         }
-        .onAppear {
+        .task {
+            await Task.yield()
+            revealWelcomeChrome = true
             withAnimation(reduceMotion ? nil : ForgeMotion.gentle.delay(0.05)) { appeared = true }
             scheduleAutoAdvance()
         }
@@ -83,7 +95,11 @@ struct AuthWelcomeView: View {
             }
             Spacer(minLength: FDS.Spacing.sm)
             AriaSpokenMuteButton()
-            signInButton
+            // Nothing to sign back into while Cognito isn't configured;
+            // Get started is the way in.
+            if ForgeAuthClient.shared.offersSignIn {
+                signInButton
+            }
         }
     }
 

@@ -398,6 +398,22 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Moves ARIA onto Apple's on-device model once it is ready. On a first
+    /// launch it can still be downloading, so this runs again whenever the app
+    /// comes back to the foreground instead of waiting for a relaunch.
+    func refreshOnDeviceModel() {
+        #if canImport(FoundationModels) && !targetEnvironment(simulator)
+        if !aiModelAvailable {
+            let foundationModelsGenerator = FoundationModelsResponseGenerator()
+            if foundationModelsGenerator.isAvailable {
+                aiModelAvailable = true
+                responseGenerator = foundationModelsGenerator
+            }
+        }
+        #endif
+        LocalTestingOrchestrator.shared.refreshOnDeviceModel()
+    }
+
     // MARK: - Chat Persistence & Momentum
 
     /// Versioned single-document session: transcript + XP/level + durable anchors.
