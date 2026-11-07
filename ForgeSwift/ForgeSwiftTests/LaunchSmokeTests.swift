@@ -29,6 +29,11 @@ final class LaunchSmokeTests: XCTestCase {
         XCTAssertFalse(AriaForgePrep.Stage.profile.headline.isEmpty)
         XCTAssertEqual(AriaForgePrep.Stage.profile.eyebrow, "Prepping Forge")
         XCTAssertEqual(AriaForgePrepHandoff.interviewCompleteKey, "forge.onboarding.interviewComplete")
+        XCTAssertEqual(
+            LaunchFirstCommit.surface(leftoverPrep: true, revealRoot: false),
+            .forgePrep
+        )
+        XCTAssertFalse(LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: true))
     }
 
     func testSleepNightWithoutStagesDoesNotBlankTheMeter() {

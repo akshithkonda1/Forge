@@ -60,7 +60,14 @@ extension MenstrualHealthStore {
             if let median = snap.nextPeriod?.medianDayKey {
                 lastAdvertisedNextPeriodMedian = median
             }
-            await ForgeNotificationScheduler.syncCycleNotifications(settings: settings, snapshot: snapshot)
+            let cycleSettings = settings
+            let cycleSnapshot = snapshot
+            Task {
+                await ForgeNotificationScheduler.syncCycleNotifications(
+                    settings: cycleSettings,
+                    snapshot: cycleSnapshot
+                )
+            }
 
             // Keep anyone the user shares with current. This is the only place
             // the shared digest is refreshed, and it is deliberately here rather

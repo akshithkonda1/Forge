@@ -88,10 +88,10 @@ public enum HealthKitOnboardingAuthorization: Sendable {
         canWrite || hasReadableSamples || onboardingConnected
     }
 
-    /// Fresh install has no write grant, no onboarding READ persist, and no
-    /// cached samples. Probing HealthKit then waits on `healthd` and can
-    /// deadlock a continuation — which pins AriaForgePrep past the launch
-    /// watchdog. Skip the store probe until a cheap signal exists.
+    /// Cheap-signal helper: write grant, onboarding READ persist, or a
+    /// cached sample. Launch no longer uses this to skip the live probe —
+    /// `checkAuthorizationStatus` always takes the ternary path after the
+    /// first frame.
     public static func shouldProbeStoreForLiveStatus(
         canWrite: Bool,
         onboardingConnected: Bool,

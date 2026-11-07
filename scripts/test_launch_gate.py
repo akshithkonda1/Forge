@@ -1,144 +1,145 @@
-"""Linux-runnable checks for the launch-stability harness.
+#!/usr/bin/env python3
+"""Launch-gate classifier and threshold pins.
 
-The macOS gate itself needs a simulator. These pin the two current main
-failures without loosening thresholds.env: kill_relaunch's 2.50s sample
-must not count the dyld attach stall as app busy time, and prep_wedge
-must write dotted UserDefaults keys as literal names.
+Keeps thresholds.env from being loosened in this PR and pins the idle
+parser so a dyld/sampler attach stall is not billed as a main-thread hang.
 """
-import os
-import plistlib
-import sys
-import tempfile
+
+from __future__ import annotations
+
+import importlib.util
 import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ForgeSwift" / "Scripts" / "launch-gate"))
-import launch_gate  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
+SCRIPT = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "launch_gate.py"
+THRESHOLDS = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "thresholds.env"
+HEALTHKIT = ROOT / "ForgeSwift" / "ForgeSwift" / "HealthKitManager.swift"
+CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
+PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
 
 
-SAMPLER_STALL_SAMPLE = """\
-Sampling process 56523 for 3 seconds with 1 millisecond of run time between samples
-Sample analysis of process 56523 written to file test.txt
-
-Call graph:
-    344 Thread_7701   DispatchQueue_1: com.apple.main-thread  (serial)
-    + 344 start  (in ForgeSwift) + 0
-    +   344 main  (in ForgeSwift) + 0
-    +     344 UIApplicationMain  (in UIKitCore) + 0
-    +       287 dyld4::notifyDebuggerLoad(...)  (in dyld) + 0
-    +       ! 287 blockOnSynchronousEvent  (in dyld) + 0
-    +       !   287 mach_msg2_trap  (in libsystem_kernel.dylib) + 0
-    +       57 CFRunLoopRun  (in CoreFoundation) + 0
-    +         57 __CFRunLoopRun  (in CoreFoundation) + 0
-    +           57 __CFRunLoopServiceMachPort  (in CoreFoundation) + 0
-    +             57 mach_msg2_trap  (in libsystem_kernel.dylib) + 0
-
-Total number in stack (recursive counted multiple, when >=5):
-    344       start
-"""
-
-APP_HANG_SAMPLE = """\
-Sampling process 1 for 3 seconds with 1 millisecond of run time between samples
-
-Call graph:
-    344 Thread_1   DispatchQueue_1: com.apple.main-thread  (serial)
-    + 344 start
-    +   344 main
-    +     287 refreshDailyData
-    +     ! 287 semaphore_wait_trap
-    +     57 CFRunLoopRun
-    +       57 __CFRunLoopRun
-    +         57 __CFRunLoopServiceMachPort
-    +           57 mach_msg2_trap
-
-Total number in stack:
-    1 foo
-"""
+def _load():
+    spec = importlib.util.spec_from_file_location("launch_gate", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
-class ThresholdsUnchangedTests(unittest.TestCase):
-    def test_gate_budgets_and_timeouts_stay_at_main_values(self):
-        t = launch_gate.load_thresholds()
-        self.assertEqual(t["MAIN_THREAD_BLOCK_MAX_S"], 2.0)
-        self.assertEqual(t["SAMPLE_WINDOW_S"], 3)
-        self.assertEqual(t["SAMPLE_WINDOWS"], 4)
-        self.assertEqual(t["SAMPLE_TIMEOUT_S"], 60)
-        self.assertEqual(t["SAMPLE_TIMEOUT_COLD_S"], 150)
-        self.assertEqual(t["FIRST_FRAME_MAX_S"], 8)
-        self.assertEqual(t["FIRST_FRAME_CONSECUTIVE"], 2)
-        self.assertEqual(t["PREP_WATCHDOG_S"], 60)
+lg = _load()
 
 
-class SamplerStallTests(unittest.TestCase):
-    def test_dyld_attach_stall_is_idle_not_a_2_5s_hang(self):
-        # Main's kill_relaunch sample 0 was 2.50s busy of 344 samples / 57 idle.
-        # Replaying that shape with the attach stall treated as idle stays
-        # under the 2.0s budget. A real app hang still counts (next test).
-        busy, total, idle = launch_gate.parse_main_thread_busy(SAMPLER_STALL_SAMPLE, 3)
-        self.assertEqual(total, 344)
-        self.assertEqual(idle, 344)
-        self.assertLessEqual(busy, launch_gate.T["MAIN_THREAD_BLOCK_MAX_S"])
+def _sample(body: str) -> str:
+    return (
+        "Call graph:\n"
+        "    300 Thread_10823691   DispatchQueue + 0x0   com.apple.main-thread\n"
+        f"{body}"
+        "    12 Thread_10823692\n"
+    )
+
+
+def _busy(text: str):
+    with mock.patch.object(lg, "run_sample", return_value=text):
+        return lg.main_thread_busy_s(1, 3.0, "unit", 10)
+
+
+class ThresholdPins(unittest.TestCase):
+    def test_thresholds_are_not_loosened(self):
+        raw = THRESHOLDS.read_text(encoding="utf-8")
+        self.assertIn("FIRST_FRAME_MAX_S=8\n", raw)
+        self.assertIn("FIRST_FRAME_CONSECUTIVE=2\n", raw)
+        self.assertIn("PREP_WATCHDOG_S=60\n", raw)
+        self.assertIn("MAIN_THREAD_BLOCK_MAX_S=2.0\n", raw)
+        self.assertEqual(lg.T["FIRST_FRAME_MAX_S"], 8.0)
+        self.assertEqual(lg.T["FIRST_FRAME_CONSECUTIVE"], 2.0)
+        self.assertEqual(lg.T["PREP_WATCHDOG_S"], 60.0)
+        self.assertEqual(lg.T["MAIN_THREAD_BLOCK_MAX_S"], 2.0)
+
+
+class HealthKitShortCircuit(unittest.TestCase):
+    def test_await_is_not_an_or_autoclosure(self):
+        src = HEALTHKIT.read_text(encoding="utf-8")
+        self.assertNotIn("|| await hasReadableHealthEvidence()", src)
+        self.assertIn(
+            "cachedReadable ? true : await hasReadableHealthEvidence()",
+            src,
+        )
+        self.assertNotIn("shouldProbeStoreForLiveStatus(", src)
+
+
+class HarnessDoesNotHideTheApp(unittest.TestCase):
+    def test_launch_does_not_inject_light_root(self):
+        src = SCRIPT.read_text(encoding="utf-8")
+        self.assertNotIn('extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}', src)
+        self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", src)
+
+    def test_first_commit_is_branded_not_a_solid_field(self):
+        src = CONTENT.read_text(encoding="utf-8")
+        self.assertIn("struct LaunchBrandField", src)
+        self.assertIn("static let markSide: CGFloat = 220", src)
+        self.assertIn("LaunchBrandField()", src)
+        self.assertNotIn(
+            "if !revealRoot {\n                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)",
+            src,
+        )
+
+    def test_prep_has_a_wall_clock_fail_open(self):
+        src = PREP.read_text(encoding="utf-8")
+        self.assertIn("static func armLeftoverTimeout", src)
+        self.assertIn("static let cap: TimeInterval = 55", src)
+        self.assertIn("static let watchdog: TimeInterval = 60", src)
+        self.assertIn(
+            "UserDefaults.standard.set(false, forKey: interviewCompleteKey)",
+            src,
+        )
+        self.assertNotIn(
+            "UserDefaults.standard.removeObject(forKey: interviewCompleteKey)",
+            src,
+        )
+
+
+class IdleClassifier(unittest.TestCase):
+    def test_runloop_mach_msg_is_idle(self):
+        text = _sample(
+            "    + 300 start\n"
+            "    +   300 CFRunLoopRun\n"
+            "    +     300 __CFRunLoopRun\n"
+            "    +       300 __CFRunLoopServiceMachPort\n"
+            "    +         300 mach_msg2_trap\n"
+        )
+        busy, total, idle = _busy(text)
+        self.assertEqual(total, 300)
+        self.assertEqual(idle, 300)
+        self.assertEqual(busy, 0.0)
+
+    def test_sampler_dyld_stall_is_idle(self):
+        text = _sample(
+            "    + 300 start\n"
+            "    +   153 CFRunLoopRun\n"
+            "    +     153 __CFRunLoopServiceMachPort\n"
+            "    +       153 mach_msg2_trap\n"
+            "    +   147 dyld4::notifyDebuggerLoad\n"
+            "    +     147 blockOnSynchronousEvent\n"
+            "    +       147 mach_msg2_trap\n"
+        )
+        busy, total, idle = _busy(text)
+        self.assertEqual(total, 300)
+        self.assertEqual(idle, 300)
+        self.assertLess(busy, lg.T["MAIN_THREAD_BLOCK_MAX_S"])
         self.assertAlmostEqual(busy, 0.0)
 
-    def test_app_hang_outside_runloop_stays_busy(self):
-        busy, total, idle = launch_gate.parse_main_thread_busy(APP_HANG_SAMPLE, 3)
-        self.assertEqual(total, 344)
-        self.assertEqual(idle, 57)
-        self.assertAlmostEqual(busy, 287 / 344 * 3, places=2)
-        self.assertGreater(busy, launch_gate.T["MAIN_THREAD_BLOCK_MAX_S"])
-
-
-class PrepWedgePlistTests(unittest.TestCase):
-    def test_dotted_keys_stay_literal_not_a_key_path(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            container = Path(tmp) / "data"
-            prefs = container / "Library" / "Preferences" / f"{launch_gate.BUNDLE}.plist"
-            with mock.patch.object(launch_gate, "app_data_container", return_value=str(container)):
-                launch_gate.plist_write_bool("UDID", "forge.onboarding.interviewComplete", True)
-                launch_gate.plist_write_bool("UDID", "forge.onboarding.completed", False)
-                launch_gate.plist_write_bool("UDID", "forge.auth.session.v1", True)
-                interview = launch_gate.plist_read("UDID", "forge.onboarding.interviewComplete")
-                completed = launch_gate.plist_read("UDID", "forge.onboarding.completed")
-            data = plistlib.loads(prefs.read_bytes())
-            self.assertEqual(
-                set(data),
-                {
-                    "forge.onboarding.interviewComplete",
-                    "forge.onboarding.completed",
-                    "forge.auth.session.v1",
-                },
-            )
-            self.assertNotIn("forge", data)
-            self.assertTrue(data["forge.onboarding.interviewComplete"])
-            self.assertFalse(data["forge.onboarding.completed"])
-            self.assertEqual(interview, "true")
-            self.assertEqual(completed, "false")
-            pending = launch_gate.pref_is_true(interview) and not launch_gate.pref_is_true(completed)
-            self.assertTrue(pending, "wedge starts pending until the app clears the handoff")
-
-    def test_watchdog_treats_plist_true_and_defaults_1_as_set(self):
-        self.assertTrue(launch_gate.pref_is_true("true"))
-        self.assertTrue(launch_gate.pref_is_true("1"))
-        self.assertTrue(launch_gate.pref_is_true("YES"))
-        self.assertFalse(launch_gate.pref_is_true("false"))
-        self.assertFalse(launch_gate.pref_is_true("0"))
-        self.assertFalse(launch_gate.pref_is_true(None))
-
-    def test_launch_env_uses_simctl_child_prefix(self):
-        seen = {}
-
-        def fake_simctl(*args, extra_env=None, **kwargs):
-            seen["args"] = args
-            seen["env"] = extra_env
-            return mock.Mock(stdout="com.forge.ForgeSwift: 99\n")
-
-        with mock.patch.object(launch_gate, "simctl", side_effect=fake_simctl):
-            pid, _ = launch_gate.launch("UDID", env={"FORGE_LAUNCH_PREP_WEDGE": "1"})
-        self.assertEqual(pid, 99)
-        self.assertEqual(seen["env"]["SIMCTL_CHILD_FORGE_LAUNCH_LIGHT_ROOT"], "1")
-        self.assertEqual(seen["env"]["SIMCTL_CHILD_FORGE_LAUNCH_PREP_WEDGE"], "1")
-        self.assertNotIn("--env", seen["args"])
+    def test_app_code_mach_msg_stays_busy(self):
+        text = _sample(
+            "    + 300 start\n"
+            "    +   300 FakeHealthPack.generate\n"
+            "    +     300 mach_msg2_trap\n"
+        )
+        busy, total, idle = _busy(text)
+        self.assertEqual(total, 300)
+        self.assertEqual(idle, 0)
+        self.assertEqual(busy, 3.0)
 
 
 if __name__ == "__main__":

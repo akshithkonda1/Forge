@@ -75,7 +75,10 @@ extension AppStore {
             durableAnchors: durableMemoryAnchors,
             updatedAt: Date()
         )
-        guard let data = try? JSONEncoder().encode(doc) else { return }
+        guard let data = try? JSONEncoder().encode(doc) else {
+            ReliabilityLog.noteFailure(.persistence, .chatSessionSave, kind: .encoding)
+            return
+        }
         UserDefaults.standard.set(data, forKey: chatSessionStorageKey())
         // Keep legacy XP keys warm for any older readers.
         UserDefaults.standard.set(chatXP, forKey: Self.chatXPKey)
@@ -91,13 +94,16 @@ extension AppStore {
     func restoreChatHistory() {
         // Preferred: scoped v3 session for the signed-in user.
         let scopedKey = chatSessionStorageKey()
-        if let data = UserDefaults.standard.data(forKey: scopedKey),
-           let doc = try? JSONDecoder().decode(ChatSessionDocument.self, from: data) {
-            chatMessages = doc.messages
-            chatXP = max(0, doc.xp)
-            chatLevel = max(1, doc.level, (chatXP / Self.xpPerChatLevel) + 1)
-            durableMemoryAnchors = doc.durableAnchors
-            return
+        if let data = UserDefaults.standard.data(forKey: scopedKey) {
+            if let doc = try? JSONDecoder().decode(ChatSessionDocument.self, from: data) {
+                chatMessages = doc.messages
+                chatXP = max(0, doc.xp)
+                chatLevel = max(1, doc.level, (chatXP / Self.xpPerChatLevel) + 1)
+                durableMemoryAnchors = doc.durableAnchors
+                return
+            }
+            // A saved chat that no longer decodes is lost history; count it.
+            ReliabilityLog.noteFailure(.persistence, .chatSessionRestore, kind: .decoding)
         }
 
         // Migrate unscoped v3 (pre-multi-user) into the current user's key.

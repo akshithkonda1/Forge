@@ -259,17 +259,22 @@ def run_sample(pid, window, path, timeout):
     raise RuntimeError(f"sample failed after retries: {last}")
 
 
-def parse_main_thread_busy(text, window):
-    """Busy seconds on the main thread for one `sample` window.
-
-    Idle is a leaf mach_msg trap under the run loop wait, or under the
-    dyld notify that `sample` itself causes when it attaches. App hangs
-    (semaphore / HealthKit / SwiftUI commit) stay busy. Thresholds are
-    not applied here.
-    """
-    m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
-    if not m:
-        raise RuntimeError("main thread not found in sample output")
+def main_thread_busy_s(pid, window, tag, timeout):
+    path = f"{OUT}/sample-{tag}.txt"
+    last_err = "main thread not found in sample output"
+    text = ""
+    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
+        text = run_sample(pid, window, f"{path}.{attempt}", timeout)
+        # Main thread block runs until the next top-level "Thread_" line.
+        m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
+        if m:
+            break
+        last_err = "main thread not found in sample output"
+        print(f"    sample parse attempt {attempt} failed ({last_err})", flush=True)
+        if not pid_alive(pid):
+            raise RuntimeError(last_err)
+    else:
+        raise RuntimeError(last_err)
     total = int(m.group(2))
     rest = text[m.end():]
     nxt = re.search(r"^\s*\d+ Thread_\d+", rest, re.M)
@@ -332,11 +337,9 @@ def fresh_install(udid, app):
 def launch(udid, env=None):
     # simctl launch has no --env flag (that token is parsed as the device
     # UDID). Child process variables must be prefixed SIMCTL_CHILD_.
-    # LIGHT_ROOT keeps AuthWelcome / Home off the main thread for the
-    # sample windows; the storyboard still supplies first_frame.
-    extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}
-    if env:
-        extra.update(env)
+    # Do not inject FORGE_LAUNCH_LIGHT_ROOT — the app must meet the
+    # first-frame / main-thread limits on the real launch path.
+    extra = dict(env or {})
     extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()}
     out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
@@ -395,8 +398,8 @@ def pref_is_true(value):
 
 def defaults_read(udid, key):
     # The app writes UserDefaults into its data-container plist.
-    # `simctl spawn defaults` often reads a different domain, so the
-    # watchdog would keep seeing the pre-launch harness values.
+    # `simctl spawn defaults` can keep the pre-launch YES the harness
+    # wrote. Prefer the plist the process actually flushed.
     boxed = plist_read(udid, key)
     if boxed is not None:
         return boxed
@@ -414,14 +417,6 @@ def write_prep_wedge_flags(udid):
     simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
 
 
-def settle_screenshot_io(udid, tag):
-    for i in range(2):
-        try:
-            shot(udid, f"{OUT}/{tag}-settle-{i}.png", timeout=20)
-        except Exception as e:
-            print(f"  settle screenshot {tag}/{i} failed: {e}", flush=True)
-
-
 def run_scenario(name, udid, app):
     res = {"scenario": name, "checks": []}
 
@@ -437,7 +432,6 @@ def run_scenario(name, udid, app):
         time.sleep(2)
     if name == "prep_wedge":
         write_prep_wedge_flags(udid)
-    settle_screenshot_io(udid, name)
 
     # Baseline: the screen with the app NOT running (terminate + settle), so a
     # leftover image from a previous/killed launch can't count as the frame.
@@ -447,11 +441,9 @@ def run_scenario(name, udid, app):
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
-    # simctl `defaults write` is not always visible to UserDefaults on a
-    # fresh container. Pass an explicit env so DEBUG simulator restore can
-    # leave AriaForgePrep without waiting on that plist.
-    launch_env = {"FORGE_LAUNCH_PREP_WEDGE": "1"} if name == "prep_wedge" else None
-    pid, t0 = launch(udid, env=launch_env)
+    # prep_wedge flags live in the app-container plist (write_prep_wedge_flags).
+    # The app runs the real 45–55s hold; there is no env shortcut.
+    pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
     # first frame: FIRST_FRAME_CONSECUTIVE consecutive captures that are

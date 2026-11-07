@@ -32,10 +32,12 @@ enum AriaOperatingMode: String, CaseIterable, Identifiable {
     static var current: AriaOperatingMode = .resolveFromBundle()
 
     /// Re-read auth / env / override. Call after tester install or Settings change.
+    /// Pass `client` when the caller is that client (or is still constructing
+    /// it) so resolution never reads `ForgeAuthClient.shared`.
     @MainActor
     @discardableResult
-    static func refresh() -> AriaOperatingMode {
-        let next = resolve()
+    static func refresh(using client: ForgeAuthClient? = nil) -> AriaOperatingMode {
+        let next = resolve(using: client)
         current = next
         return next
     }
@@ -81,25 +83,44 @@ enum AriaOperatingMode: String, CaseIterable, Identifiable {
     }
 
     @MainActor
-    static func resolve() -> AriaOperatingMode {
-        // A `.dummy` override persisted by an older TestFlight build is
-        // ignored once the Dummy is compiled out.
-        if let raw = UserDefaults.standard.string(forKey: overrideKey),
-           let mode = AriaOperatingMode(rawValue: raw),
-           mode.isAvailable {
-            return mode
+    static func resolve(using client: ForgeAuthClient? = nil) -> AriaOperatingMode {
+        if let client = client ?? ForgeAuthClient.sharedIfReady {
+            return resolve(
+                session: client.session,
+                config: client.config,
+                canUseDevOverride: client.canUseDevOverride
+            )
         }
-        // Session-aware when auth client is ready.
-        let client = ForgeAuthClient.shared
+        return persistedOverride() ?? resolveFromBundle()
+    }
+
+    /// Session-aware resolution that never reads `ForgeAuthClient.shared`.
+    @MainActor
+    static func resolve(
+        session: ForgeAuthSession?,
+        config: ForgeAuthConfig,
+        canUseDevOverride: Bool
+    ) -> AriaOperatingMode {
+        if let override = persistedOverride() { return override }
         if AriaDummyOrchestra.isCompiledIn,
-           client.canUseDevOverride,
-           (client.session?.mode == .devOverride
-            || client.config.environment.lowercased() == "dummy"
-            || client.config.apiIsLoopback
+           canUseDevOverride,
+           (session?.mode == .devOverride
+            || config.environment.lowercased() == "dummy"
+            || config.apiIsLoopback
             || ForgeAuthPolicy.isXcodeDeviceHubLaunch) {
             return .dummy
         }
         return resolveFromBundle()
+    }
+
+    /// A `.dummy` override persisted by an older TestFlight build is
+    /// ignored once the Dummy is compiled out.
+    @MainActor
+    private static func persistedOverride() -> AriaOperatingMode? {
+        guard let raw = UserDefaults.standard.string(forKey: overrideKey),
+              let mode = AriaOperatingMode(rawValue: raw),
+              mode.isAvailable else { return nil }
+        return mode
     }
 
     /// Offline coaches (Dummy + Local) never hit Bedrock.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -8,6 +9,9 @@ from security import MAX_CHAT_MESSAGE_CHARS, demo_data_enabled, sanitize_user_te
 from seed_data import default_chat_messages, default_sleep, default_workout, today_iso
 from services import scoring
 from storage import dynamodb, keys
+
+# Whole-word progress intents only. `"pr" in lower` matched improve/protein/sprint (BH-07).
+_PROGRESS_INTENT = re.compile(r"(?i)(?:\bprogress\b|\bprs?\b|\bpersonal\s+records?\b)")
 
 
 def _strip_keys(item: dict[str, Any]) -> dict[str, Any]:
@@ -167,7 +171,7 @@ def _trainer_response(user_id: str, content: str) -> dict[str, Any]:
     if "sleep" in lower:
         return _sleep_reply(user_id, msg_id, now)
 
-    if "progress" in lower or "pr" in lower:
+    if _PROGRESS_INTENT.search(content):
         return _progress_reply(user_id, msg_id, now)
 
     if "train" in lower or "workout" in lower or "plan" in lower:

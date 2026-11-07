@@ -52,6 +52,49 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         XCTAssertFalse(WatchSnapshotStore.watchWidgetKinds.contains(where: { $0.isEmpty }))
     }
 
+    func testWatchSnapshotSleepNudgeFlagsDecodeIfPresent() throws {
+        var old = WatchSnapshot()
+        old.readinessOverall = 70
+        old.updatedAt = Date(timeIntervalSince1970: 40)
+        var json = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(old)
+        ) as! [String: Any]
+        json.removeValue(forKey: "sleepQuietWeek")
+        json.removeValue(forKey: "phoneWindDownScheduled")
+        json.removeValue(forKey: "phoneWindDownScheduledAt")
+        let decoded = try JSONDecoder().decode(
+            WatchSnapshot.self,
+            from: JSONSerialization.data(withJSONObject: json)
+        )
+        XCTAssertNil(decoded.sleepQuietWeek)
+        XCTAssertNil(decoded.phoneWindDownScheduled)
+        XCTAssertNil(decoded.phoneWindDownScheduledAt)
+        XCTAssertEqual(decoded.readinessOverall, 70)
+        XCTAssertEqual(decoded.updatedAt, Date(timeIntervalSince1970: 40))
+    }
+
+    func testApplySleepNudgeFlagsLeavesUpdatedAtAlone() {
+        var first = WatchSnapshot()
+        first.sleepMinutes = 400
+        first.updatedAt = Date(timeIntervalSince1970: 50)
+        WatchSnapshotStore.save(first, reloadWidgets: false)
+        WatchSnapshotStore.applySleepNudgeFlags(
+            quietWeek: true,
+            phoneWindDownScheduled: false,
+            reloadWidgets: false
+        )
+        let loaded = WatchSnapshotStore.load()
+        XCTAssertEqual(loaded?.updatedAt, Date(timeIntervalSince1970: 50))
+        XCTAssertEqual(loaded?.sleepQuietWeek, true)
+        XCTAssertEqual(loaded?.phoneWindDownScheduled, false)
+        XCTAssertEqual(loaded?.sleepMinutes, 400)
+        var flagged = first
+        flagged.sleepQuietWeek = true
+        flagged.phoneWindDownScheduled = false
+        XCTAssertTrue(loaded!.hasSameWidgetContent(as: flagged))
+        XCTAssertFalse(first.hasSameWidgetContent(as: flagged))
+    }
+
     func testSaveSkipsWhenContentIsEqual() {
         var first = HomeWidgetSnapshot.preview
         first.updatedAt = Date(timeIntervalSince1970: 1)
@@ -86,6 +129,40 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         XCTAssertNil(rolled.sleepScore)
         XCTAssertEqual(rolled.cyclePhase, snap.cyclePhase)
         XCTAssertEqual(rolled.hydrationTargetMl, snap.hydrationTargetMl)
+    }
+
+    /// StandByNestProvider maps each timeline date through `asOf`, the same
+    /// way Home widgets do. A snapshot written yesterday keeps last night
+    /// until midnight, then readiness and sleep empty.
+    func testStandByTimelineRollsOverAtMidnight() {
+        let calendar = Calendar(identifier: .gregorian)
+        let yesterdayEvening = Date(timeIntervalSince1970: 1_800_000_000)
+        var snap = HomeWidgetSnapshot.preview
+        snap.updatedAt = yesterdayEvening
+
+        let sameDay = snap.asOf(yesterdayEvening, calendar: calendar)
+        XCTAssertEqual(sameDay.readiness, snap.readiness)
+        XCTAssertEqual(sameDay.sleepHours, snap.sleepHours)
+        XCTAssertEqual(sameDay.sleepScore, snap.sleepScore)
+
+        let midnight = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: calendar.startOfDay(for: yesterdayEvening)
+        )!
+        XCTAssertFalse(calendar.isDate(yesterdayEvening, inSameDayAs: midnight))
+
+        // Same mapping StandByNestProvider.getTimeline uses: one entry per date.
+        let dates = [yesterdayEvening, midnight]
+        let entries = dates.map { (date: $0, snapshot: snap.asOf($0, calendar: calendar)) }
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0].snapshot.readiness, 84)
+        XCTAssertEqual(entries[0].snapshot.sleepHours, 7.4)
+        XCTAssertEqual(entries[0].snapshot.sleepScore, 88)
+        XCTAssertFalse(entries[1].snapshot.hasReadiness)
+        XCTAssertEqual(entries[1].snapshot.sleepHours, 0)
+        XCTAssertNil(entries[1].snapshot.sleepScore)
+        XCTAssertEqual(entries[1].snapshot.cyclePhase, snap.cyclePhase)
     }
 
     func testSameContentOnANewDayStillRefreshesUpdatedAt() {
@@ -181,5 +258,24 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         ])
         defaults?.set(data, forKey: StandByMetricsStore.key)
         XCTAssertEqual(StandByMetricsStore.load(), [.sleep, .hydration])
+    }
+
+    func testLifestyleWidgetMissingSnapshotIsEmptyNotZeroQOL() {
+        XCTAssertEqual(LifestyleWidgetContent.decode(nil), .empty)
+        XCTAssertNil(LifestyleWidgetContent.decode(nil).snapshot)
+    }
+
+    func testLifestyleWidgetDecodeFailureIsEmptyNotZeroQOL() {
+        let garbage = Data("{not-json".utf8)
+        XCTAssertEqual(LifestyleWidgetContent.decode(garbage), .empty)
+        XCTAssertNil(LifestyleWidgetContent.decode(garbage).snapshot)
+    }
+
+    func testLifestyleWidgetValidSnapshotLoadsQOL() {
+        let snap = LifestyleWidgetSnapshot.preview
+        let data = try? JSONEncoder().encode(snap)
+        let content = LifestyleWidgetContent.decode(data)
+        XCTAssertEqual(content.snapshot?.qol, snap.qol)
+        XCTAssertEqual(content.snapshot?.topTitle, snap.topTitle)
     }
 }
