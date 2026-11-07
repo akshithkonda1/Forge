@@ -963,6 +963,11 @@ struct SettingsPageView: View {
         }
     }
 
+    private var accountKind: String {
+        if store.authProvider == LocalDeviceAccount.provider { return "On this iPhone" }
+        return store.authProvider.isEmpty ? "Session" : store.authProvider.capitalized
+    }
+
     private var accountGroup: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader("Account")
@@ -971,7 +976,7 @@ struct SettingsPageView: View {
                     icon: "person.crop.circle.fill",
                     iconColor: .ember,
                     label: store.authEmail.isEmpty ? "Signed in" : store.authEmail,
-                    trailingText: store.authProvider.isEmpty ? "Session" : store.authProvider.capitalized
+                    trailingText: accountKind
                 )
                 SettingsHairline()
                 staticRow(

@@ -20,12 +20,23 @@ enum ForgeAppInfo {
 
 struct ForgeAboutView: View {
     @Environment(\.dismiss) private var dismiss
+    /// Long-press the version to open the hidden Reliability screen (tester
+    /// tool, every build: TestFlight builds are Release).
+    @State private var showReliability = false
 
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 ForgeScreenStack(top: ForgeLayout.screenTop) {
                     ForgePageHeader(title: "Forge", subtitle: ForgeAppInfo.fullVersion)
+                        .contentShape(Rectangle())
+                        .onLongPressGesture(minimumDuration: 0.8) {
+                            ForgeHaptics.play(.press)
+                            showReliability = true
+                        }
+                        .accessibilityAction(named: "Reliability") {
+                            showReliability = true
+                        }
 
                     Text("Training, recovery, cycle health, and lifestyle coaching that runs on your own data. ARIA reasons over what you allow it to see, and nothing more.")
                         .font(HomeType.body)
@@ -39,6 +50,9 @@ struct ForgeAboutView: View {
             .forgeScreenBackground(accent: .ember)
             .navigationTitle("About")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showReliability) {
+                ReliabilityView()
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }.foregroundColor(.ember)
