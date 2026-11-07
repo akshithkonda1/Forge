@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import json
+import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Callable
 
 from ai_router import AIRouter, RouteRequest, RoutingError
 from responses import RouteError, ok
-from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text
+from security import MAX_CHAT_MESSAGE_CHARS, enforce_user_rate_limit, sanitize_user_text
 from seed_data import today_iso
 from services import coach_context, scoring
 from storage import dynamodb, keys
+
+LOGGER = logging.getLogger("forge.coach")
 
 
 # AI router invocation is wrapped so tests can monkeypatch it without booting Bedrock.
@@ -32,6 +37,43 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _enforce_coach_rate_limit(user_id: str) -> None:
+    """Same per-user limiter other AI routes use. Token budget stays in place."""
+    try:
+        enforce_user_rate_limit(user_id, action="coach", limit=60, window_hours=1)
+    except PermissionError as exc:
+        raise RouteError(429, str(exc) or "Too many requests.") from exc
+
+
+def _emit_coach_failure(kind: str, exc: BaseException) -> None:
+    """Log + CloudWatch EMF so a Bedrock outage is visible (BH-03)."""
+    LOGGER.error("coach_route_failed kind=%s error_type=%s", kind, type(exc).__name__)
+    try:
+        print(
+            json.dumps(
+                {
+                    "_aws": {
+                        "Timestamp": int(time.time() * 1000),
+                        "CloudWatchMetrics": [
+                            {
+                                "Namespace": "Forge/Backend",
+                                "Dimensions": [["Route"]],
+                                "Metrics": [{"Name": "CoachFailure", "Unit": "Count"}],
+                            }
+                        ],
+                    },
+                    "Route": "coach",
+                    "CoachFailure": 1,
+                    "ErrorType": type(exc).__name__,
+                    "Kind": kind,
+                }
+            ),
+            flush=True,
+        )
+    except Exception:  # noqa: BLE001 - metrics must not change the client path
+        LOGGER.error("coach_failure_metric_emit_failed error_type=%s", type(exc).__name__)
+
+
 def _safe_route(payload: dict[str, Any], fallback: str) -> dict[str, Any]:
     """Invoke the router; on routing/runtime failure return a deterministic fallback."""
     try:
@@ -39,14 +81,17 @@ def _safe_route(payload: dict[str, Any], fallback: str) -> dict[str, Any]:
         answer = result.get("finalAnswer") or result.get("answer") or fallback
         return {"answer": answer, "router": result}
     except RoutingError as exc:
+        _emit_coach_failure("routing", exc)
         return {"answer": fallback, "error": exc.message, "fallback": True}
     except Exception as exc:  # noqa: BLE001 - any runtime issue (e.g. boto3 missing) falls back
-        return {"answer": fallback, "error": str(exc), "fallback": True}
+        _emit_coach_failure("runtime", exc)
+        return {"answer": fallback, "error": type(exc).__name__, "fallback": True}
 
 
 def handle_post_coach_message(user_id: str, body: dict) -> dict:
     from aria_core.safety_rails import apply_rails
 
+    _enforce_coach_rate_limit(user_id)
     content = sanitize_user_text(str(body.get("content") or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
     if not content:
         raise RouteError(400, "Request body must include non-empty 'content'.")
@@ -82,6 +127,7 @@ def handle_post_coach_message(user_id: str, body: dict) -> dict:
 
 
 def handle_post_coach_workout_plan(user_id: str, _body: dict) -> dict:
+    _enforce_coach_rate_limit(user_id)
     context = coach_context.gather_user_context(user_id)
     last_workout_type = (context.get("recentWorkouts") or [{}])[0].get("type")
     baseline = scoring.baseline_workout_recommendation(
@@ -131,8 +177,16 @@ def handle_post_coach_workout_plan(user_id: str, _body: dict) -> dict:
             "exercises": [],
             "notes": routed["answer"],
         }
-        dynamodb.put_item({**keys.workout_plan_key(user_id, day), **generated_plan})
-        today_plan = generated_plan
+        try:
+            dynamodb.put_item(
+                {**keys.workout_plan_key(user_id, day), **generated_plan},
+                condition_expression="attribute_not_exists(sk)",
+            )
+            today_plan = generated_plan
+        except dynamodb.ConditionalCheckFailed:
+            existing = dynamodb.get_item(**keys.workout_plan_key(user_id, day))
+            if existing:
+                today_plan = {k: v for k, v in existing.items() if k not in ("pk", "sk")}
 
     return ok({
         "baseline": baseline,
@@ -143,6 +197,7 @@ def handle_post_coach_workout_plan(user_id: str, _body: dict) -> dict:
 
 
 def handle_post_coach_sleep_insight(user_id: str, _body: dict) -> dict:
+    _enforce_coach_rate_limit(user_id)
     context = coach_context.gather_user_context(user_id)
     payload = {
         "question": (
@@ -188,6 +243,7 @@ def handle_post_coach_sleep_insight(user_id: str, _body: dict) -> dict:
 
 
 def handle_post_coach_progress_review(user_id: str, _body: dict) -> dict:
+    _enforce_coach_rate_limit(user_id)
     context = coach_context.gather_user_context(user_id)
     payload = {
         "question": (

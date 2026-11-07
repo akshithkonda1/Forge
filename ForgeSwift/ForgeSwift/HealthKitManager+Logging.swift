@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 import ForgeCore
 
-extension HealthKitManager {
+extension HealthKitManager: CycleHealthKitWriting {
 
     func loadPersistedMeals() {
         let calendar = Calendar.current
@@ -252,23 +252,27 @@ extension HealthKitManager {
     /// Marking every bleeding day as a cycle start told Health that a 5-day period was
     /// five separate one-day cycles, which wrecked Health's own cycle predictions.
     func saveMenstrualFlow(dayKey: String, flow: MenstrualFlowLevel, isCycleStart: Bool = false) async {
-        guard isAuthorized,
-              let dayStart = CycleDayKey.startOfDay(from: dayKey) else { return }
-        let type = HKCategoryType(.menstrualFlow)
-        let value: HKCategoryValueVaginalBleeding
-        switch flow {
-        case .none: value = .none
-        case .light, .spotting: value = .light
-        case .medium: value = .medium
-        case .heavy: value = .heavy
-        case .unspecified: value = .unspecified
+        // Spotting is intermenstrual bleeding, never menstrual flow. Writing it
+        // as `.light` used to come back as a real period and reset the cycle day.
+        if flow == .spotting {
+            await deleteMenstrualFlow(dayKey: dayKey)
+            await saveIntermenstrualBleeding(dayKey: dayKey)
+            return
         }
+        if flow == .none {
+            await deleteMenstrualFlow(dayKey: dayKey)
+            return
+        }
+        guard isAuthorized,
+              let dayStart = CycleDayKey.startOfDay(from: dayKey),
+              let value = CycleHealthKitPolicy.menstrualFlowHealthKitValue(flow) else { return }
+        let type = HKCategoryType(.menstrualFlow)
         // Samples are day-long so re-reads land on the same calendar day in any timezone.
         let end = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
             .map { $0.addingTimeInterval(-1) } ?? dayStart
         let metadata: [String: Any] = [
             HKMetadataKeyMenstrualCycleStart: isCycleStart,
-            HKMetadataKeySyncIdentifier: "forge.cycle.flow.\(dayKey)",
+            HKMetadataKeySyncIdentifier: CycleHealthKitPolicy.menstrualFlowSyncIdentifier(dayKey: dayKey),
             HKMetadataKeySyncVersion: 1
         ]
         let sample = HKCategorySample(
@@ -282,6 +286,59 @@ extension HealthKitManager {
             try await healthStore.save(sample)
         } catch {
             print("Menstrual flow HK save failed: \(error.localizedDescription)")
+        }
+    }
+
+    func deleteMenstrualFlow(dayKey: String) async {
+        await deleteCycleSamples(
+            identifier: .menstrualFlow,
+            syncIdentifier: CycleHealthKitPolicy.menstrualFlowSyncIdentifier(dayKey: dayKey)
+        )
+    }
+
+    func saveIntermenstrualBleeding(dayKey: String) async {
+        guard isAuthorized,
+              CycleHealthKitPolicy.intermenstrualBleedingAvailable,
+              let type = HKObjectType.categoryType(forIdentifier: .intermenstrualBleeding),
+              let dayStart = CycleDayKey.startOfDay(from: dayKey) else { return }
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
+            .map { $0.addingTimeInterval(-1) } ?? dayStart
+        let sample = HKCategorySample(
+            type: type,
+            value: HKCategoryValue.notApplicable.rawValue,
+            start: dayStart,
+            end: end,
+            metadata: [
+                HKMetadataKeySyncIdentifier: CycleHealthKitPolicy.spottingSyncIdentifier(dayKey: dayKey),
+                HKMetadataKeySyncVersion: 1
+            ]
+        )
+        do {
+            try await healthStore.save(sample)
+        } catch {
+            print("Intermenstrual bleeding HK save failed: \(error.localizedDescription)")
+        }
+    }
+
+    func deleteIntermenstrualBleeding(dayKey: String) async {
+        guard CycleHealthKitPolicy.intermenstrualBleedingAvailable else { return }
+        await deleteCycleSamples(
+            identifier: .intermenstrualBleeding,
+            syncIdentifier: CycleHealthKitPolicy.spottingSyncIdentifier(dayKey: dayKey)
+        )
+    }
+
+    private func deleteCycleSamples(identifier: HKCategoryTypeIdentifier, syncIdentifier: String) async {
+        guard isAuthorized else { return }
+        let type = HKCategoryType(identifier)
+        let predicate = HKQuery.predicateForObjects(
+            withMetadataKey: HKMetadataKeySyncIdentifier,
+            allowedValues: [syncIdentifier]
+        )
+        do {
+            _ = try await healthStore.deleteObjects(of: type, predicate: predicate)
+        } catch {
+            print("Cycle HK delete failed (\(identifier.rawValue)): \(error.localizedDescription)")
         }
     }
 

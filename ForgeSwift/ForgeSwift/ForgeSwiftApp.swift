@@ -4,13 +4,25 @@ import ForgeCore
 
 @main
 struct ForgeSwiftApp: App {
-    @StateObject private var store = ForgePerf.measure("AppStoreInit", category: .launch) { AppStore() }
+    /// Pin leftover fail-open before `@StateObject` constructs AppStore.
+    /// `ProcessInfo.systemUptime` is machine awake time; we only store it
+    /// as the origin so later remaining is process-relative.
+    private static let _pinPrepClock: Bool = {
+        AriaForgePrep.markProcessStart()
+        return true
+    }()
+
+    @StateObject private var store = ForgePerf.measure("AppStoreInit", category: .launch) {
+        _ = ForgeSwiftApp._pinPrepClock
+        return AppStore()
+    }
 
     // Exists so iOS has somewhere to hand a CloudKit share when a supporter
     // accepts a cycle invite; SwiftUI's App lifecycle exposes no other hook.
     @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
 
     init() {
+        AriaForgePrep.markProcessStart()
         // One launch interval for the synchronous start work; AppStore's
         // init carries its own span. Durations only — see ForgePerf.
         ForgePerf.measure("appInit", category: .launch) {
@@ -30,7 +42,11 @@ struct ForgeSwiftApp: App {
                     // WorkoutActivityCoordinator.activationDidCompleteWith.
                     Task {
                         await LaunchFirstFrame.afterPaint()
-                        // WCSession / Live Activity after the first commit.
+                        await Task.yield()
+                        // Un-onboarded / leftover prep: do not probe HealthKit
+                        // on the first sample window (kill-relaunch main-thread
+                        // was a 3s busy HK source catalog after first frame).
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
                         WorkoutActivityCoordinator.shared.activate()
                         HealthDeviceCatalogSync.shared.loadCached()
                         guard !store.needsForgePrep else { return }

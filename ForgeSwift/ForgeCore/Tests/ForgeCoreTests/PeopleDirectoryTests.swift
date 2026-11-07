@@ -125,4 +125,35 @@ final class PeopleDirectoryTests: XCTestCase {
         XCTAssertTrue(PeopleDirectory.isQuestion("who are my people"))
         XCTAssertFalse(PeopleDirectory.isQuestion("what should I train today"))
     }
+
+    /// Picker-shaped rows: given name + Contacts identifier only. Those names
+    /// become ARIA tags / prompt lines; the identifier never enters a prompt.
+    func testPickerShapedRowsAdmitFirstNameAndIdIntoAriaContext() {
+        let picks: [(String, String, PeopleDirectory.Relation)] = [
+            ("Maya Chen", "cn-maya", .partner),
+            ("Jo", "cn-jo", .friend),
+            ("sam@example.com", "cn-bad", .coworker),
+            ("555-1212", "cn-num", .family),
+        ]
+        var directory = PeopleDirectory.Directory()
+        for (name, id, relation) in picks {
+            if let person = PeopleDirectory.admit(rawName: name, relation: relation, contactIdentifier: id) {
+                directory.people.removeAll {
+                    $0.contactIdentifier == id
+                        || $0.firstName.lowercased() == person.firstName.lowercased()
+                }
+                directory.people.append(person)
+            }
+        }
+        directory.optedIn = true
+        XCTAssertEqual(directory.coachingPeople.map(\.firstName), ["Maya", "Jo"])
+        XCTAssertEqual(directory.coachingPeople.map(\.contactIdentifier), ["cn-maya", "cn-jo"])
+        let blob = directory.ariaTags.joined(separator: " ")
+        XCTAssertTrue(blob.contains("people:Maya:partner"))
+        XCTAssertTrue(blob.contains("people:Jo:friend"))
+        XCTAssertFalse(blob.contains("cn-"))
+        XCTAssertFalse(blob.contains("Chen"))
+        XCTAssertFalse(blob.contains("@"))
+        XCTAssertEqual(PeopleDirectory.promptLine(for: directory), "People: Maya (partner), Jo (friend).")
+    }
 }

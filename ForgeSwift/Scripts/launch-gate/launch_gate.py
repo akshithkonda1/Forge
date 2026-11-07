@@ -386,8 +386,8 @@ def pref_is_true(value):
 
 def defaults_read(udid, key):
     # The app writes UserDefaults into its data-container plist.
-    # `simctl spawn defaults` often reads a different domain, so the
-    # watchdog would keep seeing the pre-launch harness values.
+    # `simctl spawn defaults` can keep the pre-launch YES the harness
+    # wrote. Prefer the plist the process actually flushed.
     boxed = plist_read(udid, key)
     if boxed is not None:
         return boxed
@@ -405,14 +405,6 @@ def write_prep_wedge_flags(udid):
     simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
 
 
-def settle_screenshot_io(udid, tag):
-    for i in range(2):
-        try:
-            shot(udid, f"{OUT}/{tag}-settle-{i}.png", timeout=20)
-        except Exception as e:
-            print(f"  settle screenshot {tag}/{i} failed: {e}", flush=True)
-
-
 def run_scenario(name, udid, app):
     res = {"scenario": name, "checks": []}
 
@@ -428,7 +420,6 @@ def run_scenario(name, udid, app):
         time.sleep(2)
     if name == "prep_wedge":
         write_prep_wedge_flags(udid)
-    settle_screenshot_io(udid, name)
 
     # Baseline: the screen with the app NOT running (terminate + settle), so a
     # leftover image from a previous/killed launch can't count as the frame.
