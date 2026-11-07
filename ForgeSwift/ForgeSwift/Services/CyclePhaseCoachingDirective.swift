@@ -85,13 +85,13 @@ enum CyclePhaseCoachingDirective {
     private static func nutritionDirective(for phase: MenstrualPhase) -> String {
         switch phase {
         case .menstruation:
-            return "The user is menstruating. Iron losses from bleeding increase iron requirements — recommend iron-rich foods (red meat, lentils, spinach) with vitamin C to enhance absorption. Anti-inflammatory foods (omega-3s, turmeric) can reduce prostaglandin-driven cramps. Magnesium (dark chocolate, nuts, leafy greens) helps with cramping and mood."
+            return "The user appears to be menstruating. Iron-rich foods (red meat, lentils, spinach) with vitamin C are a common lifestyle suggestion during bleeding. Some people find anti-inflammatory foods and magnesium (dark chocolate, nuts, leafy greens) helpful for cramps and mood. Not medical advice."
         case .follicular:
-            return "The user is in the follicular phase. Insulin sensitivity is high — this is the best time for carb-loading around training. Lighter, antioxidant-rich meals support rising estrogen. The body recovers well from higher training loads, so caloric intake can match increased activity."
+            return "The user appears to be in the follicular phase. Some people find carbs around training sit well in this window. Lighter, antioxidant-rich meals are a reasonable match if training volume is up. Match intake to activity; do not claim a metabolic diagnosis."
         case .fertileWindow, .ovulation:
-            return "The user is near or at ovulation. Metabolic rate is slightly elevated. Protein timing around workouts is effective given high anabolic potential. Cruciferous vegetables (broccoli, kale) support estrogen metabolism."
+            return "The user appears to be near an estimated ovulation. Some people notice appetite or energy shift slightly. Protein around workouts is a solid lifestyle habit. Cruciferous vegetables are a reasonable dietary pattern — not a treatment."
         case .luteal:
-            return "The user is in the luteal phase. Progesterone increases appetite and carbohydrate cravings — this is physiologically normal, not a failure. Caloric needs genuinely increase by ~100–300 kcal/day. Magnesium (400 mg/day) significantly reduces PMS symptoms. Reduce sodium to minimise bloating. Complex carbs over simple sugars stabilise blood glucose and mood. Limit caffeine and alcohol in late luteal — they worsen anxiety and sleep disruption."
+            return "The user appears to be in the luteal phase. Many people notice a bigger appetite and carb cravings — that can be a normal tendency, not a failure. Some find magnesium, complex carbs, and a little less caffeine or alcohol feel better late in the phase. Lifestyle coaching only."
         case .unknown:
             return ""
         }
@@ -102,13 +102,13 @@ enum CyclePhaseCoachingDirective {
     private static func sleepDirective(for phase: MenstrualPhase) -> String {
         switch phase {
         case .menstruation:
-            return "The user is menstruating. Cramps and discomfort may fragment sleep. Suggest: heat pack before bed, ibuprofen timing (if appropriate), side-sleeping with pillow between knees to reduce pelvic pressure. Prioritise 8+ hours to support immune function during blood loss."
+            return "The user appears to be menstruating. Cramps and discomfort may fragment sleep for some people. Lifestyle ideas: heat before bed, side-sleeping with a pillow between the knees, and protecting a full night. Not medical advice."
         case .follicular:
-            return "The user is in the follicular phase. Estrogen supports serotonin and deep slow-wave sleep. This is the best phase for sleep quality. Encourage consistent sleep schedule to capitalise on natural sleep advantage."
+            return "The user appears to be in the follicular phase. Many people notice sleep feels easier here. Encourage a consistent schedule so they can use that window — still follow how they actually slept last night."
         case .fertileWindow, .ovulation:
-            return "The user is near ovulation. Sleep quality remains good. Minor LH surge can occasionally cause light sleep disruption the night of ovulation — generally not clinically significant."
+            return "The user appears to be near an estimated ovulation. Sleep quality often stays decent; a few people notice a lighter night around mid-cycle. Treat that as a possible tendency, not a clinical finding."
         case .luteal:
-            return "The user is in the luteal phase. Progesterone raises core body temperature, which can cause early waking and fragmented sleep — especially in late luteal. Recommend: keep bedroom cooler (18–19°C), avoid alcohol (worsens temperature regulation), magnesium glycinate at night supports sleep. REM sleep may be slightly reduced. Be understanding if the user reports poor sleep — it is hormonally driven."
+            return "The user appears to be in the luteal phase. Some people notice earlier waking or more fragmented sleep, especially late luteal. Lifestyle ideas: a cooler bedroom, less alcohol, and a consistent wind-down. If they report poor sleep, believe them — do not diagnose a hormone disorder."
         case .unknown:
             return ""
         }
@@ -119,13 +119,13 @@ enum CyclePhaseCoachingDirective {
     private static func stressDirective(for phase: MenstrualPhase) -> String {
         switch phase {
         case .menstruation:
-            return "The user is menstruating. Prostaglandins and dropping hormones can amplify stress sensitivity and emotional reactivity. Validate any emotional intensity — it is physiologically grounded. Recommend: reduce non-essential obligations if possible, gentle movement, heat therapy, extra self-compassion."
+            return "The user appears to be menstruating. Some people notice stress and emotions feel louder. Validate that without diagnosing it. Lifestyle ideas: fewer non-essential obligations, gentle movement, heat, extra self-compassion."
         case .follicular:
-            return "The user is in the follicular phase. Rising estrogen supports dopamine and serotonin — stress resilience is naturally higher. Good phase for tackling challenging tasks, difficult conversations, or demanding projects."
+            return "The user appears to be in the follicular phase. Many people notice stress sits a bit easier. A reasonable window to take on harder conversations or projects if they want to — readiness still leads."
         case .fertileWindow, .ovulation:
-            return "The user is near or at ovulation. Peak confidence and sociability driven by estrogen and testosterone. Stress resilience is at its highest. Ideal for high-stakes presentations, negotiations, or social challenges."
+            return "The user appears to be near an estimated ovulation. Some people notice more social energy or confidence. Useful for high-stakes work if they feel up to it; never frame it as a hormone fact."
         case .luteal:
-            return "The user is in the luteal phase. Progesterone withdrawal in late luteal drives PMDD/PMS symptoms including anxiety, irritability, and low mood in susceptible individuals. This is not weakness — it is a real neuroendocrine shift (progesterone metabolite allopregnanolone modulates GABA receptors). Recommend: reduce stimulants, prioritise rest, gentle exercise, reduce decision load. Acknowledge that difficult emotions in late luteal are often hormonally amplified."
+            return "The user appears to be in the luteal phase. Some people notice anxiety, irritability, or low mood later in the phase. That can be a real lived pattern — it is not weakness and it is not a diagnosis. Lifestyle ideas: fewer stimulants, more rest, gentler training, a lighter decision load."
         case .unknown:
             return ""
         }
@@ -136,15 +136,15 @@ enum CyclePhaseCoachingDirective {
     private static func generalDirective(for phase: MenstrualPhase) -> String {
         switch phase {
         case .menstruation:
-            return "The user is on their period. Be sensitive, practical, and supportive. Validate rest and self-care without being condescending. Suggest phase-appropriate nutrition (iron, magnesium, anti-inflammatory foods) and gentle movement when relevant."
+            return "The user appears to be on their period. Be sensitive, practical, and supportive. Validate rest and self-care without being condescending. Suggest phase-appropriate nutrition and gentle movement when relevant. Lifestyle coaching, not medical advice."
         case .follicular:
-            return "The user is in their follicular phase — typically the highest energy, best mood, and strongest performance window of the cycle. Rising estrogen supports cognitive sharpness and social confidence. Encourage ambition, new starts, and taking on challenges."
+            return "The user appears to be in their follicular phase — many people notice higher energy and a stronger training window. Encourage ambition and new starts when readiness agrees. Not a diagnosis."
         case .fertileWindow:
-            return "The user is in their fertile window — high energy, peak sociability, strong physical performance driven by estrogen and LH surge. Great time for demanding tasks, social goals, and ambitious training."
+            return "The user appears to be in a fertile-window estimate — some people notice more energy or sociability. A good time for demanding tasks if they feel up to it. Phase labels are not contraception."
         case .ovulation:
-            return "The user is ovulating — peak hormonal state: high energy, confidence, and physical capacity from the testosterone and estrogen surge."
+            return "The user appears to be around an estimated ovulation day. Some people notice higher energy or confidence. Keep claims tentative and readiness-first."
         case .luteal:
-            return "The user is in their luteal phase. Energy and mood may decline as the phase progresses toward menstruation. Progesterone-driven temperature rise and appetite changes are normal. Normalise slower pacing, honour rest needs, and avoid pushing through symptoms — support, don't push."
+            return "The user appears to be in their luteal phase. Energy and mood may ease as the phase progresses toward menstruation. Some people notice temperature or appetite shifts. Normalize a slower pace, honor rest, and do not push through symptoms. Lifestyle coaching, not medical advice."
         case .unknown:
             return ""
         }

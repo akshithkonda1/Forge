@@ -42,6 +42,9 @@
 		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
 		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
 		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
+		C7C1E2020000000000000001 /* CycleHealthKitSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E2010000000000000001 /* CycleHealthKitSync.swift */; };
+		C7C1E2040000000000000001 /* CycleHealthKitSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E2030000000000000001 /* CycleHealthKitSyncTests.swift */; };
+		C7C1E2060000000000000001 /* CycleCoachingCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E2050000000000000001 /* CycleCoachingCopyTests.swift */; };
 		1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */; };
 		1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
 		1WC00B2F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
@@ -525,6 +528,7 @@
 		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
 		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
 		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
+		C7C1E2010000000000000001 /* CycleHealthKitSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthKitSync.swift; sourceTree = "<group>"; };
 		1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiologicalSexStepView.swift; sourceTree = "<group>"; };
 		1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		1WC00D2F9FF867004091AA /* CycleFertileWindowLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleFertileWindowLiveActivity.swift; sourceTree = "<group>"; };
@@ -878,6 +882,8 @@
 		AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
+		C7C1E2030000000000000001 /* CycleHealthKitSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthKitSyncTests.swift; sourceTree = "<group>"; };
+		C7C1E2050000000000000001 /* CycleCoachingCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleCoachingCopyTests.swift; sourceTree = "<group>"; };
 		1TEST01300000000000000A /* PartnerCycleDigestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigestTests.swift; sourceTree = "<group>"; };
 		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorSheet.swift; sourceTree = "<group>"; };
@@ -1083,6 +1089,7 @@
 				1WC0022F9FF867004091AA /* SexualHealthCoach.swift */,
 				1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */,
 				1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */,
+				C7C1E2010000000000000001 /* CycleHealthKitSync.swift */,
 				1ARIA0092F9FF867004091AA /* FeedbackService.swift */,
 				1ARIA0252F9FF867004091AA /* BiometricsObserveService.swift */,
 			);
@@ -1885,6 +1892,7 @@
 				1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */,
 				1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */,
 				1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */,
+				C7C1E2020000000000000001 /* CycleHealthKitSync.swift in Sources */,
 				1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */,
 				1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */,
 				1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */,

@@ -31,6 +31,8 @@ enum CyclePrivacy {
     • We do not sell cycle data. We do not use it for advertising. We do not license it \
     to third parties for their own products or training sets.
     • Support-person data requires consent / caregiver care. Invites are iPhone + iMessage only.
+    • Cycle context is shared with ARIA only when you turn on “ARIA reads cycle on this iPhone” \
+    (via AriaContextStore, on this device). Supporters see a digest only if you invite them, per person.
 
     This is lifestyle coaching, not medical care or birth control.
     """

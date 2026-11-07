@@ -1452,6 +1452,8 @@ struct MenstrualHealthView: View {
             }
             .defaultScrollAnchor(.trailing)
             .padding(.horizontal, -ForgeLayout.cardPadding)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Last 14 days of cycle logs")
         }
         .forgeContentCard(tint: accent)
     }
@@ -1507,6 +1509,21 @@ struct MenstrualHealthView: View {
             return parts.joined(separator: ", ")
         }())
         .accessibilityHint("Opens the day editor")
+    }
+
+    private func dayCellAccessibilityLabel(key: String, dayNum: String, isToday: Bool) -> String {
+        let date = CycleDayKey.date(from: key)
+        let spoken = date?.formatted(.dateTime.month(.wide).day()) ?? "Day \(dayNum)"
+        return isToday ? "Today, \(spoken)" : spoken
+    }
+
+    private func dayCellAccessibilityValue(flow: MenstrualFlowLevel, symptoms: [CycleSymptom]) -> String {
+        var parts: [String] = []
+        parts.append(flow.isBleeding || flow == .none ? "\(flow.label) flow" : flow.label)
+        if !symptoms.isEmpty {
+            parts.append(symptoms.map(\.label).joined(separator: ", "))
+        }
+        return parts.joined(separator: ". ")
     }
 
     private func openDayEditor(key: String) {
@@ -1775,6 +1792,8 @@ struct MenstrualHealthView: View {
             accent: accent,
             bleed: ForgeLayout.cardPadding
         )
+        .accessibilityLabel("Flow level")
+        .accessibilityValue(selection.wrappedValue.label)
     }
 
     // MARK: History
@@ -1872,7 +1891,7 @@ struct MenstrualHealthView: View {
                     let rx = cycleStore.trainingPrescription
                     return "My goal is \(cycleStore.settings.lifestyleGoal.label). I'm in \(phase). \(rx.headline) How should I train today?"
                 }
-                return "Help me train and recover today."
+                return "Help me train and rest today."
             }()
             store.openChat(with: prompt, voice: false)
         } label: {

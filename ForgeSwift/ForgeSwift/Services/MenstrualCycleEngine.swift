@@ -585,9 +585,9 @@ enum MenstrualCycleEngine {
             let coverMax = cover.max() ?? 0
             let next3 = window.suffix(3).map(\.t)
             // Shift if all 3 exceed coverline max by ≥0.1°C (slightly relaxed for wrist-adjacent noise)
-            if next3.allSatisfy({ $0 >= coverMax + 0.10 }) {
+            if next3.allSatisfy({ $0.t >= coverMax + 0.10 }) {
                 // Ovulation typically day before sustained rise
-                return max(1, series[i].day - 1)
+                return max(1, next3[0].day - 1)
             }
         }
         return nil

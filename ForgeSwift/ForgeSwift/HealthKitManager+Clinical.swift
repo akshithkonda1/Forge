@@ -197,6 +197,22 @@ extension HealthKitManager {
 
         let bbtMapped: [(date: Date, celsius: Double)] = bbt.map { ($0.date, $0.value) }
 
+        var uuidMap = Self.loadFlowUUIDMap()
+        for sample in flow {
+            uuidMap[sample.uuid.uuidString] = CycleDayKey.key(for: sample.startDate)
+        }
+        var deletedKeys: [String] = []
+        for deleted in delta.deleted {
+            if let identifier = deleted.metadata?[HKMetadataKeySyncIdentifier] as? String,
+               let key = CycleHealthKitSync.dayKey(fromFlowSyncIdentifier: identifier) {
+                deletedKeys.append(key)
+            } else if let key = uuidMap[deleted.uuid.uuidString] {
+                deletedKeys.append(key)
+            }
+            uuidMap.removeValue(forKey: deleted.uuid.uuidString)
+        }
+        Self.saveFlowUUIDMap(uuidMap)
+
         return MenstrualHealthKitBundle(
             flowSamples: flowMapped,
             bbtSamples: bbtMapped,

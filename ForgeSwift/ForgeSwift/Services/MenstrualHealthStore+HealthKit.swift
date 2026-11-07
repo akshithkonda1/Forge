@@ -19,6 +19,9 @@ extension MenstrualHealthStore {
         )
         persistFlowAnchor(bundle.newFlowAnchor)
         mergeHealthKit(bundle)
+        if let anchor = bundle.newFlowAnchor {
+            defaults.set(anchor, forKey: Self.flowAnchorKey)
+        }
         lastSyncAt = Date()
         defaults.set(Date().timeIntervalSince1970, forKey: quietSyncKey)
         recompute()
@@ -64,7 +67,7 @@ extension MenstrualHealthStore {
         await writeCycleDayToAppleHealth(log)
     }
 
-    /// Apple Cycle Tracking is the source of truth. Forge writes, then later
+    /// Apple Cycle Tracking is the on-device ledger. Forge writes, then later
     /// reads the same samples to template a clinician report. Nothing is posted
     /// to a Forge database. Raw cycle data is encrypted on-device; the key stays
     /// in the URL fragment, and optional clinician-report links send ciphertext
