@@ -426,33 +426,4 @@ extension AriaSpeechPrep {
         utterance.postUtteranceDelay = AriaSpokenVoice.phraseTailDelay
         return [utterance]
     }
-
-    /// Queue a single neural utterance. Returns false when there is nothing
-    /// to say, or when no locked neural voice is installed.
-    @MainActor
-    static func enqueue(
-        _ text: String,
-        on synthesizer: AVSpeechSynthesizer,
-        interrupt: Bool,
-        stopAt boundary: AVSpeechBoundary = .immediate,
-        session: ForgePlaybackSession = .spoken
-    ) -> Bool {
-        guard AriaSpokenMute.allowsSpeech else { return false }
-        guard canSpeak(text: text, hasNeuralIdentity: AriaSpokenVoice.hasInstalledIdentity()) else {
-            return false
-        }
-        let voiceOver = UIAccessibility.isVoiceOverRunning
-        let utts = utterances(from: text, voiceOver: voiceOver)
-        guard !utts.isEmpty, utts.contains(where: { $0.voice != nil }) else { return false }
-        if interrupt, synthesizer.isSpeaking {
-            synthesizer.stopSpeaking(at: boundary)
-        }
-        Task { @MainActor in
-            try? await session.activate()
-            for utterance in utts {
-                synthesizer.speak(utterance)
-            }
-        }
-        return true
-    }
 }

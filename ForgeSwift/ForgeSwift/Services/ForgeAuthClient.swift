@@ -1,11 +1,26 @@
 import Foundation
 import ForgeCore
 
-/// Phone-side auth. Cognito for real accounts; a DEBUG tester session so
-/// device work does not depend on AWS secrets.
+/// Phone-side auth. Cognito for real accounts; a device-only account while
+/// Cognito isn't configured; a DEBUG tester session so device work does not
+/// depend on AWS secrets.
 @MainActor
 final class ForgeAuthClient: ObservableObject {
-    static let shared = ForgeAuthClient()
+    /// Set only after `shared`'s initializer returns. `AriaOperatingMode.resolve`
+    /// must use this (or an explicit client). Reading `.shared` while the
+    /// static initializer is still running waits on `dispatch_once` and traps
+    /// (`EXC_BREAKPOINT` in `_dispatch_once_wait`).
+    private(set) static var publishedShared: ForgeAuthClient?
+
+    static let shared: ForgeAuthClient = {
+        let client = ForgeAuthClient()
+        publishedShared = client
+        return client
+    }()
+
+    /// Nil while `shared` is still constructing. Session-aware operating-mode
+    /// resolution uses this instead of the static addressor.
+    static var sharedIfReady: ForgeAuthClient? { publishedShared }
 
     @Published private(set) var session: ForgeAuthSession?
 
@@ -20,7 +35,18 @@ final class ForgeAuthClient: ObservableObject {
         ForgeAuthPolicy.devOverrideAllowed(userEnabled: devOverrideEnabled, config: config)
     }
 
+    /// "Start on this iPhone". Release included; see `ForgeAuthPolicy.localAccountOffered`.
+    var offersLocalAccount: Bool {
+        ForgeAuthPolicy.localAccountOffered(config: config)
+    }
+
+    /// Something to sign back into: Cognito, or the DEBUG tester account.
+    var offersSignIn: Bool {
+        config.cognitoConfigured || canUseDevOverride
+    }
+
     private static let overrideKey = "forge.auth.devOverride"
+    private static let localUserIdKey = "forge.auth.localUserId"
     private static let sessionKey = "forge.aria.authSession"
     private let store: SecureStore
 
@@ -40,11 +66,11 @@ final class ForgeAuthClient: ObservableObject {
         if config.apiBaseURL.host != nil, UserDefaults.standard.string(forKey: "forge.api.baseURL") == nil {
             UserDefaults.standard.set(config.apiBaseURL.absoluteString, forKey: "forge.api.baseURL")
         }
-        // `shared` is still being initialized. A synchronous operating-mode
-        // refresh reads `ForgeAuthClient.shared` and traps in the static
-        // addressor (XCTest then reports the test runner crashed before it
-        // connected). Refresh on the next turn, after `shared` is published.
-        installTestReadySessionIfNeeded(deferOperatingModeRefresh: true)
+        // Never refresh operating mode from this initializer. `resolve()` used
+        // to read `ForgeAuthClient.shared` and re-enter the static addressor.
+        // `AppStore.restoreOnboardingState()` refreshes after `shared` is
+        // published; other callers pass `self` into `refresh(using:)`.
+        installTestReadySessionIfNeeded(refreshOperatingMode: false)
     }
 
     /// Xcode Device Hub (simulator or a plugged-in phone) and loopback API
@@ -53,11 +79,11 @@ final class ForgeAuthClient: ObservableObject {
     /// the phone (`127.0.0.1`).
     @discardableResult
     func installTestReadySessionIfNeeded() -> ForgeAuthSession? {
-        installTestReadySessionIfNeeded(deferOperatingModeRefresh: false)
+        installTestReadySessionIfNeeded(refreshOperatingMode: true)
     }
 
     @discardableResult
-    private func installTestReadySessionIfNeeded(deferOperatingModeRefresh: Bool) -> ForgeAuthSession? {
+    private func installTestReadySessionIfNeeded(refreshOperatingMode: Bool) -> ForgeAuthSession? {
         let allowed = ForgeAuthPolicy.devOverrideAllowed(
             userEnabled: devOverrideEnabled,
             config: config
@@ -71,15 +97,13 @@ final class ForgeAuthClient: ObservableObject {
         if let current = session, current.mode == .cognito, !config.apiIsLoopback {
             return current
         }
+        // Someone who chose "Start on this iPhone" keeps their own profile.
+        if session?.mode == .local { return session }
         if session?.mode == .devOverride { return session }
         let minted = DevAuthOverride.session()
         try? persist(minted)
-        if deferOperatingModeRefresh {
-            Task { @MainActor in
-                AriaOperatingMode.refresh()
-            }
-        } else {
-            AriaOperatingMode.refresh()
+        if refreshOperatingMode {
+            AriaOperatingMode.refresh(using: self)
         }
         return minted
     }
@@ -88,11 +112,27 @@ final class ForgeAuthClient: ObservableObject {
         guard canUseDevOverride else { throw ForgeAuthError.overrideDisabled }
         let minted = DevAuthOverride.session()
         try persist(minted)
+        AriaOperatingMode.refresh(using: self)
+        return minted
+    }
+
+    /// One device-only profile per install: signing out and starting again on
+    /// this iPhone comes back to the same profile and chat instead of leaving
+    /// them behind under an id nobody can reach.
+    func startLocalAccount(displayName: String) throws -> ForgeAuthSession {
+        guard offersLocalAccount else { throw ForgeAuthError.localAccountUnavailable }
+        let defaults = UserDefaults.standard
+        let userId = defaults.string(forKey: Self.localUserIdKey) ?? LocalDeviceAccount.newUserId()
+        defaults.set(userId, forKey: Self.localUserIdKey)
+        let minted = LocalDeviceAccount.session(userId: userId, displayName: displayName)
+        try persist(minted)
         AriaOperatingMode.refresh()
         return minted
     }
 
     func signUp(email: String, password: String, displayName: String) async throws -> CognitoPasswordAuth.SignUpResult {
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else { throw ForgeAuthError.cognitoNotConfigured }
         let request = try CognitoPasswordAuth.signUpRequest(
             region: config.cognitoRegion,
             clientId: config.cognitoClientId,
@@ -111,6 +151,8 @@ final class ForgeAuthClient: ObservableObject {
     }
 
     func confirmSignUp(email: String, code: String) async throws {
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else { throw ForgeAuthError.cognitoNotConfigured }
         let request = try CognitoPasswordAuth.confirmSignUpRequest(
             region: config.cognitoRegion,
             clientId: config.cognitoClientId,
@@ -128,6 +170,8 @@ final class ForgeAuthClient: ObservableObject {
     }
 
     func signIn(email: String, password: String) async throws -> ForgeAuthSession {
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else { throw ForgeAuthError.cognitoNotConfigured }
         let request = try CognitoPasswordAuth.initiateAuthRequest(
             region: config.cognitoRegion,
             clientId: config.cognitoClientId,
@@ -170,9 +214,14 @@ final class ForgeAuthClient: ObservableObject {
         if let existing = refreshTask { return try await existing.value }
 
         guard let current = session else { throw ForgeAuthError.signedOut }
-        // A tester session has no Cognito behind it; renewing is a no-op rather
-        // than an error, so DEBUG device work keeps running.
+        // Tester and device-only sessions have no Cognito behind them; renewing
+        // is a no-op rather than an error.
         guard current.mode == .cognito else { return current }
+        // TODO(aws): fail closed until FORGEAWSLive is set after a real apply.
+        guard config.awsLiveEnabled else {
+            signOut()
+            throw ForgeAuthError.cognitoNotConfigured
+        }
         guard let refreshToken = current.refreshToken, !refreshToken.isEmpty else {
             signOut()
             throw ForgeAuthError.signedOut
@@ -229,8 +278,10 @@ final class ForgeAuthClient: ObservableObject {
         LocalTestingOrchestrator.shared.resetForNewSession()
     }
 
+    /// Nil for a device-only session: it has no token to send.
     func authorizationHeader() -> String? {
-        session.map(\.authorizationHeader)
+        guard let session, session.mode != .local else { return nil }
+        return session.authorizationHeader
     }
 
     private func persist(_ session: ForgeAuthSession) throws {

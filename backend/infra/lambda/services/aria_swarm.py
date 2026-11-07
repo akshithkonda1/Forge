@@ -170,9 +170,23 @@ def run_swarm(
         "agents": [a.as_dict() for a in agents],
         "picture": picture,
     }
-    if persist_to is not None and user_id and picture.get("headline"):
+    headline = str(picture.get("headline") or "")
+    from aria_core import health_privacy
+
+    health_derived = any(
+        bool(read.get("present"))
+        and any(domain in {"sleep", "recovery"} for domain in (read.get("domains") or []))
+        for read in reads.values()
+    )
+    if (
+        persist_to is not None
+        and user_id
+        and headline
+        and not health_derived
+        and not health_privacy.insight_has_health_conclusions(headline)
+    ):
         try:
-            persist_to.add_insight(user_id, picture["headline"])
+            persist_to.add_insight(user_id, headline)
             envelope["wrote"] = True
         except Exception:
             envelope["wrote"] = False

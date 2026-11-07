@@ -79,6 +79,18 @@ class CycleReportUploadTests(unittest.TestCase):
         self.assertEqual(body(response)["code"], "uploads_unconfigured")
         self.assertEqual(dynamodb_store._local_store, {})
 
+    def test_todo_aws_unset_fails_closed_even_with_bucket(self):
+        os.environ["UPLOADS_BUCKET_NAME"] = "forge-uploads-test"
+        os.environ.pop("TODO_AWS", None)
+        os.environ.pop("TODO(aws)", None)
+        with self.assertRaises(RouteError) as missing:
+            cycle_routes.handle_post_cycle_report_upload(
+                "user-abc",
+                {"contentType": "application/octet-stream", "encrypted": True, "byteLength": 12_000},
+            )
+        self.assertEqual(missing.exception.status_code, 503)
+        self.assertEqual(missing.exception.code, "uploads_unconfigured")
+
 
 if __name__ == "__main__":
     unittest.main()

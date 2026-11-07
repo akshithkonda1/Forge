@@ -41,6 +41,8 @@ struct AriaMemoryControlsView: View {
                 personaCard
                 toneCard
                 checkInCard
+                talkativenessCard
+                serverVoiceCard
 
                 ForEach(AriaKnowledgeCategory.managedCases, id: \.self) { folder in
                     folderCard(folder)
@@ -632,6 +634,52 @@ struct AriaMemoryControlsView: View {
                     }
                 }
             }
+        }
+        .forgeContentCard(tint: .steel)
+    }
+
+    private var talkativenessCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(AriaMemoryAccess.talkativenessHeader, tint: .steel)
+            Text("ARIA speaks the morning card only when a number moved.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(AriaMorningCardBuilder.Talkativeness.allCases, id: \.self) { value in
+                    let selected = model.controls.prefs.talkativeness == value
+                    optionRow(
+                        title: value.title,
+                        line: value.line,
+                        selected: selected,
+                        label: AriaMemoryAccess.talkativenessLabel(value, selected: selected)
+                    ) {
+                        model.setTalkativeness(value)
+                    }
+                }
+            }
+        }
+        .forgeContentCard(tint: .steel)
+    }
+
+    private var serverVoiceCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(AriaMemoryAccess.serverVoiceHeader, tint: .steel)
+            Text("Off by default. Speech stays on this phone. A server mouth would need this switch — nothing is sent until you turn it on.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            Toggle(isOn: Binding(
+                get: { model.controls.prefs.serverVoiceEnabled },
+                set: { model.setServerVoiceEnabled($0) }
+            )) {
+                Text("Allow server voice")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textPrimary)
+            }
+            .tint(.ember)
+            .accessibilityLabel("Allow server voice")
+            .accessibilityHint("Off keeps speech on this phone. On would allow a server mouth.")
         }
         .forgeContentCard(tint: .steel)
     }

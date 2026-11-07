@@ -9,7 +9,7 @@
 #   - AWS credentials, the same secrets terraform.yml uses: AWS_ROLE_ARN
 #     (OIDC, preferred) or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY. The role
 #     needs only bedrock:ListFoundationModels and bedrock:ListInferenceProfiles.
-#     Without credentials the job skips with a notice.
+#     Without credentials the job fails closed (same spirit as other CI skips).
 #   - Settings → Actions → General → "Allow GitHub Actions to create and
 #     approve pull requests".
 #   - Optional MODEL_IDS_TOKEN (fine-grained PAT: contents + pull requests on
@@ -54,7 +54,8 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No AWS credentials (AWS_ROLE_ARN or access keys). Skipping the Bedrock model lookup."
+            echo "::error::No AWS credentials (AWS_ROLE_ARN or access keys). Model-ID check cannot run; failing closed."
+            exit 1
           fi
 
       # Actions must be pinned to a full-length commit SHA (repo policy).

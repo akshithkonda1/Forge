@@ -9,6 +9,13 @@ import FoundationModels
 extension AppStore {
 
     /// Rehydrates auth + completed onboarding on cold launch.
+    ///
+    /// `forge.auth.session.v1` is a leftover UserDefaults bool, not a
+    /// session. Production restore authenticates only from
+    /// `ForgeAuthClient.shared.session`. Harness / test-ready auth is the
+    /// Keychain tester minted by `installTestReadySessionIfNeeded`, never
+    /// `AriaForgePrepHandoff.readBool(authDefaultsKey)` and never a leftover
+    /// interview flag promoting that bool.
     func restoreOnboardingState() {
         ForgeAuthClient.shared.installTestReadySessionIfNeeded()
         AriaOperatingMode.refresh()
@@ -18,7 +25,7 @@ extension AppStore {
             authEmail = session.email
             AriaContextStore.shared.configure(userId: session.userId)
         } else {
-            isAuthenticated = UserDefaults.standard.bool(forKey: Self.authDefaultsKey)
+            isAuthenticated = false
             authProvider = UserDefaults.standard.string(forKey: Self.authProviderKey) ?? ""
             authEmail = UserDefaults.standard.string(forKey: Self.authEmailKey) ?? ""
         }
@@ -31,12 +38,35 @@ extension AppStore {
             authProvider = authProvider.isEmpty ? "legacy" : authProvider
         }
         guard UserDefaults.standard.bool(forKey: Self.onboardedDefaultsKey) else {
-            AriaForgePrepHandoff.validateFlag(
-                isOnboarded: false,
-                isAuthenticated: isAuthenticated
-            )
+            // Keep a leftover interview flag. Clearing it because auth
+            // restore lagged made the launch gate keep reading the
+            // pre-launch YES while the app never ran finishForgePrep.
+            // Do not promote the leftover bool into a signed-in session.
             if AriaForgePrepHandoff.isInterviewComplete {
                 restoreUserProfileForCurrentUser()
+            } else {
+                AriaForgePrepHandoff.validateFlag(
+                    isOnboarded: false,
+                    isAuthenticated: isAuthenticated
+                )
+            }
+            if AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: TestReadyLaunchPolicy.isRunningOnSimulator,
+                isTestHost: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
+                isAuthenticated: isAuthenticated,
+                isInterviewComplete: AriaForgePrepHandoff.isInterviewComplete,
+                launchPrepWedge: ProcessInfo.processInfo.environment["FORGE_LAUNCH_PREP_WEDGE"] == "1"
+            ) {
+                finishForgePrep()
+            }
+            if AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: TestReadyLaunchPolicy.isRunningOnSimulator,
+                isTestHost: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
+                isAuthenticated: isAuthenticated,
+                isInterviewComplete: AriaForgePrepHandoff.isInterviewComplete,
+                launchPrepWedge: ProcessInfo.processInfo.environment["FORGE_LAUNCH_PREP_WEDGE"] == "1"
+            ) {
+                finishForgePrep()
             }
             if AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
                 isDebugSimulator: TestReadyLaunchPolicy.isRunningOnSimulator,

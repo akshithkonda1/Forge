@@ -82,16 +82,7 @@ enum AriaPlanEngine {
         // the full coaching prescription stays inside MenstrualHealthView.
         // No phase label is appended here.
 
-        if !context.medicationLayer.planNote.isEmpty {
-            session = SessionBlueprint(
-                title: session.title,
-                duration: session.duration,
-                intensity: session.intensity,
-                workoutType: session.workoutType,
-                moves: session.moves,
-                flavorLine: session.flavorLine + " " + context.medicationLayer.planNote
-            )
-        }
+        // Medication never appears in the plan the person reads.
 
         // Library body-map: “bicep day” / “calf work” swaps in catalog moves
         // for that muscle instead of a generic theme template.
@@ -111,6 +102,8 @@ enum AriaPlanEngine {
                 flavorLine: "You hit \(historyMuscle.priorLabel) yesterday — today is \(historyMuscle.nextLabel) (controlled tempo \(historyMuscle.tempo)). " + complement.flavorLine
             )
         }
+
+        session = applyDeclaredSafety(session, context: context, input: input)
 
         let narrative = buildNarrative(
             theme: theme,
@@ -211,6 +204,100 @@ enum AriaPlanEngine {
         let workoutType: WorkoutType
         let moves: [Move]
         let flavorLine: String
+    }
+
+    /// Declared-condition rules run before ARIA speaks. Never guesses.
+    private static func applyDeclaredSafety(
+        _ session: SessionBlueprint,
+        context: TrainerContext,
+        input: String = ""
+    ) -> SessionBlueprint {
+        let sleepHours = SleepData.lastNight(in: context.sleepData)?.totalHours
+            ?? (context.dailyMetrics.totalSleep > 0 ? Double(context.dailyMetrics.totalSleep) / 60.0 : nil)
+        let heat = context.lifestyleTags.contains {
+            $0.lowercased().contains("heat") || $0.lowercased().contains("hot_day")
+        }
+        let inputAsksBlocked = ForgeConditionSafety.isSoloSwimOrClimb(input)
+            || ForgeConditionAdaptation.isSoloHighRisk(input)
+        var moveNames = session.moves.map(\.name)
+        if inputAsksBlocked {
+            moveNames.append(input)
+        }
+        let decision = ForgeConditionSafety.decide(
+            .init(
+                declared: context.userProfile.lifestyleProfile.healthConstraints,
+                sleepHours: sleepHours,
+                heatRisk: heat,
+                moveNames: moveNames
+            )
+        )
+        guard decision.applied else { return session }
+        var replaceIndex = 0
+        var moves: [Move] = []
+        for move in session.moves {
+            if decision.blockedMoves.contains(move.name)
+                || ForgeConditionSafety.isSoloSwimOrClimb(move.name)
+                || (inputAsksBlocked && ForgeConditionAdaptation.isSoloHighRisk(move.name)) {
+                if replaceIndex < decision.replacements.count {
+                    let name = decision.replacements[replaceIndex]
+                    replaceIndex += 1
+                    moves.append(
+                        Move(
+                            name: name,
+                            sets: move.sets,
+                            reps: move.reps,
+                            restSeconds: move.restSeconds,
+                            note: decision.changeNote
+                        )
+                    )
+                }
+            } else {
+                moves.append(move)
+            }
+        }
+        if inputAsksBlocked, replaceIndex == 0, let swap = decision.replacements.first {
+            moves.insert(
+                Move(
+                    name: swap,
+                    sets: 3,
+                    reps: "8-10",
+                    restSeconds: 90,
+                    note: decision.changeNote
+                ),
+                at: 0
+            )
+            replaceIndex += 1
+        }
+        if moves.isEmpty {
+            moves = [
+                Move(
+                    name: "Easy floor strength",
+                    sets: 3,
+                    reps: "8-10",
+                    restSeconds: 90,
+                    note: decision.changeNote
+                )
+            ]
+        }
+        let flavor = ForgeConditionSafety.sanitize(
+            [session.flavorLine, decision.changeNote]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        )
+        let intensity: WorkoutIntensity = {
+            if session.intensity == .max || session.intensity == .high {
+                return .moderate
+            }
+            return session.intensity
+        }()
+        return SessionBlueprint(
+            title: session.title,
+            duration: session.duration,
+            intensity: intensity,
+            workoutType: session.workoutType,
+            moves: moves,
+            flavorLine: flavor
+        )
     }
 
     private static func buildSession(
@@ -882,13 +969,13 @@ enum AriaPlanEngine {
         // Cycle phase stays in Cycle Health — not in workout chat.
         // (Training bias already applied via band stepDown; prescription lives
         // in MenstrualHealthView.)
-
-        if !context.medicationLayer.planNote.isEmpty,
-           !speech.localizedCaseInsensitiveContains("no prescription") {
-            speech += "\n\n" + context.medicationLayer.planNote
+        // Medication never appears in the plan the person hears.
+        var spoken = ForgeConditionSafety.sanitize(speech)
+        if AriaCoachSpeechGuard.containsBanned(spoken) {
+            spoken = spoken.replacingOccurrences(of: "Recovery", with: "Rest")
+            spoken = spoken.replacingOccurrences(of: "recovery", with: "rest")
         }
-
-        return speech
+        return spoken
     }
 
     private static func suggestedActions(

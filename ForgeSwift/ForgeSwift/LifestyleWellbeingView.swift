@@ -3,6 +3,7 @@ import Combine
 import Charts
 import UIKit
 import Contacts
+import ContactsUI
 import ForgeCore
 
 /// Wellbeing segment (spec §14). The DailyHabitsCard plate opens the segment
@@ -1083,7 +1084,7 @@ struct YourPeopleCard: View {
                         .font(ForgeType.title)
                         .foregroundStyle(Color.textPrimary)
                         .forgeWrapping()
-                    Text("Pick a few first names — partner, roommate, training buddy. Not your whole address book. Phone numbers stay in Contacts.")
+                    Text(PeoplePrivacyCopy.emptyCard)
                         .font(HomeType.body)
                         .foregroundStyle(Color.textSecondary)
                         .forgeWrapping()
@@ -1132,19 +1133,12 @@ struct PeopleSettingsSection: View {
                 .padding(.top, FDS.Spacing.xl)
                 .padding(.bottom, FDS.Spacing.md)
                 .accessibilityAddTraits(.isHeader)
-            Text(honesty)
+            Text(PeoplePrivacyCopy.settingsHonesty)
                 .font(HomeType.body)
                 .foregroundStyle(Color.textTertiary)
                 .forgeWrapping()
                 .padding(.bottom, FDS.Spacing.md)
             SectionCard {
-                SettingsRow(
-                    icon: "person.2.fill",
-                    iconColor: .ember,
-                    label: "Contacts access",
-                    trailingText: accessLabel
-                )
-                Divider().background(Color.borderColor)
                 Button {
                     showSheet = true
                 } label: {
@@ -1160,15 +1154,6 @@ struct PeopleSettingsSection: View {
                     SettingsRow(icon: "trash", iconColor: Color.alert, label: "Forget your people", trailingText: "On this iPhone")
                 }
                 .buttonStyle(.plain)
-                Divider().background(Color.borderColor)
-                Button {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                } label: {
-                    SettingsRow(icon: "gear", iconColor: .textSecondary, label: "Revoke Contacts in Settings", showChevron: true)
-                }
-                .buttonStyle(.plain)
             }
         }
         .sheet(isPresented: $showSheet, onDismiss: { directory = PeopleDirectoryStore.load() }) {
@@ -1181,25 +1166,6 @@ struct PeopleSettingsSection: View {
         let n = directory.coachingPeople.count
         return n == 1 ? "1 person" : "\(n) people"
     }
-
-    private var accessLabel: String {
-        switch directory.contactsAccess {
-        case .granted: return "Allowed"
-        case .denied: return "Off"
-        case .notAsked: return "Not asked"
-        }
-    }
-
-    private var honesty: String {
-        switch directory.contactsAccess {
-        case .denied:
-            return "Contacts access is off. You can still type a first name. Forge stores that name and a label on this iPhone — never a phone number or email, and never a medical read. Turn Contacts back on in iPhone Settings → Forge."
-        case .granted:
-            return "Contacts is allowed. ARIA only keeps the first names you confirm, plus a label. The rest of the address book stays in Contacts and is not uploaded."
-        case .notAsked:
-            return "Optional. ARIA can use a few first names for social stretch and quieter weeks. Nothing is read until you ask."
-        }
-    }
 }
 
 struct YourPeopleSheet: View {
@@ -1208,7 +1174,7 @@ struct YourPeopleSheet: View {
     @State private var directory = PeopleDirectoryStore.load()
     @State private var draft = ""
     @State private var relation: PeopleDirectory.Relation = .friend
-    @State private var suggestions: [(name: String, id: String)] = []
+    @State private var showPicker = false
     @State private var notice: String?
 
     /// Sheet rhythm (spec §2.3): the toolbar keeps its Done button, content
@@ -1219,9 +1185,6 @@ struct YourPeopleSheet: View {
                 VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
                     introBlock
                     addCard
-                    if !suggestions.isEmpty {
-                        suggestionsCard
-                    }
                     if !directory.people.isEmpty {
                         peopleCard
                     }
@@ -1238,13 +1201,23 @@ struct YourPeopleSheet: View {
             }
         }
         .presentationDragIndicator(.visible)
-        .onAppear { refreshSuggestionsIfAllowed() }
+        .fullScreenCover(isPresented: $showPicker) {
+            ContactPickerView(
+                onPicks: { picks in
+                    showPicker = false
+                    confirmPicks(picks)
+                },
+                onCancel: { showPicker = false }
+            )
+            .ignoresSafeArea()
+        }
     }
 
-    /// The privacy line, any notice, and the optional Contacts opt-in.
+    /// The privacy line, any notice, and the Contacts picker. The system
+    /// picker returns only tapped people — no address-book permission.
     private var introBlock: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
-            Text("First names and a label only. Phone numbers, emails, and the rest of your address book stay in Contacts. This is lifestyle coaching — not a read on your social life.")
+            Text(PeoplePrivacyCopy.sheetIntro)
                 .font(HomeType.body)
                 .foregroundStyle(Color.textSecondary)
                 .forgeWrapping()
@@ -1254,10 +1227,8 @@ struct YourPeopleSheet: View {
                     .foregroundStyle(Color.textTertiary)
                     .forgeWrapping()
             }
-            if directory.contactsAccess != .granted {
-                ForgeSecondaryButton(title: "Allow Contacts (optional)", icon: "person.crop.circle", accent: .vitality) {
-                    Task { await requestContacts() }
-                }
+            ForgeSecondaryButton(title: "Pick from Contacts", icon: "person.crop.circle", accent: .vitality) {
+                showPicker = true
             }
         }
     }
@@ -1309,40 +1280,6 @@ struct YourPeopleSheet: View {
             )
         }
         .tint(Color.textPrimary)
-    }
-
-    /// Contacts suggestions as 44 pt rows; tapping one confirms that person.
-    private var suggestionsCard: some View {
-        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
-            Text("From Contacts — tap to confirm")
-                .forgeSectionLabel()
-                .forgeWrapping()
-                .accessibilityAddTraits(.isHeader)
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(suggestions, id: \.id) { row in
-                    Button {
-                        ForgeHaptics.play(.press)
-                        confirm(name: row.name, identifier: row.id)
-                    } label: {
-                        HStack(spacing: ForgeLayout.rowGap) {
-                            Text(row.name)
-                                .font(HomeType.status)
-                                .foregroundStyle(Color.textPrimary)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Image(systemName: "plus.circle")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(Color.vitality)
-                                .accessibilityHidden(true)
-                        }
-                        .frame(minHeight: ForgeUX.minTap)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .forgeContentCard()
     }
 
     /// The confirmed people as agenda rows, each with a 44 pt Remove.
@@ -1397,13 +1334,9 @@ struct YourPeopleSheet: View {
         persist(next)
     }
 
-    private func confirm(name: String, identifier: String) {
-        guard let person = PeopleDirectory.admit(rawName: name, relation: relation, contactIdentifier: identifier) else { return }
-        var next = directory
-        next.contactsAccess = .granted
-        next.people.removeAll { $0.contactIdentifier == identifier || $0.firstName.lowercased() == person.firstName.lowercased() }
-        next.people.append(person)
-        persist(next)
+    /// Same confirm path as a typed name: `PeopleDirectory.admit` then save.
+    private func confirmPicks(_ picks: [(givenName: String, identifier: String)]) {
+        persist(PeopleContactPicks.applying(picks, relation: relation, to: directory))
     }
 
     private func remove(_ person: PeopleDirectory.Person) {
@@ -1411,65 +1344,73 @@ struct YourPeopleSheet: View {
         next.people.removeAll { $0.id == person.id }
         persist(next)
     }
+}
 
-    private func requestContacts() async {
-        let ok = await PeopleContactsBridge.requestAccess()
-        var next = directory
-        next.contactsAccess = ok ? .granted : .denied
-        if ok { next.optedIn = true }
-        PeopleDirectoryStore.save(next)
-        directory = next
-        notice = ok ? "Pick the people who matter. The rest stay in Contacts." : "Contacts stayed off. You can still type a first name."
-        if ok { suggestions = PeopleContactsBridge.suggestions() }
+/// Honest people-screen copy. Confirmed first names enter ARIA's on-device
+/// context and coaching prompts; phone numbers and emails are never read.
+enum PeoplePrivacyCopy {
+    static let savedLine = "Only people you pick are saved — first name and a label, on this iPhone."
+    static let coachingLine = "Those names go into ARIA's on-device context and coaching prompts. Phone numbers and emails are never read or sent."
+    static var settingsHonesty: String { "\(savedLine) \(coachingLine)" }
+    static var sheetIntro: String {
+        "\(savedLine) \(coachingLine) This is lifestyle coaching — not a read on your social life."
     }
+    static let emptyCard = "Pick a few first names — partner, roommate, training buddy. Not your whole address book. ARIA uses those names in coaching. Phone numbers and emails are never read or sent."
+}
 
-    private func refreshSuggestionsIfAllowed() {
-        let status = PeopleContactsBridge.currentAccess()
-        if directory.contactsAccess != status {
-            var next = directory
-            next.contactsAccess = status
-            directory = next
-            PeopleDirectoryStore.save(next)
+/// Admit tapped Contacts-picker rows through `PeopleDirectory.admit`.
+enum PeopleContactPicks {
+    static func applying(
+        _ picks: [(givenName: String, identifier: String)],
+        relation: PeopleDirectory.Relation,
+        to directory: PeopleDirectory.Directory
+    ) -> PeopleDirectory.Directory {
+        var next = directory
+        next.optedIn = true
+        for pick in picks {
+            guard let person = PeopleDirectory.admit(
+                rawName: pick.givenName,
+                relation: relation,
+                contactIdentifier: pick.identifier
+            ) else { continue }
+            next.people.removeAll {
+                $0.contactIdentifier == pick.identifier
+                    || $0.firstName.lowercased() == person.firstName.lowercased()
+            }
+            next.people.append(person)
         }
-        if status == .granted {
-            suggestions = PeopleContactsBridge.suggestions()
-        }
+        next.people = Array(next.people.prefix(PeopleDirectory.maxPeople))
+        return next
     }
 }
 
-enum PeopleContactsBridge {
-    static func currentAccess() -> PeopleDirectory.ContactsAccess {
-        switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .authorized, .limited:
-            return .granted
-        case .denied, .restricted:
-            return .denied
-        case .notDetermined:
-            return .notAsked
-        @unknown default:
-            return .notAsked
-        }
+/// System Contacts picker. Needs no Contacts permission; only tapped people return.
+struct ContactPickerView: UIViewControllerRepresentable {
+    var onPicks: ([(givenName: String, identifier: String)]) -> Void
+    var onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIViewController(context: Context) -> CNContactPickerViewController {
+        let picker = CNContactPickerViewController()
+        picker.delegate = context.coordinator
+        picker.predicateForSelectionOfContact = NSPredicate(value: true)
+        picker.displayedPropertyKeys = [CNContactGivenNameKey]
+        return picker
     }
 
-    static func requestAccess() async -> Bool {
-        await withCheckedContinuation { continuation in
-            CNContactStore().requestAccess(for: .contacts) { granted, _ in
-                continuation.resume(returning: granted)
-            }
-        }
-    }
+    func updateUIViewController(_ uiViewController: CNContactPickerViewController, context: Context) {}
 
-    /// Given name + identifier only. Phone and email keys are not requested.
-    static func suggestions() -> [(name: String, id: String)] {
-        let store = CNContactStore()
-        let request = CNContactFetchRequest(keysToFetch: [CNContactGivenNameKey as CNKeyDescriptor])
-        request.unifyResults = true
-        var rows: [(name: String, id: String)] = []
-        try? store.enumerateContacts(with: request) { contact, stop in
-            guard let person = PeopleDirectory.admit(rawName: contact.givenName, contactIdentifier: contact.identifier) else { return }
-            rows.append((person.firstName, contact.identifier))
-            if rows.count >= 40 { stop.pointee = true }
+    final class Coordinator: NSObject, CNContactPickerDelegate {
+        let parent: ContactPickerView
+        init(_ parent: ContactPickerView) { self.parent = parent }
+
+        func contactPicker(_ picker: CNContactPickerViewController, didSelect contacts: [CNContact]) {
+            parent.onPicks(contacts.map { (givenName: $0.givenName, identifier: $0.identifier) })
         }
-        return rows
+
+        func contactPickerDidCancel(_ picker: CNContactPickerViewController) {
+            parent.onCancel()
+        }
     }
 }

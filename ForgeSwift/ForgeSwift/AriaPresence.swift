@@ -105,10 +105,15 @@ enum ForgePlaybackSession: Equatable, Sendable {
 
 /// App-wide ARIA voice presence. Welcome, chat, Train “show me how”, and the
 /// tab mark all read this so the same Aurora orb moves when she talks.
+/// Playback is Kokoro only. There is no `AVSpeechSynthesizer`.
 @MainActor
 @Observable
-final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
+final class AriaPresence {
     static let shared = AriaPresence()
+
+    /// Kokoro-82M is ARIA's only voice. `AVSpeechSynthesizer` is never a
+    /// fallback mouth and never receives `speak(_:)`.
+    static let appleFallbackPlaybackEnabled = false
 
     private(set) var isSpeaking = false
     private(set) var isListening = false
@@ -123,25 +128,14 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         return .idle
     }
 
+    /// Held only so a leftover Apple engine from an older session can be
+    /// stopped. Nothing in this type allocates or calls `speak(_:)` on it.
     @ObservationIgnored
     private var synthesizerStorage: AVSpeechSynthesizer?
     @ObservationIgnored
     private var kokoroGeneration = 0
 
-    private override init() {
-        super.init()
-    }
-
-    /// Creating `AVSpeechSynthesizer` on first `ContentView` body evaluation
-    /// pinned kill_relaunch main-thread samples at ~3s of a 3s window.
-    /// Build it only when something actually speaks.
-    private var synthesizer: AVSpeechSynthesizer {
-        if let synthesizerStorage { return synthesizerStorage }
-        let created = AVSpeechSynthesizer()
-        created.delegate = self
-        synthesizerStorage = created
-        return created
-    }
+    private init() {}
 
     func setListening(_ on: Bool) { isListening = on }
     func setThinking(_ on: Bool) { isThinking = on }
@@ -188,7 +182,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
             return
         }
         if interrupt {
-            synthesizer.stopSpeaking(at: .immediate)
+            synthesizerStorage?.stopSpeaking(at: .immediate)
             AriaKokoroEngine.stop()
         }
         kokoroGeneration += 1
@@ -206,8 +200,12 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
             if started {
                 return
             }
+            // Kokoro failed: leave the text on screen. Never allocate or
+            // speak() AVSpeechSynthesizer — Apple TTS is not a fallback.
             isSpeaking = false
-            AriaVoiceProfileStore.shared.noteBusy(true)
+            if !started {
+                AriaVoiceProfileStore.shared.noteBusy(true)
+            }
             AriaVoiceSession.shared.mouthDidFinish()
         }
     }
@@ -215,25 +213,23 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     func stopSpeaking() {
         kokoroGeneration += 1
         AriaKokoroEngine.stop()
-        synthesizer.stopSpeaking(at: .immediate)
+        synthesizerStorage?.stopSpeaking(at: .immediate)
         isSpeaking = false
     }
 
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            // A queued interview line may still be in the synthesizer.
-            if !self.synthesizer.isSpeaking {
-                self.isSpeaking = false
-                AriaVoiceSession.shared.mouthDidFinish()
-            }
-        }
+    /// `AVSpeechSynthesizer.isSpeaking` without allocating. Nil storage is
+    /// a Kokoro-only session — never create the Apple engine to ask.
+    var appleSynthesizerIsSpeaking: Bool {
+        synthesizerStorage?.isSpeaking ?? false
     }
 
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
-        }
+    /// XCTest: a Kokoro-only session must leave this nil after stop / isSpeaking.
+    var synthesizerStorageForTests: AVSpeechSynthesizer? { synthesizerStorage }
+
+    func resetSynthesizerStorageForTests() {
+        synthesizerStorage?.stopSpeaking(at: .immediate)
+        synthesizerStorage?.delegate = nil
+        synthesizerStorage = nil
+        isSpeaking = false
     }
 }
