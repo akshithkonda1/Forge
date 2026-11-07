@@ -94,7 +94,7 @@ enum ForgeAPI {
         // be mutated from concurrently-executing code, and the inout version of
         // this does not compile.
         let header = await MainActor.run { ForgeAuthClient.shared.authorizationHeader() }
-        var request = original
+        var request = ForgeOutboundSanitizer.sanitize(original)
         if let header {
             request.setValue(header, forHTTPHeaderField: "Authorization")
         }

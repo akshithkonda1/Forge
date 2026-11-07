@@ -686,7 +686,8 @@ public struct MessageContextEngine: Sendable {
     }
 
     private static let kindOrder: [LifeContextFact.Kind: Int] = Dictionary(
-        uniqueKeysWithValues: LifeContextFact.Kind.allCases.enumerated().map { ($1, $0) }
+        LifeContextFact.Kind.allCases.enumerated().map { ($1, $0) },
+        uniquingKeysWith: { first, _ in first }
     )
 
     static func sorted(_ facts: [LifeContextFact]) -> [LifeContextFact] {

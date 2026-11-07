@@ -114,4 +114,31 @@ final class AriaPersonalReadTests: XCTestCase {
         XCTAssertTrue(read.keepLight)
         XCTAssertEqual(read.swarmLine, "Protect today — recovery is asking.")
     }
+
+    func testScoutGapIsSpokenAndNeverFabricatesHRV() {
+        let scout = HealthScout.inspect(
+            samples: [],
+            connectedSources: ["whoop"],
+            expected: [.hrv],
+            day: Date()
+        )
+        let read = AriaPersonalRead.evaluate(
+            nightHours: nil,
+            deepMinutes: nil,
+            remMinutes: nil,
+            awakeMinutes: nil,
+            hrvMs: nil,
+            readiness: 70,
+            chronologicalAge: nil,
+            vo2Max: nil,
+            restingHR: nil,
+            scout: scout,
+            defaults: defaults
+        )
+        XCTAssertEqual(read.scoutGapLine, scout.ariaLine)
+        XCTAssertEqual(read.spokenGround, scout.ariaLine)
+        XCTAssertTrue(read.spokenGround?.contains("WHOOP") == true)
+        XCTAssertFalse(read.spokenGround?.contains("188") == true)
+        XCTAssertNil(read.hrvMs)
+    }
 }

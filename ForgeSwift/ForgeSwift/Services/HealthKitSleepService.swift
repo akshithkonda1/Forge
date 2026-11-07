@@ -614,12 +614,8 @@ final class HealthKitSleepService: ObservableObject {
 
     // MARK: - Environment (vision)
 
-    /// Sends a real photo of the room to `/sleep/environment-check`, which
-    /// now actually reads it (`BedrockGateway.converse` carries an image
-    /// content block; see `ai_router.py`). No fabricated readings — a nil
-    /// `environmentAssessment` after this call means the backend declined
-    /// (Bedrock off, or the call failed), and the card shows its local,
-    /// data-driven read instead rather than inventing a description of the room.
+    /// Room photos stay on this iPhone. The local environment read is the
+    /// product path — nothing is uploaded.
     func analyzeSleepEnvironment(image: UIImage) async {
         isAnalyzingEnvironment = true
         defer { isAnalyzingEnvironment = false }
@@ -629,29 +625,9 @@ final class HealthKitSleepService: ObservableObject {
             return
         }
 
-        do {
-            guard let url = URL(string: "sleep/environment-check", relativeTo: AriaService.shared.baseURL) else {
-                throw ForgeAPI.Failure.notConfigured
-            }
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.timeoutInterval = 30
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: ["image_base64": jpeg.base64EncodedString()])
-
-            let (data, _) = try await ForgeAPI.send(request)
-            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-            guard (json["available"] as? Bool) == true, let text = json["assessment"] as? String else {
-                environmentAssessment = Self.localEnvironmentRead(image: image)
-                environmentCheckError = nil
-                return
-            }
-            environmentAssessment = text
-            environmentCheckError = nil
-        } catch {
-            environmentAssessment = Self.localEnvironmentRead(image: image)
-            environmentCheckError = nil
-        }
+        _ = jpeg
+        environmentAssessment = Self.localEnvironmentRead(image: image)
+        environmentCheckError = nil
     }
 
     // MARK: - Profile

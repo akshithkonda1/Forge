@@ -176,7 +176,7 @@ struct SettingsPageView: View {
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("You'll need to sign in again. Health data stays on this iPhone.")
+            Text(ForgePrivacyCopy.healthStaysOnDevice)
         }
         .onChange(of: briefSettings) { _, updated in
             ForgePersistence.saveBriefNotificationSettings(updated)
@@ -195,7 +195,7 @@ struct SettingsPageView: View {
     private var localPrivacySheet: some View {
         NavigationStack {
             ScrollView {
-                Text("Forge keeps Apple Health data on this device — including Oura, Garmin, Watch, and any other wearable that writes to Apple Health. ARIA reads that ledger here and gives an opinion. Claude and Grok never receive the sample warehouse. Forge account storage is the user record, not your chart.")
+                Text(ForgePrivacyCopy.healthStaysOnDevice)
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
                     .forgeWrapping()

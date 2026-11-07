@@ -528,7 +528,7 @@ struct SleepData: Identifiable {
     var timeInBedMinutes: Int {
         let staged = deepMinutes + remMinutes + lightMinutes + awakeMinutes
         if staged > 0 { return staged }
-        return max(0, Int((totalHours * 60).rounded()))
+        return Self.minutes(fromHours: totalHours)
     }
 
     /// Percent of time in bed that was actually sleep.
@@ -538,8 +538,16 @@ struct SleepData: Identifiable {
         let stagedAsleep = deepMinutes + remMinutes + lightMinutes
         let asleep = stagedAsleep > 0
             ? stagedAsleep
-            : max(0, Int((totalHours * 60).rounded()) - awakeMinutes)
-        return min(100, max(0, Int((Double(min(asleep, bed)) / Double(bed) * 100).rounded())))
+            : max(0, Self.minutes(fromHours: totalHours) - awakeMinutes)
+        let ratio = Double(min(asleep, bed)) / Double(bed) * 100
+        guard ratio.isFinite else { return 0 }
+        return min(100, max(0, Int(ratio.rounded())))
+    }
+
+    /// `Int(hours * 60)` traps on NaN / ±inf — a night with no stage data can
+    /// arrive that way from HealthKit or a third-party writer.
+    static func minutes(fromHours hours: Double) -> Int {
+        SleepDebtMeter.minutesFromHours(hours)
     }
 
     /// Locale-aware clock time for onset or wake. Nights known only by duration have neither.

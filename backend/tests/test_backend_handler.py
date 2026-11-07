@@ -152,8 +152,9 @@ class IngestionRouteTests(unittest.TestCase):
 
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertEqual(payload["accepted"], 1)
-        self.assertEqual(payload["rejected"], 0)
+        self.assertEqual(payload["accepted"], 0)
+        self.assertEqual(payload["rejected"], 1)
+        self.assertIn("Health data always stays on device", payload["errors"][0]["message"])
 
     def test_health_batch_non_numeric_value_does_not_crash_batch(self):
         # normalize_metric used to do `value * factor` unconditionally for a
@@ -182,8 +183,8 @@ class IngestionRouteTests(unittest.TestCase):
 
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertEqual(payload["accepted"], 1)
-        self.assertEqual(payload["rejected"], 0)
+        self.assertEqual(payload["accepted"], 0)
+        self.assertEqual(payload["rejected"], 1)
 
     def test_health_batch_rejects_unknown_metric_type(self):
         response = handler(
@@ -293,13 +294,14 @@ class IntegrationSyncTests(unittest.TestCase):
     def setUp(self):
         dynamodb_store.clear_local_store()
 
-    def test_sync_known_provider_queues_job(self):
+    def test_sync_known_provider_finishes_terminal(self):
         response = handler(event("POST", "/integrations/oura/sync", {}), None)
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
         self.assertEqual(payload["provider"], "oura")
-        self.assertEqual(payload["status"], "queued")
+        self.assertEqual(payload["status"], "error")
         self.assertEqual(len(payload["jobId"]), 16)
+        self.assertIn("not implemented", payload["errorMessage"].lower())
 
     def test_sync_unknown_provider_rejected(self):
         response = handler(event("POST", "/integrations/myspace/sync", {}), None)
@@ -920,8 +922,9 @@ class UnexpectedErrorBoundaryTests(unittest.TestCase):
         # The client is told nothing about what broke.
         self.assertNotIn("dynamodb", response["body"].lower())
         self.assertNotIn("KeyError", response["body"])
-        # The operator is.
+        # The operator gets a sanitized summary, not a traceback.
         self.assertTrue(any("dynamodb" in line for line in logs.output))
+        self.assertFalse(any("Traceback" in line for line in logs.output))
 
     def test_boundary_survives_a_context_without_a_request_id(self):
         from routes import profile as profile_routes

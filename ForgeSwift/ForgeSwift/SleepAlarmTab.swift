@@ -50,8 +50,9 @@ final class ForgeAlarmStore: ObservableObject {
             routine = RoutineItem.defaults
         }
         SleepAlarmScheduler.registerCategories()
-        // Schedule only. `arm` no longer presents the permission sheet.
-        Task { await SleepAlarmScheduler.sync(alarms) }
+        // Launch must not show the system permission sheet. Sleep tab
+        // onAppear / persistAndSchedule pass promptIfUndetermined: true.
+        Task { await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: false) }
     }
 
     func upsert(_ alarm: ForgeAlarm) {
@@ -107,7 +108,7 @@ final class ForgeAlarmStore: ObservableObject {
         if let data = try? JSONEncoder().encode(alarms) {
             defaults.set(data, forKey: alarmsKey)
         }
-        Task { await SleepAlarmScheduler.sync(alarms) }
+        Task { await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: true) }
     }
 }
 
@@ -138,18 +139,38 @@ enum SleepAlarmScheduler {
         center.setNotificationCategories([category])
     }
 
-    static func sync(_ alarms: [ForgeAlarm]) async {
-        let health = await arm(alarms)
+    static func sync(_ alarms: [ForgeAlarm], promptIfUndetermined: Bool = false) async {
+        let health = await arm(alarms, promptIfUndetermined: promptIfUndetermined)
         await MainActor.run { ForgeAlarmStore.shared.delivery = health }
     }
 
     /// Schedules every enabled alarm, then fail-closes if iPhone cannot deliver.
-    /// Never presents the system permission sheet — a fresh install used to
-    /// ask from `ForgeAlarmStore` init during the launch splash.
-    private static func arm(_ alarms: [ForgeAlarm]) async -> SleepAlarmDelivery {
-        let settings = await center.notificationSettings()
-        let authorization = settings.authorizationStatus
-        let timeSensitive = settings.timeSensitiveSetting
+    /// Launch / leftover prep pass `promptIfUndetermined: false` so a fresh
+    /// simulator install does not sit on the system sheet until first-frame
+    /// and the prep watchdog expire.
+    private static func arm(
+        _ alarms: [ForgeAlarm],
+        promptIfUndetermined: Bool
+    ) async -> SleepAlarmDelivery {
+        var authError: String?
+        var authorization = await center.notificationSettings().authorizationStatus
+        if ForgeNotificationScheduler.authorizationIntent(
+            status: authorization,
+            promptIfUndetermined: promptIfUndetermined
+        ) == .prompt {
+            do {
+                _ = try await center.requestAuthorization(
+                    options: SleepAlarmAppleAPI.authorizationOptions
+                )
+            } catch {
+                authError = error.localizedDescription
+                print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
+            }
+        }
+
+        let afterAsk = await center.notificationSettings()
+        authorization = afterAsk.authorizationStatus
+        let timeSensitive = afterAsk.timeSensitiveSetting
         let expected = SleepAlarmScheduleMath.expectedPendingCount(in: alarms)
 
         let pending = await center.pendingNotificationRequests()
@@ -168,9 +189,9 @@ enum SleepAlarmScheduler {
         }
 
         let windows: [UUID: Int] = await MainActor.run {
-            Dictionary(uniqueKeysWithValues: alarms.map { alarm in
+            Dictionary(alarms.map { alarm in
                 (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: ForgeAlarmStore.shared.sleeperDepth))
-            })
+            }, uniquingKeysWith: { first, _ in first })
         }
 
         var addFailures = 0
@@ -512,7 +533,7 @@ struct AlarmTab: View {
             .forgeScreenInsets(top: ForgeLayout.screenTop)
         }
         .onAppear {
-            Task { await SleepAlarmScheduler.sync(store.alarms) }
+            Task { await SleepAlarmScheduler.sync(store.alarms, promptIfUndetermined: true) }
         }
         .sheet(isPresented: $showEditor) {
             if let alarm = editingAlarm {

@@ -216,13 +216,13 @@ class IngestedMetricsTests(_EnvCase):
             {"metricType": "resting-heart-rate", "source": "oura",
              "startedAt": f"{day}T06:00:00+00:00", "value": 54, "unit": "bpm"},
         ])
-        self.assertEqual(result["accepted"], 3)
+        self.assertEqual(result["accepted"], 0)
+        self.assertEqual(result["rejected"], 3)
 
         metrics = body_of(handler(event("GET", "/dashboard/today"), None))["dailyMetrics"]
-        self.assertEqual(metrics["steps"], 4210)
-        self.assertEqual(metrics["hrv"], 61)
-        self.assertEqual(metrics["restingHR"], 54)
-        self.assertEqual(metrics["sources"], ["apple-health", "oura"])
+        self.assertIsNone(metrics["steps"])
+        self.assertIsNone(metrics["hrv"])
+        self.assertIsNone(metrics["restingHR"])
 
     def test_cumulative_counters_take_the_peak_not_the_sum(self):
         """A source re-uploading a running day total must not multiply it."""
@@ -236,7 +236,7 @@ class IngestedMetricsTests(_EnvCase):
              "startedAt": f"{day}T18:00:00+00:00", "value": 8100, "unit": "count"},
         ])
         metrics = body_of(handler(event("GET", "/dashboard/today"), None))["dailyMetrics"]
-        self.assertEqual(metrics["steps"], 8100)
+        self.assertIsNone(metrics["steps"])
 
     def test_instantaneous_readings_are_averaged(self):
         day = self._today()
@@ -247,7 +247,7 @@ class IngestedMetricsTests(_EnvCase):
              "startedAt": f"{day}T07:00:00+00:00", "value": 60, "unit": "ms"},
         ])
         metrics = body_of(handler(event("GET", "/dashboard/today"), None))["dailyMetrics"]
-        self.assertEqual(metrics["hrv"], 55)
+        self.assertIsNone(metrics["hrv"])
 
     def test_sleep_minutes_come_from_the_logged_night(self):
         day = self._today()
@@ -263,8 +263,14 @@ class IngestedMetricsTests(_EnvCase):
              "startedAt": f"{day}T09:00:00+00:00", "value": 100, "unit": "count"},
         ])
         metrics = body_of(handler(event("GET", "/dashboard/today"), None))["dailyMetrics"]
-        self.assertEqual(metrics["deepSleep"], 71)
-        self.assertEqual(metrics["totalSleep"], 390)
+        # /health/batch no longer seeds METRIC#, so dashboard dailyMetrics
+        # stay empty. The sleep session itself is still listed on /sleep.
+        self.assertIsNone(metrics["steps"])
+        self.assertIsNone(metrics["deepSleep"])
+        self.assertIsNone(metrics["totalSleep"])
+        listed = body_of(handler(event("GET", "/sleep", query={"days": "5"}), None))["sleep"]
+        self.assertEqual(listed[0]["deepMinutes"], 71)
+        self.assertEqual(listed[0]["totalHours"], 6.5)
 
 
 class ProductionProfileTests(_EnvCase):

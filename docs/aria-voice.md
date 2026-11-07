@@ -1,107 +1,104 @@
 # ARIA voice
 
-One provider. One speak path. Voice profiles are how ARIA sounds — not who
-she is.
+The mouth is **Kokoro-82M on this iPhone**. There is no fallback chain.
+Fish, Polly, and ElevenLabs are not on the runtime path. TTS text never
+leaves the phone. This replaces the Fish-preferred stack on PR #496.
 
 ## Architecture
 
-Fish Audio is the only TTS. The ElevenLabs ConvAI path
-(`elevenlabs_voice.py`, `/ai/voice/bootstrap`, `/ai/voice/tool`,
-`/ai/voice/design`) is removed. The Hex alias `/ai/voice/fish-tts` is
-removed. Clients speak through:
-
 | Method | Path | Role |
 | --- | --- | --- |
-| `GET` | `/ai/voice` | Featured profiles + Fish library page |
-| `PUT` | `/ai/voice` | Persist the selected voice on the account |
-| `POST` | `/ai/voice/speak` | Already-guarded prose → `{format, model, audio_base64, voice_id}` |
+| `GET` | `/ai/voice` | Shipped Kokoro presets + the account selection |
+| `PUT` | `/ai/voice` | Persist the selected Kokoro preset |
+| `POST` | `/ai/voice/speak` | **Gone.** Hex does not synthesize speech. |
 
-The Fish key stays on Lambda (`FISH_AUDIO_API_KEY`). The phone never
-receives it. Dummy / on-device speech stays the default until
-`ARIA_FISH_VOICE_ENABLED` is truthy.
+The phone never receives a vendor TTS key. Dummy / local testing /
+dummy-offline / live all use the same on-device engine. If Kokoro cannot
+load, the line stays on screen and the failure is logged locally. There
+is no Apple-voice fallback.
 
 Speak does not fuse, remember, observe, or touch personality
-(Coach / Friend / Drill Sergeant). Safety rails are unchanged.
+(Coach / Friend / Drill Sergeant). Safety rails are unchanged. Bedrock
+stays off.
 
-## Model
+## Mouth
 
-Exact API ids from [Fish models](https://docs.fish.audio/developer-guide/models-pricing/models-overview)
-and [pricing](https://docs.fish.audio/developer-guide/models-pricing):
+`services/voice_provider.py` always returns `kokoro`. Cloud flags are
+ignored.
 
-| Spoken name | API id | Price | Default |
-| --- | --- | --- | --- |
-| S2.1 Pro (free) | `s2.1-pro-free` | $0 | Yes |
-| S2.1 Pro | `s2.1-pro` | $15 / M UTF-8 bytes | Off |
+1. **Kokoro-82M** — the only mouth. Preset voices only. ARIA's locked
+   preset is `af_heart` (Warm).
+2. **Load failure** — show the text. Log locally. Do not switch voices.
 
-`FISH_AUDIO_USE_PAID=true` (or `FISH_AUDIO_MODEL=s2.1-pro`) is the single
-server-side switch to the paid id. It is off by default.
+## Package and licenses
 
-`s1` (OpenAudio S1) is deprecated and retires 31 Dec 2026. This stack
-never selects it. Fish speech-to-text (`transcribe-1-pro`) is a different
-product and is not this mouth.
+| Piece | Source | License |
+| --- | --- | --- |
+| Weights | [hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) | Apache-2.0 |
+| Swift / Core ML package | [mattmireles/kokoro-coreml](https://github.com/mattmireles/kokoro-coreml) (`KokoroTTS`) | Apache-2.0 |
+| G2P assets | FluidInference/kokoro-82m-coreml | Apache-2.0 |
 
-The model header is sent on TTS (`POST https://api.fish.audio/v1/tts`)
-and on the voice list (`GET https://api.fish.audio/model`).
+The package is iOS 18+ / macOS 15+, Apple Silicon. WatchOS is not
+supported, so ForgeCore does not link it. The iOS target uses
+`#if canImport(KokoroTTS)` and a bundled starter model. Hugging Face is
+never contacted at speak time.
 
-## Voice list
+## App-size impact
 
-The backend fetches Fish's model/voice listing with the server key,
-caches it in-process for 15 minutes, and pages at most four pages of 50.
-Clients may filter with `?q=` and page with `?page=` / `?page_size=`.
+| Bundle | Size | What it includes |
+| --- | --- | --- |
+| Starter | ~210 MB | `af_heart` + one 15 s bucket |
+| Full voice set | larger | Not shipped |
 
-If Fish is down, unconfigured, or the flag is off, `GET /ai/voice`
-returns `source: fallback`: featured recipes with no voice ids, and speak
-uses Fish's default voice (no `reference_id`). No placeholder ids are
-hardcoded.
+The starter bundle is lazy-loaded on first speak. It is not downloaded
+in Dummy / offline. If the bundle is missing (CI, a fresh simulator),
+speak fails quietly.
 
-## Featured profiles
+## Featured presets
 
-A small curated set sits on top of the full library. Each row is a trait
-recipe. Live `voice_id` values are matched from the Fish list (title /
-tags / description). Character-like rows are original voices described
-by traits. UI names must not use trademarked characters or real actors.
+| Recipe | Kokoro id | Notes |
+| --- | --- | --- |
+| Warm (ARIA) | `af_heart` | Locked default |
+| Calm | `am_michael` | Even, low |
+| Neutral | `af_sarah` | Clear |
+| Spark | `af_aoede` | Brighter |
+| Ember | `af_bella` | Blunt, confident |
 
-| id | UI name | Traits | Speed |
-| --- | --- | --- | --- |
-| `warm` | Warm | Close, unhurried, a woman in the room | 1.00 |
-| `calm` | Calm | Even, low, a man who is not in a hurry | 0.95 |
-| `neutral` | Neutral | Clear and even, not styled as a man or a woman | 1.00 |
-| `spark` | Spark | Brighter, a little faster | 1.08 |
-| `ember` | Ember | Blunt, gruff, confident young tomboy coach | 1.05 |
+UI names must not use trademarked characters. No cloning. No custom
+uploads.
 
-Inspiration for Ember (docs only, never in UI): a blunt earthbender
-energy in the spirit of Toph from Avatar — an original Fish voice, not a
-clone and not that name.
+## Zero leakage
 
-Featured matching skips titles/tags that look like a cloned character
-(including "Toph" / "Avatar"). The full library is still listed as Fish
-returns it.
+Text is still sanitized (`services/tts_privacy.py`, `AriaTTSPrivacy`)
+so a future leak toward a cloud TTS API fails closed. Names, emails,
+phones, street addresses, and health-metric numbers never appear in a
+vendor URL, header, body, or log. The runtime never posts TTS.
 
-## Settings
+## Config
 
-The picker lives in Settings next to ARIA personality / Aria's memory.
-Choosing a profile persists to the account (`ARIA#VOICE_PROFILE`) and
-applies to the next spoken reply — no restart. A short sample uses
-`POST /ai/voice/speak` with `preview: true`.
+There are no live Fish / Polly / ElevenLabs switches. Those env names
+are unused. `FISH_AUDIO_*` and `ELEVENLABS_*` are not loaded from
+Secrets Manager. `generate_client_config` still refuses to ship those
+markers in Info-Add.plist.
 
-Personality and voice are independent. Changing Ember does not change
-Coach / Friend / Drill Sergeant, and the reverse is also true.
+This PR does not enable Bedrock and does not apply Terraform.
 
-## Busy slot
+## Dummy / offline / over-quota
 
-Starter allows 5 concurrent Fish requests and returns `429` with no
-`Retry-After`. Speak retries with exponential backoff (0.25s, 0.5s, 1s)
-and then returns `fish_voice_busy`: "Voice is busy. The text reply is
-shown." The chat line is already on screen.
+Kokoro only. No network. Tests patch `socket` closed around catalog and
+the retired speak route.
 
-## What was removed
+## What PR #480 already removed
 
-- `backend/infra/lambda/services/elevenlabs_voice.py`
-- `GET /ai/voice/bootstrap`
-- `POST /ai/voice/tool`
-- `POST /ai/voice/design`
-- `POST /ai/voice/fish-tts`
+- ConvAI routes: `/ai/voice/bootstrap`, `/ai/voice/tool`, `/ai/voice/design`
+- Hex alias `/ai/voice/fish-tts`
 
-Terraform still has unused ElevenLabs SSM parameter names. This PR does
-not apply AWS / Terraform changes. The owner can drop those parameters
-in a later infra PR.
+This PR also removes `POST /ai/voice/speak`.
+
+## Open question for Akshith
+
+Keeping the iOS system voice as an **emergency-only** fallback (Kokoro
+failed to load, user still wants to hear the line) is **not** in this
+PR. The current behavior matches the ask: fail quietly and show the
+text. Worth a one-line decision if silent Dummy-offline on a device
+without the 210 MB bundle is too quiet for TestFlight.

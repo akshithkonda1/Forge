@@ -68,9 +68,9 @@ final class TrainSleepUsableTests: XCTestCase {
         ctx.hrZone = 3
         ctx.spO2 = 97
         let measured = ARIACoachService.payload(for: ctx)
-        XCTAssertEqual(measured["heartRate"] as? Int, 142)
-        XCTAssertEqual(measured["hrZone"] as? Int, 3)
-        XCTAssertEqual(measured["spO2"] as? Int, 97)
+        XCTAssertNil(measured["heartRate"])
+        XCTAssertNil(measured["hrZone"])
+        XCTAssertNil(measured["spO2"])
     }
 
     func testHeartRateFromBeforeTheSessionIsNotLive() {

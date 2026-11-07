@@ -34,7 +34,7 @@ class CycleReportUploadTests(unittest.TestCase):
         now = datetime(2026, 9, 5, 12, 0, tzinfo=timezone.utc)
         response = cycle_routes.handle_post_cycle_report_upload(
             "user-abc",
-            {"contentType": "application/pdf", "byteLength": 12_000, "windowMonths": 12},
+            {"contentType": "application/octet-stream", "encrypted": True, "byteLength": 12_000, "windowMonths": 12},
             s3_client=fake,
             bucket_name="forge-uploads-test",
             now=now,
@@ -42,7 +42,9 @@ class CycleReportUploadTests(unittest.TestCase):
         self.assertEqual(response["statusCode"], 200)
         payload = json.loads(response["body"])
         self.assertTrue(payload["objectKey"].startswith("cycle-reports/user-abc/"))
-        self.assertTrue(payload["objectKey"].endswith(".pdf"))
+        self.assertTrue(payload["objectKey"].endswith(".bin"))
+        self.assertEqual(fake.calls[0][1]["ContentType"], "application/octet-stream")
+        self.assertEqual(fake.calls[0][1]["ServerSideEncryption"], "aws:kms")
         self.assertEqual(payload["expiresAt"], "2026-09-06T12:00:00Z")
         self.assertEqual(payload["expiresInSeconds"], 24 * 60 * 60)
         methods = [c[0] for c in fake.calls]
@@ -54,14 +56,14 @@ class CycleReportUploadTests(unittest.TestCase):
         with self.assertRaises(RouteError) as too_wide:
             cycle_routes.handle_post_cycle_report_upload(
                 "user-abc",
-                {"contentType": "text/plain", "byteLength": 100},
+                {"contentType": "application/pdf", "byteLength": 100},
                 s3_client=fake,
             )
         self.assertEqual(too_wide.exception.status_code, 400)
         with self.assertRaises(RouteError) as huge:
             cycle_routes.handle_post_cycle_report_upload(
                 "user-abc",
-                {"contentType": "application/pdf", "byteLength": 9_000_000},
+                {"contentType": "application/octet-stream", "encrypted": True, "byteLength": 9_000_000},
                 s3_client=fake,
             )
         self.assertEqual(huge.exception.status_code, 400)
@@ -70,7 +72,7 @@ class CycleReportUploadTests(unittest.TestCase):
         # Anonymous test principal is allowed in this env, but the path must exist.
         os.environ["UPLOADS_BUCKET_NAME"] = ""
         response = handler(
-            event("POST", "/cycle/report-upload", {"contentType": "application/pdf", "byteLength": 100}),
+            event("POST", "/cycle/report-upload", {"contentType": "application/octet-stream", "encrypted": True, "byteLength": 100}),
             None,
         )
         self.assertEqual(response["statusCode"], 503)

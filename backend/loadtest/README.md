@@ -70,7 +70,7 @@ k6 archive backend/loadtest/k6/baseline.js -O /tmp/forge-loadtest-baseline.tar
 - `urllib.request.urlopen` to `*.elevenlabs.io` increments `elevenlabs_http` and raises
 - `urllib.request.urlopen` to `*.elevenlabs.io` still increments `elevenlabs_http` (legacy host block)
 - `urllib.request.urlopen` to `*.fish.audio` increments `fish_audio_http` and raises
-- `services.fish_audio_voice` speak/synthesize/catalog helpers increment `fish_audio_api` and raises
+- Fish / ElevenLabs service modules are gone; the host blocks stay as tripwires
 
 This is loadtest-only. Production paths are unchanged.
 

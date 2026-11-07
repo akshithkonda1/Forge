@@ -212,6 +212,12 @@ def collect_needles(payload: dict[str, Any], message: str) -> list[str]:
     blob = json.dumps(payload, default=str) + " " + str(message or "")
     for match in _PARTNER_NEEDLE.finditer(blob):
         needles.append(match.group(0))
+    try:
+        from backend.ai.simrunner.aria_simrunner import dummy_privacy
+
+        needles.extend(dummy_privacy.needles_from_context(None, payload if isinstance(payload, dict) else {}))
+    except Exception:
+        pass
     seen: set[str] = set()
     out: list[str] = []
     for item in needles:
@@ -276,6 +282,23 @@ def _drop_memory_keys(value: Any) -> Any:
     return value
 
 
+# Needles must never rewrite identity / replay fields. Health values like
+# "44" or "70" routinely appear inside a uuid hex suffix on turn_id.
+_SCRUB_KEEP = frozenset({
+    "turn_id",
+    "session_id",
+    "engine",
+    "commit_sha",
+    "seed",
+    "turn_seed",
+    "user_turn_key",
+    "schema_version",
+    "install_pseudonym",
+    "turn",
+    "context_snapshot_ref",
+})
+
+
 def _scrub_obj(value: Any, needles: list[str]) -> Any:
     value = _drop_memory_keys(value)
     if isinstance(value, str):
@@ -283,7 +306,14 @@ def _scrub_obj(value: Any, needles: list[str]) -> Any:
     if isinstance(value, list):
         return [_scrub_obj(item, needles) for item in value]
     if isinstance(value, dict):
-        return {str(k): _scrub_obj(v, needles) for k, v in value.items()}
+        cleaned: dict[str, Any] = {}
+        for key, item in value.items():
+            name = str(key)
+            if name in _SCRUB_KEEP:
+                cleaned[name] = item
+            else:
+                cleaned[name] = _scrub_obj(item, needles)
+        return cleaned
     return value
 
 
@@ -598,6 +628,9 @@ def build_record(
     }
     cleaned = _scrub_obj(record, found)
     cleaned.update(replay)
+    # Identity fields stay literal even when a health needle is a substring.
+    cleaned["session_id"] = session_id
+    cleaned["turn_id"] = turn_id
     return cleaned
 
 
@@ -666,7 +699,11 @@ def set_feedback(
             if note_clean is not None:
                 feedback["note"] = note_clean
             row["feedback"] = feedback
+            kept_turn = row.get("turn_id")
+            kept_session = row.get("session_id")
             row = _scrub_obj(row, list(needles or []))
+            row["turn_id"] = kept_turn
+            row["session_id"] = kept_session
             updated = row
             out.append(json.dumps(row, ensure_ascii=False))
             changed = True

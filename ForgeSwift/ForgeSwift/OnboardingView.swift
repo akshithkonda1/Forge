@@ -18,7 +18,6 @@ struct OnboardingView: View {
                     .forgeTransition(.scale(scale: 0.96).combined(with: .opacity))
             } else if coordinator.isPrepping || store.needsForgePrep {
                 AriaForgePrepView(coordinator: coordinator)
-                    .transition(.opacity)
             } else {
                 AriaInterviewLayout(coordinator: coordinator) {
                     coordinator.complete(in: store)

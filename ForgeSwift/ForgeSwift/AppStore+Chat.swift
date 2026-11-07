@@ -289,7 +289,7 @@ extension AppStore {
         return AriaIntentInput(
             text: text,
             readiness: readiness.overall > 0 ? readiness.overall : nil,
-            sleepMinutesLastNight: lastNight.map { Int(($0.totalHours * 60).rounded()) },
+            sleepMinutesLastNight: lastNight.map { SleepData.minutes(fromHours: $0.totalHours) },
             consecutiveShortNights: shortRun,
             hasSessionLoggedToday: workoutHistory.contains { $0.date.hasPrefix(todayKey) },
             cycleTrackingAvailable: AriaCoachAgentRouter.cycleAvailable(),

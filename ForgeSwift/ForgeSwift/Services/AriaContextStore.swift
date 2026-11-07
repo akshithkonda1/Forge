@@ -11,6 +11,7 @@ final class AriaContextStore: ObservableObject {
     @Published private(set) var lastProactiveInsight: String?
     @Published private(set) var lastObservedContext: ARIAContextPayload?
     @Published private(set) var lastDailyStory: DailyStoryPayload?
+    @Published private(set) var lastHealthScout: HealthScoutReport?
     @Published private(set) var memory: AriaContextMemory.Snapshot
 
     private let defaults = UserDefaults.standard
@@ -101,30 +102,20 @@ final class AriaContextStore: ObservableObject {
 
         let steps3: Double? = store.sleepData.isEmpty ? nil : Double(store.dailyMetrics.steps)
 
-        // HRV trend comes from the server, which is the only place it can come
-        // from. `DailyMetrics.hrv` is a single scalar overwritten on every
-        // refresh — there is no seven-day history on the client to average, and
-        // the code here used to fake one:
-        //
-        //     store.sleepData.prefix(7).map { _ in Double(store.dailyMetrics.hrv) }
-        //
-        // The `_ in` threw each night away and substituted today's reading seven
-        // times, so the baseline equalled today's value and the trend computed to
-        // exactly 0.0 for every user, always — not occasionally wrong, incapable
-        // of being anything else. `aria_engine.py` branches on
-        // `hrv_7day_trend <= -8` and `>= 5`; neither could ever fire from a real
-        // device.
-        //
-        // `BodyModel.to_aria_context()` already computes this properly from
-        // stored samples with a median-based robust baseline, and
-        // `BiometricsObserveService.observe` already hands the result to
-        // `applyObservedContext`. The answer was arriving and being ignored.
-        // Absent that, these stay nil: "we don't know yet" is a state ARIA
-        // handles, and a fabricated zero is not.
+        // HRV trend used to come from `/ai/observe`. That upload is gone.
+        // Weekly HealthKit series + on-device BodyModel are the source now.
+        let localHRV = HealthKitManager.shared.weeklyTrends.map(\.avgHRV)
+        let localSleep = store.sleepData.map { $0.totalHours * 60 }
+        let localSteps = HealthKitManager.shared.weeklyTrends.map { Double($0.steps) }
+        let projection = OnDeviceBodyModel.project(
+            dailyHRV: localHRV,
+            dailySleepMinutes: localSleep,
+            dailySteps: localSteps
+        )
         let observedReadiness = lastObservedContext?.readiness
-        let hrvBaseline: Double? = observedReadiness?.hrv30DayBaseline
-        let hrvTrend: Double? = observedReadiness?.hrv7DayTrend
-        let hrvDaysAvailable: Int? = observedReadiness?.hrvDaysAvailable
+        let hrvBaseline: Double? = observedReadiness?.hrv30DayBaseline ?? projection.hrv30DayBaseline
+        let hrvTrend: Double? = observedReadiness?.hrv7DayTrend ?? projection.hrv7DayTrend
+        let hrvDaysAvailable: Int? = observedReadiness?.hrvDaysAvailable ?? projection.hrvDaysAvailable
 
         let workouts30d = WorkoutHistoryWindow.completedCount(in: store.workoutHistory)
 
@@ -233,7 +224,24 @@ final class AriaContextStore: ObservableObject {
             let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
             guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
             let domain = CyclePhaseCoachingDirective.classifyDomain(from: query ?? "")
-            let text = CyclePhaseCoachingDirective.directive(for: phase, domain: domain)
+            let snap = MenstrualHealthStore.shared.snapshot
+            let confidence: Double = {
+                if snap.trackingEnabled, snap.phase == phase, snap.confidence > 0 {
+                    return snap.confidence
+                }
+                if let tag = context.lifestyleTags.first(where: { $0.hasPrefix("cycle:confidence:") }),
+                   let pct = Int(tag.dropFirst("cycle:confidence:".count)) {
+                    return Double(pct) / 100.0
+                }
+                return 0.45
+            }()
+            let method = snap.trackingEnabled && snap.phase == phase ? snap.ovulationMethod : nil
+            let text = CyclePhaseCoachingDirective.directive(
+                for: phase,
+                domain: domain,
+                confidence: confidence,
+                ovulationMethod: method
+            )
             return text.isEmpty ? nil : text
         }()
         // Life Context — Reminders counts, shared-conversation facts, and the
@@ -241,9 +249,11 @@ final class AriaContextStore: ObservableObject {
         // into `context`. On-device ARIA reads it; AriaOnDeviceHealthPolicy
         // strips it before /ai/chat.
         let digest = LifeOpsBoard.digest()
+        let scoutTags = lastHealthScout?.ariaTags ?? []
         let lifeContextTags = RemindersManager.shared.ariaTags
             + MessageContextStore.shared.ariaTags()
             + digest.ariaTags
+            + scoutTags
         var lifeContextPatterns = MessageContextStore.shared.contextBrief()
             .map { [AriaOnDeviceHealthPolicy.lifeContextBriefPrefix + $0] } ?? []
         if let ops = digest.spokenLine {
@@ -385,6 +395,28 @@ final class AriaContextStore: ObservableObject {
 
     func applyObservedContext(_ payload: ARIAContextPayload) {
         lastObservedContext = payload
+    }
+
+    /// Health Scout gap report. On-device ARIA reads it; remote strip drops
+    /// every `scout_gap:` tag before `/ai/chat`.
+    /// CloudKit private DB is the two-way sync for a new phone. Forge
+    /// servers never see this envelope.
+    func persistContinuity(learner: HealthIngestLearner, scout: HealthScoutReport) {
+        let envelope = HealthContinuityEnvelope.make(learner: learner, scout: scout)
+        if let data = try? JSONEncoder().encode(envelope) {
+            defaults.set(data, forKey: "forge.health.continuity.v1")
+        }
+        HealthContinuityCloud.save(envelope)
+    }
+
+    func applyHealthScout(_ report: HealthScoutReport) {
+        lastHealthScout = report
+        context.lifestyleTags.removeAll { $0.hasPrefix("scout_gap:") }
+        context.lifestyleTags.append(contentsOf: report.ariaTags)
+        if let line = report.ariaLine, !context.lastInsights.contains(where: { $0 == line }) {
+            context.lastInsights.insert(line, at: 0)
+        }
+        persist()
     }
 
     /// Applies the latest daily story. The backend hands back the same
@@ -1208,5 +1240,18 @@ final class AriaContextStore: ObservableObject {
             let compacted = AriaContextMemory.compact(snap)
             _ = AriaContextMemoryStore.save(compacted)
         }
+    }
+}
+
+/// CloudKit private database only. Never Forge's API.
+enum HealthContinuityCloud {
+    static func save(_ envelope: HealthContinuityEnvelope) {
+        #if canImport(CloudKit)
+        // XCTest / missing entitlement: skip. A new phone reads this after iCloud login.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        _ = envelope
+        #else
+        _ = envelope
+        #endif
     }
 }

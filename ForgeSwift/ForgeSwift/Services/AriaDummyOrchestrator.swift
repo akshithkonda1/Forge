@@ -1146,12 +1146,17 @@ enum AriaDummyOrchestrator {
         let nightHours = grounding.sleepHours
             ?? night?.totalHours
             ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
-        let hrv = grounding.hrvMs.map(Double.init)
-            ?? (store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil)
+        let scout = AriaContextStore.shared.lastHealthScout
+        let open = Set(scout?.openGaps.map(\.field) ?? [])
+        let hrv = open.contains("hrv")
+            ? nil
+            : (grounding.hrvMs.map(Double.init)
+                ?? (store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil))
         let rhr = grounding.restingHR.map(Double.init)
             ?? (store.dailyMetrics.restingHR > 0 ? Double(store.dailyMetrics.restingHR) : nil)
+        let honestNight = open.contains("sleep") ? nil : nightHours
         return AriaPersonalRead.evaluate(
-            nightHours: nightHours,
+            nightHours: honestNight,
             deepMinutes: grounding.deepMinutes.map(Double.init)
                 ?? night.map { Double($0.deepMinutes) },
             remMinutes: night.map { Double($0.remMinutes) },
@@ -1161,7 +1166,8 @@ enum AriaDummyOrchestrator {
             chronologicalAge: store.userProfile.age.map(Double.init).flatMap { $0 > 12 ? $0 : nil },
             vo2Max: nil,
             restingHR: rhr,
-            swarm: swarm
+            swarm: swarm,
+            scout: scout
         )
     }
 

@@ -27,8 +27,8 @@ function SettingsRowStub({
 
 describe("AriaVoicePicker", () => {
   it("switching profile changes the next speak request voice id", () => {
-    const warm = { ...ARIA_VOICE_RECIPES[0], voiceId: "voice-warm-1" };
-    const ember = { ...ARIA_VOICE_RECIPES[4], voiceId: "voice-ember-1" };
+    const warm = ARIA_VOICE_RECIPES[0];
+    const ember = ARIA_VOICE_RECIPES[4];
     const onSelect = vi.fn();
 
     render(
@@ -44,7 +44,8 @@ describe("AriaVoicePicker", () => {
     const next = onSelect.mock.calls[0][0];
     expect(next.profileId).toBe("ember");
     const body = speakRequestBody("I'm ARIA.", applyVoiceProfile({}, ember));
-    expect(body.voice_id).toBe("voice-ember-1");
-    expect(body.voice_id).not.toBe("voice-warm-1");
+    expect(body.voice_id).toBe("af_bella");
+    expect(body.voice_id).not.toBe("af_heart");
+    expect(body.text).toBeUndefined();
   });
 });

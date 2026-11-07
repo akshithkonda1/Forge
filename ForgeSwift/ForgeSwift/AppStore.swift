@@ -12,7 +12,13 @@ final class AppStore: ObservableObject {
     
     // Onboarding
     @Published var isOnboarded: Bool = false {
-        didSet { UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey) }
+        didSet {
+            UserDefaults.standard.set(isOnboarded, forKey: Self.onboardedDefaultsKey)
+            // simctl `defaults read` sees the on-disk plist. Without a
+            // flush the launch-stability prep watchdog keeps reading the
+            // pre-launch handoff flags for tens of seconds.
+            UserDefaults.standard.synchronize()
+        }
     }
     @Published var onboardingStep: Int = 0
 
@@ -144,13 +150,13 @@ final class AppStore: ObservableObject {
     @Published var notificationSettings: AppNotificationSettings = ForgePersistence.loadNotificationSettings() {
         didSet {
             ForgePersistence.saveNotificationSettings(notificationSettings)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfUndetermined: true) }
         }
     }
     @Published var briefNotificationsEnabled: Bool = ForgePersistence.loadBriefNotificationsEnabled() {
         didSet {
             ForgePersistence.saveBriefNotificationsEnabled(briefNotificationsEnabled)
-            Task { await resyncNotifications() }
+            Task { await resyncNotifications(promptIfUndetermined: true) }
         }
     }
     @Published var nutritionPreferences: NutritionPreferences = ForgePersistence.loadNutritionPreferences() {
@@ -326,24 +332,13 @@ final class AppStore: ObservableObject {
     // MARK: - Initialization
     
     init() {
-        // Initialize AI response generator
-        //
-        // Simulator has no model catalog (see FoundationModelsResponseGenerator's
-        // own init comment) — merely evaluating `SystemLanguageModel.default`
-        // there, which happens as soon as FoundationModelsResponseGenerator is
-        // constructed, has been reported to trap rather than return
-        // `.unavailable` on some OS/Simulator combinations. Skip constructing it
-        // in Simulator builds entirely rather than relying on `isAvailable` to
-        // fail gracefully after the fact.
-        #if canImport(FoundationModels) && !targetEnvironment(simulator)
-        let foundationModelsGenerator = FoundationModelsResponseGenerator()
-        self.aiModelAvailable = foundationModelsGenerator.isAvailable
-        self.responseGenerator = foundationModelsGenerator.isAvailable ?
-            foundationModelsGenerator : RuleBasedResponseGenerator()
-        #else
+        // First frame always gets the rule-based generator. Evaluating
+        // `SystemLanguageModel.default` in FoundationModelsResponseGenerator
+        // can trap or stall launch; probe it after paint, never in init.
         self.responseGenerator = RuleBasedResponseGenerator()
         self.aiModelAvailable = false
-        #endif
+        AriaForgePrep.markProcessStart()
+        AriaForgePrep.bindLeftoverStore(self)
         
         AriaContextStore.shared.configure()
         AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
@@ -351,13 +346,16 @@ final class AppStore: ObservableObject {
         // Restore persisted onboarding so a returning user skips setup entirely.
         restoreOnboardingState()
 
-        // Chat transcript is restored synchronously so the first render of
-        // ChatView already has real history — no mock flash on cold launch.
-        restoreChatHistory()
-
         // Training habits restore synchronously too — the suggestion box needs
         // to know this person's patterns before the first Train question.
         restoreTrainingHabits()
+
+        // Chat JSON is decoded after the first frame. Home is the launch tab,
+        // so a deferred transcript cannot flash mock chat. Tests still restore
+        // synchronously so cases that write history see it immediately.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            restoreChatHistory()
+        }
 
         // Real nights, history, and today's session come from Apple Health + this
         // person's profile — never demo sleep or "Upper Body Power".
@@ -367,13 +365,30 @@ final class AppStore: ObservableObject {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             return
         }
+        // Leftover / wedged prep paints AriaForgePrep on the first SwiftUI
+        // commit. Fail-open is leftoverFailOpen from process start so the
+        // 60s launch watchdog still sees the handoff with real margin.
+        if !isOnboarded, AriaForgePrepHandoff.isInterviewComplete {
+            AriaForgePrep.armLeftoverTimeout(store: self)
+        }
         Task { @MainActor in
-            // Sole launch owner for refreshDailyData. Home must not start a
-            // second pass — the coalesce window is a backstop, not a second owner.
-            // Let the first frame (and splash dismiss) land before HealthKit
-            // work. Test-Ready pack rewrites wait until after Home is loaded.
-            // Simulator never writes EventKit.
-            try? await Task.sleep(for: .milliseconds(450))
+            await LaunchFirstFrame.afterPaint()
+            #if canImport(FoundationModels) && !targetEnvironment(simulator)
+            let foundationModelsGenerator = FoundationModelsResponseGenerator()
+            if foundationModelsGenerator.isAvailable {
+                self.aiModelAvailable = true
+                self.responseGenerator = foundationModelsGenerator
+            }
+            #endif
+            // Leftover ingest is started from resumePrep after AriaForgePrep
+            // has painted. Starting it here after one yield blocked the
+            // main thread before first layout — screenshots stalled and
+            // the first commit stayed Color.background #09090B.
+            if self.needsForgePrep { return }
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                self.restoreChatHistory()
+            }
+            if !self.isOnboarded { return }
             await self.refreshDailyData()
             // Never prompt for notifications at launch. Returning users who
             // already granted can reschedule; fresh installs wait for onboarding.
@@ -497,7 +512,21 @@ final class AppStore: ObservableObject {
     // MARK: - Onboarding → ARIA handoff
 
     var needsForgePrep: Bool {
-        AriaForgePrepHandoff.needsPrep(isOnboarded: isOnboarded)
+        AriaForgePrepHandoff.needsPrep(isOnboarded: isOnboarded, isAuthenticated: isAuthenticated)
+    }
+
+    /// Same switch `ContentView` uses after first paint. Leftover fail-open
+    /// without a session must stay on auth, never Home.
+    enum LaunchRootDestination: Equatable {
+        case authWelcome
+        case onboarding
+        case home
+    }
+
+    var launchRootDestination: LaunchRootDestination {
+        if !isAuthenticated { return .authWelcome }
+        if !isOnboarded { return .onboarding }
+        return .home
     }
 
     func markOnboardingInterviewComplete() {
@@ -505,9 +534,24 @@ final class AppStore: ObservableObject {
     }
 
     func finishForgePrep() {
-        isOnboarded = true
-        AriaForgePrepHandoff.clearInterviewComplete()
-        refreshTutorialOpeningFromProfile()
+        // Leftover timeout may fire with no session (auth restore lagged).
+        // Clear the prep hang so the launch gate is not stuck; do not mark
+        // onboarded and skip sign-in.
+        if isAuthenticated {
+            isOnboarded = true
+            UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
+        }
+        AriaForgePrepHandoff.flushHandoff(onboarded: isAuthenticated)
+        if isAuthenticated {
+            refreshTutorialOpeningFromProfile()
+            // HealthKit ingest is @MainActor. Do not start it on this hop —
+            // leftover fail-open must publish isOnboarded first, and leftover
+            // resume must not pin the 3s sample windows (prep_wedge 2.86s).
+            Task { @MainActor in
+                await Task.yield()
+                AriaForgePrep.startLeftoverIngest(into: self)
+            }
+        }
     }
 
     /// First-launch tutorial uses the onboarding experience/goal signal so

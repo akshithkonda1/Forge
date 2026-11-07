@@ -103,12 +103,10 @@ data "aws_iam_policy_document" "scout" {
     # Scout's brain is Grok (SCOUT_MODEL_ID, default global.xai.grok-4.7).
     actions = ["bedrock:InvokeModel", "bedrock:Converse"]
 
-    resources = [
-      "arn:aws:bedrock:*::foundation-model/xai.*",
-      "arn:aws:bedrock:*:*:inference-profile/global.xai.*",
-      "arn:aws:bedrock:*:*:inference-profile/us.xai.*",
-      "arn:aws:bedrock:*:*:project/default",
-    ]
+    resources = concat(
+      [for id in local.bedrock_foundation_model_ids : "arn:aws:bedrock:*::foundation-model/${id}" if startswith(id, "xai.")],
+      [for id in local.bedrock_inference_profile_ids : "arn:aws:bedrock:${var.aws_region}:${local.account_id_for_naming}:inference-profile/${id}" if can(regex("^(us|global)\\.xai\\.", id))],
+    )
   }
 
   statement {

@@ -511,7 +511,7 @@ struct AriaVoicePickerView: View {
                     }
                 }
                 if let more = voices.catalog?.voices, !more.isEmpty {
-                    ForgeCardHeader("Library", meta: "Fish Audio")
+                    ForgeCardHeader("Kokoro presets", meta: "On this iPhone")
                     EditorCard {
                         ForEach(more.prefix(12), id: \.id) { voice in
                             EditorOptionRow(
@@ -543,7 +543,7 @@ struct AriaVoicePickerView: View {
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
                 if voices.lastBusy {
-                    Text(AriaFishAudioVoice.voiceBusyMessage)
+                    Text(AriaKokoroVoice.loadFailedMessage)
                         .font(HomeType.body)
                         .foregroundStyle(Color.textSecondary)
                 }

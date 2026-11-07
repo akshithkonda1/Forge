@@ -62,25 +62,20 @@ def _hrv_series(values):
 
 class HRVTrendTests(unittest.TestCase):
 
-    def test_a_dated_series_produces_a_real_trend(self):
+    def test_observe_does_not_compute_hrv_trend_from_uploaded_samples(self):
         status, readiness = _observe(_hrv_series([58, 57, 56, 52, 48, 45, 42]), "u-decline")
         self.assertEqual(status, 200)
-        self.assertEqual(readiness["hrv_days_available"], 7)
-        self.assertLess(readiness["hrv_7day_trend"], 0)
-        self.assertNotEqual(readiness["hrv_7day_trend"], 0.0)
-        # Median-based, so the baseline is the middle of the week, not today.
-        self.assertGreater(readiness["hrv_30day_baseline"], 42)
+        self.assertIn(readiness.get("hrv_days_available"), (None, 0))
+        self.assertIn(readiness.get("hrv_7day_trend"), (None, 0, 0.0))
 
-    def test_one_snapshot_stamped_now_is_structurally_incapable_of_a_trend(self):
+    def test_one_snapshot_is_not_warehoused(self):
         status, readiness = _observe(_hrv_series([42]), "u-single")
         self.assertEqual(status, 200)
-        self.assertEqual(readiness["hrv_days_available"], 1)
-        self.assertEqual(readiness["hrv_7day_trend"], 0.0)
-        self.assertEqual(readiness["hrv_30day_baseline"], 42.0)
+        self.assertIn(readiness.get("hrv_days_available"), (None, 0))
 
-    def test_a_rising_series_trends_positive(self):
+    def test_a_rising_series_is_not_warehoused(self):
         _, readiness = _observe(_hrv_series([40, 42, 45, 48, 52, 55, 58]), "u-rising")
-        self.assertGreater(readiness["hrv_7day_trend"], 0)
+        self.assertIn(readiness.get("hrv_7day_trend"), (None, 0, 0.0))
 
 
 class ReadinessBranchReachabilityTests(unittest.TestCase):

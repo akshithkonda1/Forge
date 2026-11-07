@@ -1,15 +1,19 @@
 name: 'Terraform'
 
-# Plan-only. pull_request is unfiltered so required checks always report.
-# Push keeps a path filter. A live apply never runs from push/PR.
-# Apply is workflow_dispatch + run_apply=true only, in terraform-apply, after
-# the plan jobs and after GitHub Environment terraform-prod approval.
+# pull_request is unfiltered so required checks always report.
+# Push keeps a path filter.
+# A live apply never runs from pull_request, push, or merge_group.
+# terraform-prod has no required reviewers, and this repository has no AWS
+# credentials, so starting apply on those events only fails the check.
+# Apply is workflow_dispatch + run_apply=true only, after plan.
+# This job never auto-approves and never uses continue-on-error.
 on:
   push:
     paths:
       - '.github/workflows/terraform.yml'
       - 'backend/infra/**'
   pull_request:
+  merge_group:
   workflow_dispatch:
     inputs:
       run_apply:
@@ -20,11 +24,11 @@ on:
 permissions:
   contents: read
 
-# Plan runs on the same ref cancel each other. An in-progress apply uses its
-# own group and is never cancelled (see terraform-apply.concurrency).
+# Do not cancel a run whose apply job may be waiting on environment
+# approval. terraform-apply also has its own non-cancelling group.
 concurrency:
-  group: terraform-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.run_apply && 'apply' || 'plan' }}
-  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_apply) }}
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   AWS_REGION: us-east-1
@@ -59,9 +63,12 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: echo "workflow_dispatch — plan jobs run for real"
 
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   terraform-checks:
     name: 'Terraform Checks'
-    needs: changes
+    needs: [changes, health-leak]
     runs-on: ubuntu-latest
     env:
       AWS_EC2_METADATA_DISABLED: "true"
@@ -86,7 +93,7 @@ jobs:
         if: needs.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
-          terraform_version: 1.15.0
+          terraform_version: 1.17.0
           terraform_wrapper: false
 
       # Force a local backend so plan stays green both before and after #371
@@ -113,6 +120,29 @@ jobs:
         if: needs.changes.outputs.relevant == 'true'
         run: terraform validate -no-color
 
+      - name: Setup TFLint
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          curl -fsSL -o /tmp/tflint.zip \
+            https://github.com/terraform-linters/tflint/releases/download/v0.65.0/tflint_linux_amd64.zip
+          sudo unzip -o /tmp/tflint.zip -d /usr/local/bin
+          tflint --version
+
+      - name: TFLint
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          tflint --init
+          tflint --format compact
+          tflint --chdir=bootstrap --init
+          tflint --chdir=bootstrap --format compact
+
+      - name: Checkov
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          python3 -m pip install --user 'checkov==3.3.30'
+          checkov -d . --framework terraform --config-file .checkov.yaml --compact --quiet
+          checkov -d bootstrap --framework terraform --config-file .checkov.yaml --compact --quiet
+
       - name: Terraform Plan
         if: needs.changes.outputs.relevant == 'true'
         run: terraform plan -input=false -no-color
@@ -136,7 +166,7 @@ jobs:
 
   terraform-prod-plan:
     name: 'Terraform Plan (prod)'
-    needs: changes
+    needs: [changes, health-leak]
     runs-on: ubuntu-latest
     # Push/PR plan only. No AWS, no secrets, no OIDC. Dummy provider checks
     # plus -refresh=false so missing credentials cannot turn this job red.
@@ -165,7 +195,7 @@ jobs:
         if: needs.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
-          terraform_version: 1.15.0
+          terraform_version: 1.17.0
           terraform_wrapper: false
 
       # Same local override as terraform-checks. See that job for why.
@@ -185,6 +215,8 @@ jobs:
   terraform-apply:
     name: 'Terraform Apply (dev, approval-gated)'
     needs: [terraform-checks, terraform-prod-plan]
+    # pull_request used to start this job and fail on missing credentials.
+    # A live apply is opt-in. Plan jobs above still report on every pull request.
     if: github.event_name == 'workflow_dispatch' && inputs.run_apply == true
     environment: terraform-prod
     runs-on: ubuntu-latest
@@ -229,7 +261,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
-          terraform_version: 1.15.0
+          terraform_version: 1.17.0
           terraform_wrapper: false
 
       - name: Require AWS credentials

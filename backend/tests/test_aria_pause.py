@@ -165,7 +165,7 @@ class AriaPauseTests(unittest.TestCase):
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
         self.assertNotEqual(payload.get("error"), "aria_paused")
-        self.assertEqual(payload.get("source"), "fallback")
+        self.assertEqual(payload.get("source"), "kokoro")
         self.assertEqual(self.ssm.calls, 0)
 
     def test_health_is_ungated(self):
@@ -182,7 +182,7 @@ class AriaPauseTests(unittest.TestCase):
         self.assertEqual(health["statusCode"], 200)
         self.assertEqual(body(health)["status"], "ok")
         self.assertNotEqual(body(voice).get("error"), "aria_paused")
-        self.assertEqual(body(voice).get("source"), "fallback")
+        self.assertEqual(body(voice).get("source"), "kokoro")
         self.assertEqual(self.ssm.calls, 0)
 
     def test_unset_env_fails_open_without_ssm(self):
@@ -214,7 +214,6 @@ class AriaPauseRouteListTests(unittest.TestCase):
             ("GET", "/health"),
             ("GET", "/ai/voice"),
             ("PUT", "/ai/voice"),
-            ("POST", "/ai/voice/speak"),
             ("GET", "/chat/threads/current"),
             ("GET", "/dashboard/today"),
             ("POST", "/watch/aria/suggest"),

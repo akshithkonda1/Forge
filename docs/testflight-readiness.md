@@ -36,7 +36,7 @@ Status key: **BLOCKER** · **FLAG (Akshith)** · **QUALITY** · **CLEAN** · **O
 | Shipped API host | **CLEAN** | `Info-Add.plist` `FORGEAPIBaseURL` is empty. No `127.0.0.1` / `localhost` in the committed ship plist. Loopback exists only as `ForgeAuthConfig.defaultLocalAPI` (dev default), guards, tests, and `scripts/generate_client_config.py`. |
 | Dummy ARIA default | **CLEAN** | `FORGEEnvironment` = `dummy`. Empty Cognito ids. `AriaService` routes to `AriaDummyOrchestrator`. Bedrock stays off. Matches the Dummy ship-gate. |
 | Privacy manifests | **CLEAN** (structure) | `PrivacyInfo.xcprivacy` present on iPhone, Watch, Widget, Messages. Tracking `false`. UserDefaults reasons declared. Collected types: Health, Fitness, Email, UserID, OtherUserContent (iPhone); Health/Fitness/UserID (Watch); none (Widget). |
-| Health / camera / mic / speech / calendar / location / contacts usage strings | **CLEAN** (copy quality) | First-person, specific, on-device promises. Duplicated in `Info-Add.plist` and `INFOPLIST_KEY_*` so a missing merge cannot ship a blank string. Watch also has motion + always-location. |
+| Health / camera / mic / speech / calendar / location usage strings | **CLEAN** (copy quality) | First-person, specific, on-device promises. Duplicated in `Info-Add.plist` and `INFOPLIST_KEY_*` so a missing merge cannot ship a blank string. Watch also has motion + always-location. Contacts is picker-only (`CNContactPickerViewController`): no `NSContactsUsageDescription`, no permission prompt, only tapped contacts. |
 | Clinical records usage | **CLEAN** (declared) | Share + usage strings exist; tests lock them. App Review will still read them — keep the “names and dates only / nothing leaves this iPhone” promise honest. |
 | Localhost in Release | **CLEAN** | `ForgeAuthTests` asserts production config must not contain loopback. Generator `--check` refuses dummy-offline loopback. |
 
@@ -157,7 +157,7 @@ Shipped on iPhone (`Info-Add.plist` + `INFOPLIST_KEY_*`):
 | `NSCalendarsFullAccessUsageDescription` | Good; demo-calendar honesty |
 | `NSCalendarsUsageDescription` | Older “busy windows” variant in pbxproj — slightly diverges from Full Access; align later |
 | `NSCameraUsageDescription` | Good (meds + barcodes, on-device) |
-| `NSContactsUsageDescription` | Good |
+| `NSContactsUsageDescription` | **Removed.** Contacts is picker-only (`CNContactPickerViewController`). No permission prompt; only tapped contacts return. The system picker needs no usage string. |
 | `NSLocationWhenInUseUsageDescription` | Good (Maps meals) |
 | `NSMicrophoneUsageDescription` | Good |
 | `NSSpeechRecognitionUsageDescription` | Good |

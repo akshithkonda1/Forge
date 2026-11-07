@@ -28,8 +28,10 @@ extension AppStore {
         }
         dataLoadState = .loading
         lastLifeIngestError = nil
+        await Task.yield()
         let hk = HealthKitManager.shared
         let seeded = await seedTestReadyHealthKitIfNeeded()
+        await Task.yield()
         let authorized = await hk.checkAuthorizationStatus()
         healthKitLive = authorized
 
@@ -51,10 +53,8 @@ extension AppStore {
             }
         }
 
-        if ForgeCloudSync.shared.isRemoteEligible {
-            let samples = await BiometricsObserveService.shared.samplesFromStore(self)
-            _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
-        }
+        let samples = await BiometricsObserveService.shared.samplesFromStore(self)
+        _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
 
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
         if let sex = userProfile.biologicalSex {
@@ -68,7 +68,7 @@ extension AppStore {
         }
 
         if !seeded || !hasMeaningfulLifeSignal {
-            installFakeHealthPackIfNeeded()
+            await installFakeHealthPackIfNeeded()
         } else {
             usingTestReadyHealthPack = true
         }
@@ -415,7 +415,7 @@ extension AppStore {
         return tags
     }
 
-    func installFakeHealthPackIfNeeded() {
+    func installFakeHealthPackIfNeeded() async {
         let testReady = AriaService.shouldUseTestReadyDummy
         guard FakeHealthPack.shouldInstall(
             debugBuild: ForgeAuthPolicy.isDebugBuild,
@@ -424,7 +424,11 @@ extension AppStore {
         ) else {
             return
         }
-        apply(FakeHealthPack.generate(seed: Self.testReadySessionSeed))
+        let seed = Self.testReadySessionSeed
+        let pack = await Task.detached(priority: .utility) {
+            FakeHealthPack.generate(seed: seed)
+        }.value
+        apply(pack)
     }
 
     func apply(_ pack: FakeHealthPack) {
@@ -605,7 +609,9 @@ extension AppStore {
         }
         let fitHobbies = HobbyFit.engage(
             fromWorkouts: Array(hints),
-            existing: HobbyFit.hobbies(from: persona.hobbies ?? []) + userProfile.lifestyleProfile.hobbies
+            existing: HobbyFit.normalizeHobbies(
+                HobbyFit.hobbies(from: persona.hobbies ?? []) + userProfile.lifestyleProfile.hobbies
+            )
         )
         let hour = Calendar.current.component(.hour, from: Date())
         let live = HobbyFit.LiveSignals(
@@ -985,7 +991,9 @@ extension AppStore {
         sleepData = merged.values.sorted { $0.date > $1.date }
         HealthKitSleepService.shared.rememberSleepSignals(from: sleepData)
         invalidatePredictiveCoachPicture()
-        Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms) }
+        if isOnboarded, !needsForgePrep {
+            Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms, promptIfUndetermined: false) }
+        }
         // Only last night counts toward today. After a night without the
         // watch the newest entry can be days old, and that is not today's sleep.
         if let latest = sleepData.first, Self.isLastNight(latest) {

@@ -17,29 +17,38 @@ struct ContentView: View {
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
+    /// First SwiftUI commit is the splash field only — except leftover /
+    /// wedged prep, which must paint AriaForgePrep on that commit.
+    /// AuthWelcome / interview / Home attach after that paint — every build,
+    /// not a simulator env.
+    @State private var revealRoot = Self.didFinishSplash
     private static var didFinishSplash = false
 
     var body: some View {
+        let leftoverPrep = LaunchFirstCommit.leftoverPrepPending(
+            needsForgePrep: store.needsForgePrep
+        )
         ZStack {
-            Color(hex: ForgeSplashScreen.backdropHex)
-                .ignoresSafeArea()
-
-            if revealApp {
-                Group {
-                    if !store.isAuthenticated {
-                        AuthWelcomeView()
-                    } else if !store.isOnboarded {
-                        OnboardingView()
-                    } else {
-                        MainTabView()
-                    }
+            Group {
+                if leftoverPrep {
+                    OnboardingView()
+                } else if !revealRoot {
+                    LaunchBrandField()
+                } else if store.launchRootDestination == .authWelcome {
+                    AuthWelcomeView()
+                } else if store.launchRootDestination == .onboarding {
+                    OnboardingView()
+                } else if !showSplash {
+                    MainTabView()
+                } else {
+                    LaunchBrandField()
                 }
                 .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
                 .animation(ForgeMotion.crossfade, value: store.isOnboarded)
             }
 
-            if showSplash {
-                ForgeSplashScreen(signedIn: store.isAuthenticated, onSkip: dismissSplash)
+            if showSplash && LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: leftoverPrep) {
+                ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
                     // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
@@ -59,37 +68,52 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            if !revealApp {
-                DispatchQueue.main.async { revealApp = true }
+            if leftoverPrep {
+                revealRoot = true
+                showSplash = false
+                Self.didFinishSplash = true
             }
         }
         .task {
-            if showSplash {
-                try? await Task.sleep(
-                    nanoseconds: ForgeSplashTiming.pauseNanoseconds(
-                        reduceMotion: reduceMotion,
-                        signedIn: store.isAuthenticated
-                    )
-                )
-                if showSplash { dismissSplash() }
+            let leftoverPrep = LaunchFirstCommit.leftoverPrepPending(
+                needsForgePrep: store.needsForgePrep
+            )
+            if leftoverPrep {
+                revealRoot = true
+                showSplash = false
+                Self.didFinishSplash = true
+                AriaForgePrep.armLeftoverTimeout(store: store)
+                await LaunchFirstFrame.afterPaint()
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
             }
-            attachNeuralGate()
-        }
-    }
-
-    private func attachNeuralGate() {
-        guard neuralVoiceGate == nil else { return }
-        let gate = AriaNeuralVoiceGate.shared
-        neuralVoiceGate = gate
-        gate.refreshCatalog()
-    }
-
-    private func dismissSplash() {
-        guard showSplash else { return }
-        splashBlocksHits = false
-        Self.didFinishSplash = true
-        withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
-            showSplash = false
+            await LaunchFirstFrame.afterPaint()
+            revealRoot = true
+            // Cheap cache only. CFPreferencesAppSynchronize on this hop
+            // pinned kill_relaunch sample 0 at 3.00s after SIGKILL.
+            // Leftover miss is recovered on a background queue; the process
+            // watchdog still fail-opens at leftoverFailOpen.
+            if store.needsForgePrep {
+                AriaForgePrep.armLeftoverTimeout(store: store)
+            } else if !store.isOnboarded {
+                AriaForgePrep.refreshInterviewOffMainActor(store: store)
+            }
+            guard showSplash else {
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
+            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
+            Self.didFinishSplash = true
+            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
+                showSplash = false
+            }
+            let gate = AriaNeuralVoiceGate.shared
+            neuralVoiceGate = gate
+            gate.refreshCatalog()
         }
     }
 
@@ -101,19 +125,37 @@ struct ContentView: View {
     }
 }
 
+// MARK: - First-commit brand field
+
+/// Cheap launch canvas. Matches `LaunchScreen.storyboard` so the storyboard
+/// → first SwiftUI commit is two consecutive non-blank frames. No Metal,
+/// no blur, no speech.
+struct LaunchBrandField: View {
+    static let markSide: CGFloat = 220
+    static let background = Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+    static let ember = Color(red: 1, green: 77 / 255, blue: 0)
+
+    var body: some View {
+        ZStack {
+            Self.background
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(Self.ember)
+                .frame(width: Self.markSide, height: Self.markSide)
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
-    /// Same hex as `LaunchBackground` so the system launch image hands off
-    /// without a blank flash.
-    static let backdropHex = "09090B"
-    static let launchColorName = "LaunchBackground"
-
-    /// Already-authenticated users get a trimmed beat: static flame, no swing.
-    var signedIn: Bool = false
-    var onSkip: (() -> Void)? = nil
-    @State private var logoOpacity: Double = 0
-    @State private var textOffset: CGFloat = 16
+    // Visible on the first commit. Starting at opacity 0 made the splash a
+    // uniform black frame, which the launch gate counts as blank.
+    @State private var logoScale: CGFloat = 1
+    @State private var logoOpacity: Double = 1
+    @State private var glowIntensity: Double = 1
+    @State private var textOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -121,12 +163,21 @@ struct ForgeSplashScreen: View {
             Color(hex: Self.backdropHex)
                 .ignoresSafeArea()
 
-            VStack(spacing: FDS.Spacing.lg) {
-                GeometryReader { geo in
-                    let side = min(geo.size.width, geo.size.height)
-                    ForgeStrikeMark(
-                        duration: ForgeStrikeGeometry.splashDuration,
-                        playback: signedIn ? .trimmed : .full
+            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
+            // flat field; without this mark the first SwiftUI commit is a
+            // blank #08080C frame and the launch gate resets its streak.
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(LaunchBrandField.ember)
+                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
+                .accessibilityHidden(true)
+
+            VStack(spacing: FDS.Spacing.xl) {
+                ZStack {
+                    PremiumPresenceBloom(
+                        size: 220,
+                        accent: ForgePalette.ember,
+                        frost: Color(hex: "A9D8FF"),
+                        live: false
                     )
                     .frame(width: side, height: side)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

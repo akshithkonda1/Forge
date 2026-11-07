@@ -26,6 +26,7 @@ on:
       - "scripts/check-design-tokens-frontend.ts"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -64,9 +65,12 @@ jobs:
               - "scripts/check-design-tokens-frontend.ts"
               - ".github/workflows/frontend-ci.yml"
 
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   build:
     name: frontend-build
-    needs: changes
+    needs: [changes, health-leak]
     runs-on: ubuntu-latest
     steps:
       - name: No-op (no relevant changes)

@@ -278,12 +278,12 @@ struct CycleRhythmReportView: View {
         linkError = nil
         defer { linkBusy = false }
         do {
+            let envelope = try CycleReportCrypto.encrypt(data)
             let ticket = try await CycleReportUploadClient.requestTicket(
-                byteLength: data.count,
+                byteLength: envelope.ciphertext.count,
                 windowMonths: window.rawValue
             )
-            try await CycleReportUploadClient.upload(pdf: data, ticket: ticket)
-            linkURL = ticket.getUrl
+            linkURL = try await CycleReportUploadClient.upload(envelope: envelope, ticket: ticket)
             linkExpires = ticket.expiresAt
         } catch is ForgeAPI.Failure {
             linkError = "Share the PDF from this iPhone — a cloud link needs sign-in and is optional."

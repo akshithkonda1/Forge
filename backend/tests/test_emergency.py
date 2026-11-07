@@ -142,21 +142,17 @@ class ObserveRouteWiringTests(unittest.TestCase):
             {"spo2": 0.0, "heart_rate": 0, "sensor_contact": True},
         ]
         out = self._observe(uid, {"vitals": window, "session_active": True})
-        self.assertTrue(out["emergency"]["escalate"])
-        self.assertTrue(out["escalation"]["triggered"])
-        self.assertEqual(out["escalation"]["client_action"], E.CLIENT_ACTION)
-        self.assertEqual(out["escalation"]["channels"], ["ios_emergency_sos"])
-        # An audit record was written.
-        events = dynamodb.query_prefix(keys.user_pk(uid), "EMERGENCY#")
-        self.assertEqual(len(events), 1)
-        self.assertEqual(events[0]["intent"]["severity"], E.CRITICAL)
+        # Vitals are health data. Observe no longer audits or escalates them.
+        self.assertNotIn("emergency", out)
+        self.assertNotIn("escalation", out)
+        self.assertEqual(dynamodb.query_prefix(keys.user_pk(uid), "EMERGENCY#"), [])
+        self.assertTrue(out["notice"].startswith("Health data always stays on device"))
 
     def test_observe_does_not_escalate_on_glitch(self):
         uid = "vitals-user-2"
         window = [{"spo2": 0.0, "heart_rate": 0, "sensor_contact": False} for _ in range(3)]
         out = self._observe(uid, {"vitals": window, "session_active": True})
-        self.assertFalse(out["emergency"]["escalate"])
-        self.assertFalse(out["escalation"]["triggered"])
+        self.assertNotIn("emergency", out)
         self.assertEqual(dynamodb.query_prefix(keys.user_pk(uid), "EMERGENCY#"), [])
 
     def test_observe_without_vitals_has_no_emergency_block(self):

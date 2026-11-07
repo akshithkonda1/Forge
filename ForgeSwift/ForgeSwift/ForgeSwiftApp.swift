@@ -4,21 +4,29 @@ import ForgeCore
 
 @main
 struct ForgeSwiftApp: App {
-    @StateObject private var store = ForgePerf.measure("AppStoreInit", category: .launch) { AppStore() }
+    /// Pin leftover fail-open before `@StateObject` constructs AppStore.
+    /// `ProcessInfo.systemUptime` is machine awake time; we only store it
+    /// as the origin so later remaining is process-relative.
+    private static let _pinPrepClock: Bool = {
+        AriaForgePrep.markProcessStart()
+        return true
+    }()
+
+    @StateObject private var store = ForgePerf.measure("AppStoreInit", category: .launch) {
+        _ = ForgeSwiftApp._pinPrepClock
+        return AppStore()
+    }
 
     // Exists so iOS has somewhere to hand a CloudKit share when a supporter
     // accepts a cycle invite; SwiftUI's App lifecycle exposes no other hook.
     @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
 
     init() {
+        AriaForgePrep.markProcessStart()
         // One launch interval for the synchronous start work; AppStore's
         // init carries its own span. Durations only — see ForgePerf.
         ForgePerf.measure("appInit", category: .launch) {
             SecureStoreMigration.run(from: .standard, to: KeychainStore())
-            // Listens for watch workout state and mirrors it into a Live
-            // Activity (lock screen + Dynamic Island). Owns WCSession on
-            // the phone; one companion sync after activation.
-            WorkoutActivityCoordinator.shared.activate()
         }
     }
 
@@ -32,9 +40,15 @@ struct ForgeSwiftApp: App {
                 .onAppear {
                     // WCSession companion sync is owned by
                     // WorkoutActivityCoordinator.activationDidCompleteWith.
-                    // Do not retry on a 1.5 / 4 / 8s ladder from here.
-                    HealthDeviceCatalogSync.shared.loadCached()
                     Task {
+                        await LaunchFirstFrame.afterPaint()
+                        await Task.yield()
+                        // Un-onboarded / leftover prep: do not probe HealthKit
+                        // on the first sample window (kill-relaunch main-thread
+                        // was a 3s busy HK source catalog after first frame).
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
+                        WorkoutActivityCoordinator.shared.activate()
+                        HealthDeviceCatalogSync.shared.loadCached()
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }
@@ -56,6 +70,7 @@ struct ForgeSwiftApp: App {
                         await store.flushPendingWidgetWater(openHydrationOnSuccess: true)
                         store.publishHomeWidgets()
                         await MenstrualHealthStore.shared.syncSharedPeriodFinished()
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
                         await AriaHealthRiskBridge.evaluateFromHealthKit(quietMode: store.quietMode)
                     }
                 }

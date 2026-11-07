@@ -107,8 +107,12 @@ enum ForgePlaybackSession: Equatable, Sendable {
 /// tab mark all read this so the same Aurora orb moves when she talks.
 @MainActor
 @Observable
-final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
+final class AriaPresence {
     static let shared = AriaPresence()
+
+    /// Kokoro-82M is ARIA's only voice. `AVSpeechSynthesizer` is never a
+    /// fallback mouth and never receives `speak(_:)`.
+    static let appleFallbackPlaybackEnabled = false
 
     private(set) var isSpeaking = false
     private(set) var isListening = false
@@ -123,17 +127,14 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         return .idle
     }
 
+    /// Held only so a leftover Apple engine from an older session can be
+    /// stopped. Nothing in this type allocates or calls `speak(_:)` on it.
     @ObservationIgnored
-    private let synthesizer = AVSpeechSynthesizer()
+    private var synthesizerStorage: AVSpeechSynthesizer?
     @ObservationIgnored
-    private var fishPlayer: AVAudioPlayer?
-    @ObservationIgnored
-    private var fishGeneration = 0
+    private var kokoroGeneration = 0
 
-    private override init() {
-        super.init()
-        synthesizer.delegate = self
-    }
+    private init() {}
 
     func setListening(_ on: Bool) { isListening = on }
     func setThinking(_ on: Bool) { isThinking = on }
@@ -157,9 +158,8 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
-    /// Speaks `text` as the dummy/local fill-in while a character session is
-    /// active. Production live ARIA is Fish Audio — this never enqueues Apple
-    /// TTS as her live mouth. A busy Fish slot leaves the text reply on screen.
+    /// Speaks `text` with on-device Kokoro. There is no cloud mouth and no
+    /// Apple fallback. If the engine cannot load, the text stays on screen.
     ///
     /// Pass `interrupt: false` to queue behind a line that is already playing.
     func speak(
@@ -168,156 +168,65 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         stopAt: AVSpeechBoundary = .immediate,
         session: ForgePlaybackSession = .spoken
     ) {
+        _ = stopAt
         guard AriaSpokenMute.allowsSpeech else { return }
         guard AriaSpeechPrep.spokenLine(in: text) != nil else { return }
-        let fish = AriaVoiceMouth.currentFishAudioConfig()
-        if AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: fish.isConfigured) {
-            speakViaFishAudio(text, config: fish, interrupt: interrupt, session: session)
-            return
-        }
-        if AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
+        guard AriaVoiceMouth.shouldEnqueueKokoro(
             isMuted: false,
-            hasLocalKey: fish.isConfigured,
-            backendReachable: AriaFishAudioVoice.isBackendReachable(AriaService.shared.baseURL)
-        ) {
-            speakViaFishAudioBackend(text, interrupt: interrupt, session: session)
+            sessionActive: AriaVoiceSession.shared.isActive
+        ) || AriaVoiceSession.shared.isActive == false else { return }
+        // Settings preview and onboarding may speak without a voice session.
+        let sessionActive = AriaVoiceSession.shared.isActive
+        if sessionActive && !AriaVoiceMouth.shouldEnqueueKokoro(isMuted: false, sessionActive: true) {
             return
         }
-        let transport = AriaVoiceSession.shared.activeTransport
-        guard AriaVoiceMouth.shouldEnqueueAppleUtterance(
-            isMuted: false,
-            sessionActive: AriaVoiceSession.shared.isActive,
-            transport: transport
-        ) else { return }
-        guard AriaSpokenVoice.hasInstalledIdentity() else {
-            AriaNeuralVoiceGate.shared.requestPromptIfNeeded()
-            return
+        if interrupt {
+            synthesizerStorage?.stopSpeaking(at: .immediate)
+            AriaKokoroEngine.stop()
         }
-        let started = AriaSpeechPrep.enqueue(
-            text,
-            on: synthesizer,
-            interrupt: interrupt,
-            stopAt: stopAt,
-            session: session
-        )
-        guard started else { return }
+        kokoroGeneration += 1
+        let generation = kokoroGeneration
         isSpeaking = true
+        let config = AriaVoiceMouth.currentKokoroConfig()
+        Task { @MainActor in
+            try? await session.activate()
+            let started = await AriaKokoroEngine.speak(
+                text,
+                voiceID: config.voiceID,
+                speed: config.speed
+            )
+            guard generation == kokoroGeneration else { return }
+            if started {
+                return
+            }
+            // Kokoro failed: leave the text on screen. Never allocate or
+            // speak() AVSpeechSynthesizer — Apple TTS is not a fallback.
+            isSpeaking = false
+            AriaVoiceProfileStore.shared.noteBusy(true)
+            AriaVoiceSession.shared.mouthDidFinish()
+        }
     }
 
     func stopSpeaking() {
-        fishGeneration += 1
-        fishPlayer?.stop()
-        fishPlayer = nil
-        synthesizer.stopSpeaking(at: .immediate)
+        kokoroGeneration += 1
+        AriaKokoroEngine.stop()
+        synthesizerStorage?.stopSpeaking(at: .immediate)
         isSpeaking = false
     }
 
-    /// Local Fish key (Dummy / Device Hub). Failure stays silent.
-    private func speakViaFishAudio(
-        _ text: String,
-        config: AriaFishAudioVoice.Config,
-        interrupt: Bool,
-        session: ForgePlaybackSession
-    ) {
-        guard let request = AriaFishAudioVoice.makeRequest(text: text, config: config) else { return }
-        playFishAudio(request: request, interrupt: interrupt, session: session, viaBackend: false)
+    /// `AVSpeechSynthesizer.isSpeaking` without allocating. Nil storage is
+    /// a Kokoro-only session — never create the Apple engine to ask.
+    var appleSynthesizerIsSpeaking: Bool {
+        synthesizerStorage?.isSpeaking ?? false
     }
 
-    /// Hex: Lambda holds `FISH_AUDIO_API_KEY`. Dummy-offline never reaches here.
-    private func speakViaFishAudioBackend(
-        _ text: String,
-        interrupt: Bool,
-        session: ForgePlaybackSession
-    ) {
-        guard let request = AriaFishAudioVoice.makeBackendRequest(
-            text: text,
-            baseURL: AriaService.shared.baseURL,
-            selection: AriaVoiceCatalog.Selection.load()
-        ) else { return }
-        playFishAudio(request: request, interrupt: interrupt, session: session, viaBackend: true)
-    }
+    /// XCTest: a Kokoro-only session must leave this nil after stop / isSpeaking.
+    var synthesizerStorageForTests: AVSpeechSynthesizer? { synthesizerStorage }
 
-    private func playFishAudio(
-        request: URLRequest,
-        interrupt: Bool,
-        session: ForgePlaybackSession,
-        viaBackend: Bool
-    ) {
-        if interrupt {
-            synthesizer.stopSpeaking(at: .immediate)
-            fishPlayer?.stop()
-            fishPlayer = nil
-        }
-        fishGeneration += 1
-        let generation = fishGeneration
-        isSpeaking = true
-        Task { @MainActor in
-            try? await session.activate()
-            do {
-                let data: Data
-                if viaBackend {
-                    let (payload, _) = try await ForgeAPI.send(request)
-                    guard generation == fishGeneration else { return }
-                    if AriaFishAudioVoice.isVoiceBusy(payload) {
-                        await MainActor.run { AriaVoiceProfileStore.shared.noteBusy(true) }
-                        isSpeaking = false
-                        AriaVoiceSession.shared.mouthDidFinish()
-                        return
-                    }
-                    guard let speech = AriaFishAudioVoice.decodeBackendSpeech(payload) else {
-                        isSpeaking = false
-                        AriaVoiceSession.shared.mouthDidFinish()
-                        return
-                    }
-                    await MainActor.run { AriaVoiceProfileStore.shared.noteBusy(false) }
-                    data = speech.audio
-                } else {
-                    let (payload, response) = try await URLSession.shared.data(for: request)
-                    guard generation == fishGeneration else { return }
-                    guard let http = response as? HTTPURLResponse, http.statusCode == 200, !payload.isEmpty else {
-                        isSpeaking = false
-                        AriaVoiceSession.shared.mouthDidFinish()
-                        return
-                    }
-                    data = payload
-                }
-                let player = try AVAudioPlayer(data: data)
-                player.prepareToPlay()
-                fishPlayer = player
-                player.play()
-                let nanos = UInt64(max(0.35, player.duration) * 1_000_000_000)
-                try? await Task.sleep(nanoseconds: nanos)
-                guard generation == fishGeneration else { return }
-                if fishPlayer === player {
-                    fishPlayer = nil
-                    isSpeaking = false
-                    AriaVoiceSession.shared.mouthDidFinish()
-                }
-            } catch {
-                guard generation == fishGeneration else { return }
-                isSpeaking = false
-                // Failed line: hand the turn back so the orb leaves
-                // "ARIA speaking" and the mic reopens.
-                AriaVoiceSession.shared.mouthDidFinish()
-            }
-        }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            // A queued interview line may still be in the synthesizer.
-            if !self.synthesizer.isSpeaking {
-                self.isSpeaking = false
-                AriaVoiceSession.shared.mouthDidFinish()
-            }
-        }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            if !self.synthesizer.isSpeaking { self.isSpeaking = false }
-        }
+    func resetSynthesizerStorageForTests() {
+        synthesizerStorage?.stopSpeaking(at: .immediate)
+        synthesizerStorage?.delegate = nil
+        synthesizerStorage = nil
+        isSpeaking = false
     }
 }

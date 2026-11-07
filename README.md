@@ -146,7 +146,7 @@ terraform init
 terraform plan
 ```
 
-Apple Health, cycle, and medication data stay on-device until explicitly synced. Don’t commit keys.
+Health data always stays on device, never goes to a server. Don’t commit keys.
 
 ### CI
 

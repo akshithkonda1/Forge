@@ -13,9 +13,11 @@ on:
     paths:
       - "ForgeSwift/**"
       - "ForgeWidget/**"
+      - "shared/**"
       - ".github/workflows/swift.yml"
       - "scripts/xcode_test_outcome.py"
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 permissions:
@@ -65,15 +67,19 @@ jobs:
             relevant:
               - "ForgeSwift/**"
               - "ForgeWidget/**"
+              - "shared/**"
               - ".github/workflows/swift.yml"
               - "scripts/xcode_test_outcome.py"
       - name: Dispatch always builds
         if: github.event_name == 'workflow_dispatch'
         run: echo "workflow_dispatch — swift-build runs for real"
 
+  health-leak:
+    uses: ./.github/workflows/health-leak-gate.yml
+
   build:
     name: swift-build
-    needs: changes
+    needs: [changes, health-leak]
     # The test step used to sit ~13 minutes in diagnostic collection after a
     # simulator bless failure, and a retry of that on a booted sim starved the
     # xcode-27 runner until it lost contact. Keep the job bounded.

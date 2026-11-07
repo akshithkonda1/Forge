@@ -10,7 +10,7 @@ final class FriendFirstOnboardingTests: XCTestCase {
         XCTAssertEqual(AriaInterviewVoice.healthWrapper, "So I can keep up with you")
         XCTAssertEqual(
             AriaInterviewVoice.healthBody,
-            "If you connect Apple Health, I can learn your sleep and movement with you — so I can take care of you better, not to judge."
+            ForgePrivacyCopy.healthStaysOnDevice
         )
         XCTAssertEqual(AriaInterviewVoice.healthDenyLine, "All good… I’m still here.")
         XCTAssertEqual(AriaInterviewVoice.healthEnableLater, "You can enable Apple Health later.")
@@ -124,7 +124,10 @@ final class FriendFirstOnboardingTests: XCTestCase {
             .health, profile: profile, healthAuthorized: false, healthPrefill: false, vo2Max: nil
         )
         XCTAssertTrue(health.contains(AriaInterviewVoice.healthWrapper))
-        XCTAssertTrue(health.contains("not to judge"))
+        XCTAssertTrue(
+            health.contains(ForgePrivacyCopy.healthStaysOnDevice),
+            "Health nest must use the on-device sentence, not the old judge line. Got: \(health)"
+        )
         let habits = AriaInterviewVoice.prompt(
             .freeTime, profile: profile, healthAuthorized: false, healthPrefill: false, vo2Max: nil
         )

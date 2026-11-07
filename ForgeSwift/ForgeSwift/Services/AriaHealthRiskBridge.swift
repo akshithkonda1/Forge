@@ -34,7 +34,13 @@ enum AriaHealthRiskBridge {
         guard AriaHealthRiskCooldown.shouldNotify(lastNotified: last) else { return }
 
         Task {
-            guard await ForgeNotificationScheduler.hasAuthorization() else { return }
+            // Never prompt from a launch / HealthKit evaluation. The system
+            // sheet is what pinned launch-stability first_frame and prep.
+            let granted = await ForgeNotificationScheduler.requestAuthorizationIfNeeded(
+                promptIfUndetermined: false
+            )
+            guard granted else { return }
+            let center = UNUserNotificationCenter.current()
             let content = UNMutableNotificationContent()
             content.title = finding.title
             content.body = finding.body

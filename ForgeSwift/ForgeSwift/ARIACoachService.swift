@@ -1,6 +1,8 @@
 import SwiftUI
 import Combine
 import UIKit
+import Vision
+import ForgeCore
 
 /// Structured form read returned by ARIA's vision pass.
 struct FormFeedback: Identifiable {
@@ -39,93 +41,61 @@ final class ARIACoachService: ObservableObject {
     @Published var lastFeedback: FormFeedback?
     @Published var lastError: String?
 
-    /// Whether the server last told us live coaching was available.
-    ///
-    /// Optimistic until proven otherwise: the first call decides. This replaces
-    /// `hasAPIKey`, which asked the wrong question — whether *this device* held a
-    /// credential — and answered it by reading one out of the app bundle.
-    @Published private(set) var isLiveCoachingAvailable = true
+    /// Form-check is on this phone. Forge servers never see a frame.
+    @Published private(set) var isLiveCoachingAvailable = false
 
     // ── Vision: analyze a camera frame against the movement ───────────────────
     func analyzeForm(image: UIImage, context: ARIALiveContext) async -> FormFeedback {
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        guard let jpeg = image.downscaledJPEG(maxDimension: 1024, quality: 0.55) else {
-            return fallback(for: context)
-        }
-
-        let body: [String: Any] = [
-            "mode": "vision",
-            "context": Self.payload(for: context),
-            "image_base64": jpeg.base64EncodedString(),
-        ]
-
-        do {
-            let json = try await post(body)
-            guard (json["available"] as? Bool) == true,
-                  let raw = json["feedback"] as? String else {
-                // The server declines rather than guessing when vision routing is
-                // not wired up. That is the same situation the old code was in
-                // whenever no API key was present, and it is handled the same way.
-                isLiveCoachingAvailable = false
-                return fallback(for: context)
-            }
-            isLiveCoachingAvailable = true
-            let fb = Self.parseFeedback(raw, context: context)
-            lastFeedback = fb
-            lastError = nil
-            return fb
-        } catch {
-            lastError = (error as? ForgeAPI.Failure)?.userMessage ?? error.localizedDescription
-            return fallback(for: context)
-        }
+        let joints = Self.visionJointCount(image)
+        let line = await Self.foundationLine(exercise: context.exerciseName)
+        let read = OnDeviceFormCheck.evaluate(
+            exerciseName: context.exerciseName,
+            setLabel: context.setLabel,
+            cues: context.cues,
+            personInFrame: joints > 0,
+            jointCount: joints,
+            foundationLine: line
+        )
+        let fb = FormFeedback(
+            score: read.score,
+            status: FormFeedback.Status(rawValue: read.status) ?? .adjust,
+            summary: read.summary,
+            cues: read.cues,
+            isLive: read.usedFoundationModels
+        )
+        lastFeedback = fb
+        lastError = nil
+        return fb
     }
 
-    private func fallback(for context: ARIALiveContext) -> FormFeedback {
-        let fb = Self.heuristicFeedback(for: context)
-        lastFeedback = fb
-        return fb
+    /// Vision body-pose on this phone. Never uploaded.
+    static func visionJointCount(_ image: UIImage) -> Int {
+        guard let cgImage = image.cgImage else { return 0 }
+        let request = VNDetectHumanBodyPoseRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up)
+        try? handler.perform([request])
+        return request.results?.first?.availableJointNames.count ?? 0
+    }
+
+    /// Foundation Models / Apple Intelligence may run on-device or via PCC.
+    /// Forge cannot call PCC itself. Dummy stays offline.
+    static func foundationLine(exercise: String) async -> String? {
+        _ = exercise
+        return nil
     }
 
     // ── Text: turn a session snapshot into a coaching briefing ────────────────
     func briefing(for snapshot: ARIASessionSnapshot) async -> String? {
-        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isLocalTesting {
-            return snapshot.localBriefing
-        }
-        do {
-            let json = try await post(["mode": "briefing", "snapshot": snapshot.promptPayload])
-            guard (json["available"] as? Bool) == true,
-                  let text = json["briefing"] as? String else { return snapshot.localBriefing }
-            return text.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? snapshot.localBriefing
-        } catch {
-            lastError = (error as? ForgeAPI.Failure)?.userMessage ?? error.localizedDescription
-            return snapshot.localBriefing
-        }
+        // Snapshot includes HR / SpO2. It stays on this phone.
+        snapshot.localBriefing
     }
 
-    // ── Transport ─────────────────────────────────────────────────────────────
-    //
-    // One authenticated request to Forge's own backend. This used to be a raw
-    // POST to api.anthropic.com carrying a key read out of Info.plist — an
-    // extractable secret in any build that set it, and a request that skipped
-    // auth, sanitization, the model router and every cost control at once.
-    private func post(_ body: [String: Any]) async throws -> [String: Any] {
-        guard let url = URL(string: "workouts/form-check", relativeTo: AriaService.shared.baseURL) else {
-            throw ForgeAPI.Failure.notConfigured
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 30
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, _) = try await ForgeAPI.send(request)
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-    }
-
+    /// Contract for tests and any leftover caller: never include HealthKit fields.
     static func payload(for context: ARIALiveContext) -> [String: Any] {
-        var payload: [String: Any] = [
+        [
             "exerciseName": context.exerciseName,
             "setLabel": context.setLabel,
             "weight": context.weight,
@@ -133,30 +103,6 @@ final class ARIACoachService: ObservableObject {
             "elapsed": context.elapsed,
             "cues": Array(context.cues.prefix(3)),
         ]
-        // Unmeasured vitals are left out rather than sent as a made-up number;
-        // the form-check route already tolerates a missing key.
-        if let heartRate = context.heartRate { payload["heartRate"] = heartRate }
-        if let hrZone = context.hrZone { payload["hrZone"] = hrZone }
-        if let spO2 = context.spO2 { payload["spO2"] = spO2 }
-        return payload
-    }
-
-    // ── Parsing + offline fallback ────────────────────────────────────────────
-    private static func parseFeedback(_ raw: String, context: ARIALiveContext) -> FormFeedback {
-        guard let start = raw.firstIndex(of: "{"), let end = raw.lastIndex(of: "}"),
-              let data = String(raw[start...end]).data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return FormFeedback(score: 80, status: .adjust,
-                                summary: raw.isEmpty ? "Reframe so your whole body is in shot." : String(raw.prefix(120)),
-                                cues: context.cues.isEmpty ? ["Brace and control the tempo"] : Array(context.cues.prefix(2)),
-                                isLive: true)
-        }
-        let score = (obj["score"] as? Int) ?? Int((obj["score"] as? Double) ?? 80)
-        let status = FormFeedback.Status(rawValue: (obj["status"] as? String ?? "adjust").lowercased()) ?? .adjust
-        let summary = (obj["summary"] as? String) ?? "Keep that position."
-        let cues = (obj["cues"] as? [String]) ?? Array(context.cues.prefix(2))
-        return FormFeedback(score: max(0, min(100, score)), status: status, summary: summary,
-                            cues: cues.isEmpty ? ["Own every rep"] : cues, isLive: true)
     }
 
     static func heuristicFeedback(for context: ARIALiveContext) -> FormFeedback {

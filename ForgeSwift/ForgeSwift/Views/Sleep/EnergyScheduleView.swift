@@ -97,10 +97,7 @@ struct EnergySchedule {
 
     /// Sleep duration as "7h 12m". Minutes are rounded so 7.996 never becomes 7h 60m.
     static func durationLabel(_ hours: Double) -> String {
-        let minutes = Int((hours * 60).rounded())
-        let h = minutes / 60
-        let m = minutes % 60
-        return m == 0 ? "\(h)h" : "\(h)h \(m)m"
+        SleepDebtMeter.hoursLabel(hours)
     }
 
     /// A schedule hour (may exceed 24, e.g. 25.5 for 1:30 AM the next day) as
@@ -730,7 +727,7 @@ struct EnergyScheduleCard: View {
     }
 
     private func relativeLabel(_ hours: Double) -> String {
-        let minutes = Int((hours * 60).rounded())
+        let minutes = SleepDebtMeter.minutesFromHours(hours)
         if minutes < 60 { return "in \(max(1, minutes)) min" }
         let wholeHours = minutes / 60
         let remainder = minutes % 60

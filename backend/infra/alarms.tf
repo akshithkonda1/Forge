@@ -1,5 +1,5 @@
 # Free-tier CloudWatch alarms (standard resolution) plus one SNS topic.
-# First 10 standard alarms are free. This module creates 7, all optional
+# First 10 standard alarms are free. This module creates 8, all optional
 # behind var.enable_alarms. Missing datapoints never fire
 # (treat_missing_data = notBreaching). Email is attached only when
 # spend_guard_notification_email is non-empty (the same address the budget uses).
@@ -7,7 +7,8 @@
 resource "aws_sns_topic" "ops_alarms" {
   count = var.enable_alarms ? 1 : 0
 
-  name = "${local.name_prefix}-ops-alarms"
+  name              = "${local.name_prefix}-ops-alarms"
+  kms_master_key_id = "alias/aws/sns"
 
   tags = local.common_tags
 }
@@ -111,6 +112,16 @@ locals {
       comparison_operator = "GreaterThanThreshold"
       threshold           = 0
       dimensions          = { TableName = aws_dynamodb_table.app_data.name }
+    }
+    estimated_charges = {
+      alarm_name          = "${local.name_prefix}-estimated-charges"
+      alarm_description   = "Account EstimatedCharges at or above the spend-guard USD limit. Billing metrics exist only in us-east-1; enable Receive Billing Alerts in the account."
+      namespace           = "AWS/Billing"
+      metric_name         = "EstimatedCharges"
+      statistic           = "Maximum"
+      comparison_operator = "GreaterThanOrEqualToThreshold"
+      threshold           = var.spend_guard_limit_usd
+      dimensions          = { Currency = "USD" }
     }
   } : {}
 }

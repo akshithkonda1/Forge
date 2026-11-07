@@ -83,7 +83,8 @@ public struct SleepNight: Codable, Sendable, Equatable {
     }
 
     public var durationLabel: String {
-        "\(Int(totalMinutes) / 60)h \(Int(totalMinutes) % 60)m"
+        let minutes = SleepDebtMeter.minutesFromHours(totalMinutes / 60)
+        return "\(minutes / 60)h \(minutes % 60)m"
     }
 
     /// Groups a flat, multi-day list of segments into nights. A segment

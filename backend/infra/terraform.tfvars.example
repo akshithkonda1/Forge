@@ -31,10 +31,8 @@ allowed_origins = [
 #   "https://app.example.com/kotlin/auth/logout", # after assetlinks.json
 # ]
 
-# Seed ElevenLabs after apply so the values never land in Terraform state:
-#   aws ssm put-parameter --name /forge-dev/ai/ELEVENLABS_API_KEY \
-#     --type SecureString --overwrite --value 'replace-me'
-# Same for ELEVENLABS_ARIA_VOICE_ID and ELEVENLABS_ARIA_AGENT_ID.
+# Voice is on-device (Kokoro). Do not seed ElevenLabs or Fish Audio
+# parameters — Terraform no longer creates them.
 #
 # Before the first real apply, also seed the social IdP parameters Terraform
 # reads (names only; values stay out of this file):
@@ -60,10 +58,11 @@ tags = {
 #   1 global.anthropic.claude-sonnet-5-5 / Claude Sonnet 5.5
 #   2 global.anthropic.claude-opus-5-5   / Claude Opus 5.5
 #   3 global.xai.grok-4.7          / Grok
-# Runtime in us-east-1 wants CRIS ids, not bare foundation ids. US-only
-# residency: us.anthropic.claude-sonnet-5-5 / us.anthropic.claude-opus-5-5.
-# /ai/chat reads ARIA_LIVE_MODEL_PRIMARY_ID / ARIA_LIVE_MODEL_FAST_ID.
-# US-only Grok residency would be us.xai.grok-4.7. Do not put Grok 4.3 here.
+# Runtime in us-east-1 wants CRIS ids, not bare foundation ids. Global
+# and US Geo profiles are both allowed — Bedrock may route internationally.
+# Do not geo-lock the stack to US-only. /ai/chat reads
+# ARIA_LIVE_MODEL_PRIMARY_ID / ARIA_LIVE_MODEL_FAST_ID. Do not put Grok 4.3
+# here. A us.* id is a residency choice, not the default.
 # Set id and name together; a name that disagrees with the id is worse than
 # no name.
 # ai_router_model_1_id   = "global.anthropic.claude-sonnet-5-5"
@@ -74,9 +73,8 @@ tags = {
 # ai_router_model_3_name = "Grok"
 #
 # Spend guard is on by default ($25/mo). First two AWS Budgets are free.
-# Alerts at 80% actual, 100% actual, and 100% forecasted. The budget only
-# ALERTS — it never stops spend. ElevenLabs is invisible to it; that cap
-# lives in the app quota. Leave the email for Akshith to fill in.
+# Alerts at 80% actual, 100% actual, and 100% forecasted. At 100% actual a
+# budget action attaches a Deny-Bedrock policy. Leave the email for Akshith.
 # enable_spend_guard                = true
 # spend_guard_limit_usd             = 25
 # spend_guard_notification_email    = ""
@@ -110,7 +108,7 @@ tags = {
 # New accounts can be as low as 10.
 # account_concurrency_limit = 1000
 #
-# Free-tier standard alarms (7) + SNS. Email uses spend_guard_notification_email
+# Free-tier standard alarms (8) + SNS. Email uses spend_guard_notification_email
 # when that is non-empty.
 # enable_alarms = true
 #
@@ -125,3 +123,18 @@ tags = {
 # routes 503). Set aria_pause_fail_mode = "open" to keep ARIA up on SSM errors.
 # /health and /ai/voice/* stay up either way.
 # aria_pause_fail_mode = "paused"
+#
+# AWS-hosted open source (off by default). Terraform is the source of
+# truth for these boxes and their SSM secrets. Nothing is created while
+# the flags stay false. Secrets never go in this file.
+# enable_scout = false
+# enable_open_wearables = false
+#
+# If you turn Open Wearables on later, raise spend_guard_limit_usd first
+# (~$21/mo for t4g.small + EIP + 30 GB). Seed SSM SecureStrings under
+# /<prefix>/open-wearables/ out of band (webhook, admin, Postgres,
+# Oura/WHOOP/Garmin/Strava). Official compose runs its own migrations.
+# HealthKit stays on the phone.
+# open_wearables_instance_type  = "t4g.small"
+# open_wearables_backend_image  = "themomentum/open-wearables-backend:0.7.0"
+# open_wearables_frontend_image = "themomentum/open-wearables-frontend:0.7.0"

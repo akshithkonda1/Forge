@@ -484,9 +484,9 @@ public enum ForgeLifestyleProfile: Sendable {
     }
 
     fileprivate static func normalized(_ raw: [Pillar: Double]) -> [Pillar: Double] {
-        let clipped = Dictionary(uniqueKeysWithValues: Pillar.allCases.map { pillar in
+        let clipped = Dictionary(Pillar.allCases.map { pillar in
             (pillar, max(0, raw[pillar] ?? 0))
-        })
+        }, uniquingKeysWith: { first, _ in first })
         let sum = clipped.values.reduce(0, +)
         guard sum > 0 else { return Snapshot.balancedWeights }
         return clipped.mapValues { $0 / sum }

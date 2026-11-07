@@ -1,0 +1,27 @@
+# Reusable leak guard. Other pipelines call this and `needs:` it so a
+# failure fails the run. Destroy stays dry-run. Dummy/Bedrock stay off.
+# This is a CI job, not a GitHub branch-protection setting.
+
+name: Health leak gate
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  health-leak:
+    name: health-leak
+    runs-on: ubuntu-latest
+    env:
+      FORGE_HEALTH_LEAK_DESTROY: "0"
+      FORGE_HEALTH_LEAK_QUARANTINE: "0"
+      FORGE_HEALTH_LEAK_APPLY: "0"
+      FORGE_HEALTH_LEAK_AUTO_BLOCK: "0"
+      ARIA_BEDROCK_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static scan, canary tests, local store scan, deploy gate
+        run: python3 scripts/check-health-leak.py all

@@ -488,7 +488,7 @@ final class DataPermissionsStore: ObservableObject {
             for domain in Self.domains where merged[domain] == nil { merged[domain] = true }
             grants = merged
         } else {
-            grants = Dictionary(uniqueKeysWithValues: Self.domains.map { ($0, true) })
+            grants = Dictionary(Self.domains.map { ($0, true) }, uniquingKeysWith: { first, _ in first })
         }
     }
 
@@ -546,6 +546,7 @@ extension AriaService {
         // Wearable / Apple Health samples stay on this iPhone. ARIA reads them
         // locally and gives an opinion. Forge is not a health warehouse.
         _ = message
+        _ = await BiometricsObserveService.shared.observe(store: store)
         let samples = observationSamples(from: store)
         for sample in samples {
             AgingVendorStore.ingest(
