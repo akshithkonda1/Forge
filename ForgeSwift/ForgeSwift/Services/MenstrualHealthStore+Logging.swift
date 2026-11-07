@@ -278,7 +278,8 @@ extension MenstrualHealthStore {
         recompute()
     }
 
-    /// Delete a single day log (day edit wipe).
+    /// Delete a single day log (day edit wipe). Also removes the matching
+    /// HealthKit samples so a cleared Forge day does not reappear on the next sync.
     func deleteLog(dayKey: String) {
         logs.removeAll { $0.dayKey == dayKey }
         persistLogs()

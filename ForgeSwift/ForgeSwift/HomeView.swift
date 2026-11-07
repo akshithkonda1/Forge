@@ -6,6 +6,7 @@ struct HomeView: View {
     @ObservedObject private var ariaContext = AriaContextStore.shared
     @State private var showHeaderBlur = false
     @State private var showTrend = false
+    @State private var showMoreToday = false
     @State private var proactiveInsight: String?
     @State private var celebrationKey: Int?
     private var primaryAction: HomePrimaryAction {
@@ -29,33 +30,8 @@ struct HomeView: View {
                         HomeTodayHero(action: primaryAction) {
                             celebrationKey = Int(Date().timeIntervalSince1970)
                         }
-                        ReadinessForecastCard()
+                        HomeMorningCard()
 
-                        if !store.quietMode {
-                            if let habit = ariaContext.context.deepHabits.first {
-                                HabitProactiveCard(habit: habit) {
-                                    store.openChat(
-                                        with: "Help me with: \(habit.breaker)",
-                                        voice: false,
-                                        isProactive: true
-                                    )
-                                }
-                            }
-                            if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
-                                ProactiveCardView(
-                                    insight: insight,
-                                    relationshipLevel: ariaContext.context.relationshipLevel,
-                                    onTap: {
-                                        HomeInsightFlow.open(insight, store: store)
-                                    }
-                                )
-                            }
-                            HomeARIABriefingCard()
-                        } else {
-                            HomeARIABriefingCard(compact: true)
-                        }
-
-                        // Rooms stay — they feed ARIA. They are not the first decision.
                         if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
                             HomeSupportPulseCard {
                                 store.openCycleHealth(pane: "partner")
@@ -68,16 +44,46 @@ struct HomeView: View {
                             }
                         }
 
-                        // Visual breathing room: max 1 hero, 1 ARIA, 1 social proof, then lifestyle.
-                        HomeLifestylePreviewCard()
-                        HomeWidgetBoard()
-                        TodaysStoryCard()
-                        HomeAgendaCard()
-                        HomeWinCard()
-                        HomeDayPreviewStrip()
-                        StreakCalendarSection()
-                        HomeTrendSection(isExpanded: $showTrend)
-                        LoadTimelineView()
+                        ForgeTextLink(title: "The rest of today", accent: .steel, expanded: showMoreToday) {
+                            withForgeMotion(ForgeMotion.smooth) { showMoreToday.toggle() }
+                        }
+                        .padding(.top, FDS.Spacing.xs)
+
+                        if showMoreToday {
+                            if !store.quietMode {
+                                if let habit = ariaContext.context.deepHabits.first {
+                                    HabitProactiveCard(habit: habit) {
+                                        store.openChat(
+                                            with: "Help me with: \(habit.breaker)",
+                                            voice: false,
+                                            isProactive: true
+                                        )
+                                    }
+                                }
+                                if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
+                                    ProactiveCardView(
+                                        insight: insight,
+                                        relationshipLevel: ariaContext.context.relationshipLevel,
+                                        onTap: {
+                                            HomeInsightFlow.open(insight, store: store)
+                                        }
+                                    )
+                                }
+                                HomeARIABriefingCard()
+                            } else {
+                                HomeARIABriefingCard(compact: true)
+                            }
+                            ReadinessForecastCard()
+                            HomeLifestylePreviewCard()
+                            HomeWidgetBoard()
+                            TodaysStoryCard()
+                            HomeAgendaCard()
+                            HomeWinCard()
+                            HomeDayPreviewStrip()
+                            StreakCalendarSection()
+                            HomeTrendSection(isExpanded: $showTrend)
+                            LoadTimelineView()
+                        }
                 }
                 .background {
                     GeometryReader { geo in
@@ -116,6 +122,8 @@ struct HomeView: View {
         .task {
             // Launch hydrate is owned by AppStore.init. Home only reads
             // after that pass — do not start a second refreshDailyData here.
+            AriaPersonalPatternStore.shared.refresh(store: store)
+            speakMorningCardIfNeeded()
             proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
             MenstrualHealthStore.shared.refresh(from: store)
         }
@@ -127,7 +135,15 @@ struct HomeView: View {
     @MainActor
     private func refreshData() async {
         await store.refreshDailyData(force: true)
+        AriaPersonalPatternStore.shared.refresh(store: store)
+        speakMorningCardIfNeeded()
         proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
+    }
+
+    private func speakMorningCardIfNeeded() {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard let line = AriaPersonalPatternStore.shared.consumeSpokenLine() else { return }
+        AriaPresence.shared.speak(line, interrupt: false)
     }
 }
 

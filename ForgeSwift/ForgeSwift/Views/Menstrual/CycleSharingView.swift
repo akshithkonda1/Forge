@@ -122,7 +122,7 @@ struct CycleSharingView: View {
                 }
             }
 
-            Text("They see how to help. They never see your log. If they use Forge, a Watch glance and a morning reminder stay lock-safe. You can stop at any time.")
+            Text("They see how to help. They never see your log. ARIA only sees cycle context if you turn on share with ARIA — this invite is separate, per person. If they use Forge, a Watch glance and a morning reminder stay lock-safe. You can stop at any time.")
                 .font(HomeType.body)
                 .foregroundStyle(Color.vitality)
                 .forgeWrapping()
@@ -134,6 +134,7 @@ struct CycleSharingView: View {
             }
         }
         .forgeContentCard(tint: .indigo)
+        .accessibilityElement(children: .contain)
     }
 
     private var rolePicker: some View {
@@ -201,6 +202,8 @@ struct CycleSharingView: View {
                 .foregroundStyle(Color.textPrimary)
                 .frame(minHeight: ForgeUX.minTap)
                 .forgeWell()
+                .accessibilityLabel("First name")
+                .accessibilityValue(displayName.isEmpty ? "Blank" : displayName)
             // A first name is enough, and an iMessage bubble is read on lock
             // screens by people who were not the intended audience.
             Text("A first name is plenty. This shows in the message they receive.")
@@ -279,6 +282,7 @@ struct CycleSharingView: View {
             .layoutPriority(1)
             Spacer(minLength: 0)
         }
+        .accessibilityElement(children: .combine)
     }
 
     /// The extension only holds an invite for 30 minutes. iMessage on
@@ -304,6 +308,8 @@ struct CycleSharingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Ready for iMessage")
+        .accessibilityValue("Open Messages, tap the app drawer, choose Forge, and send. SMS is not valid access.")
     }
 
     private var stopSharingButton: some View {
@@ -387,6 +393,7 @@ struct CycleSharingView: View {
             }
         }
         .frame(minHeight: ForgeUX.minTap)
+        .accessibilityElement(children: .contain)
     }
 
     /// Pause is the quiet alternative to revoking.
@@ -408,6 +415,8 @@ struct CycleSharingView: View {
             }
             .tint(Color.indigo)
             .frame(minHeight: ForgeUX.minTap)
+            .accessibilityLabel("Pause updates")
+            .accessibilityValue(sharing.isPaused ? "On" : "Off")
 
             Text(sharing.isPaused
                  // States exactly what the other side sees, so nobody has to
@@ -444,6 +453,7 @@ struct CycleSharingView: View {
             .forgeContentCard(tint: .indigo)
         }
         .buttonStyle(ForgePressStyle())
+        .accessibilityHint("Opens a preview of the supporter digest")
     }
 
     private func errorBanner(_ error: String) -> some View {
@@ -539,6 +549,8 @@ private struct SharingOptionRow: View {
                 .contentShape(shape)
         }
         .buttonStyle(ForgePressStyle())
+        .accessibilityLabel(title)
+        .accessibilityValue(selected ? "Selected. \(detail)" : detail)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 

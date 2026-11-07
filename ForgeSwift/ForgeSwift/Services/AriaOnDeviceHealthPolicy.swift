@@ -85,6 +85,41 @@ enum AriaOnDeviceHealthPolicy {
                 && !l.contains("ovulat") && !l.hasPrefix("cycle")
                 && !l.hasPrefix("med:health:") && !l.hasPrefix("med:saved:")
                 && !l.contains("scout_gap")
+                && !ForgeConditionSafety.containsBannedSpeech(line)
+        }
+        let patternFacts = AriaPersonalPatternEngine.remoteFacts(
+            AriaPersonalPatternEngine.Store.load()
+        )
+        out.lifestyle.recentPatterns = patternFacts
+        let sleepHours = payload.sleep.durationMinutes.map { $0 / 60.0 }
+        let readiness = payload.readiness.recoveryScore.map { Int($0.rounded()) }
+        let safetyChanged = payload.profile.constraints.contains {
+            $0.lowercased().contains("safety rule")
+        }
+        let facts = AriaDeviceEgress.computedFacts(
+            sleepHours: sleepHours,
+            readiness: readiness,
+            gymLabel: "",
+            patternFlags: patternFacts,
+            safetyChanged: safetyChanged
+        )
+        out.lifestyle.tags.append(contentsOf: facts.keys.map { key in
+            switch key {
+            case "sleep_band": return "sleep_band:\(facts.sleepBand)"
+            case "readiness_band": return "readiness_band:\(facts.readinessBand)"
+            case "safety_changed": return "safety_changed:true"
+            default: return "fact:\(key)"
+            }
+        })
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            var log = AriaDeviceEgress.load()
+            log = AriaDeviceEgress.record(
+                log,
+                kind: .chatFacts,
+                summary: facts.summary,
+                factKeys: facts.keys + patternFacts
+            )
+            AriaDeviceEgress.save(log)
         }
         return out
     }

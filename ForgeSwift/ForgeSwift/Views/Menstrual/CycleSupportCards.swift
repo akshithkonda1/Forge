@@ -176,6 +176,7 @@ struct AddSupportedPersonSheet: View {
             }
             .tint(Color.indigo)
             .frame(minHeight: ForgeUX.minTap)
+            .accessibilityValue(consent ? "On" : "Off")
 
             Text(CyclePrivacy.partnerExtra)
                 .font(HomeType.body)
@@ -298,6 +299,10 @@ struct CycleAccuracyExplainerSheet: View {
                 .font(HomeType.body)
                 .foregroundStyle(Color.vitality)
                 .forgeWrapping()
+            Text(CyclePrivacy.ariaShareLine)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
             Text(MenstrualCycleEngine.disclaimer)
                 .font(HomeType.micro)
                 .foregroundStyle(Color.textSecondary)
@@ -390,7 +395,7 @@ struct SexualHealthEntryCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
                 Image(systemName: flow == .difficultyConceiving ? "chevron.right" : "arrow.up.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(ForgeType.eyebrow)
                     .foregroundStyle(Color.textMuted)
                     .accessibilityHidden(true)
             }
@@ -398,6 +403,8 @@ struct SexualHealthEntryCard: View {
             .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
             .contentShape(Rectangle())
             .accessibilityElement(children: .combine)
+            .accessibilityLabel(flow.label)
+            .accessibilityValue(flow.subtitle)
         }
         .buttonStyle(.plain)
         .accessibilityHint(flow.opensChat ? "Opens ARIA" : "Opens a guide")

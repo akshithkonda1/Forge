@@ -94,11 +94,14 @@ struct CycleRhythmReportView: View {
                     .accessibilityAddTraits(.isHeader)
                 ForgeVibeChip(label: "Apple Cycle", energy: Color.vitality)
             }
-            Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Share the PDF via Mail, Files, or MyChart. A temporary private link is optional and expires in a day — nothing is stored in a Forge database.")
+            Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Share the PDF via Mail, Files, or MyChart. A temporary private link is optional and expires in a day — ciphertext only, key in the URL fragment, nothing stored in a Forge database.")
                 .font(HomeType.body)
                 .foregroundStyle(Color.textSecondary)
                 .forgeWrapping()
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Rhythm report")
+        .accessibilityValue("Forge reads Apple Cycle Tracking on this iPhone. Temporary private links are ciphertext only; the key stays in the URL fragment.")
     }
 
     private var summaryHero: some View {
@@ -141,6 +144,7 @@ struct CycleRhythmReportView: View {
         }
         .forgeContentCard()
         .accessibilityElement(children: .contain)
+        .accessibilityLabel("Rhythm report summary")
     }
 
     // MARK: Actions
@@ -182,7 +186,7 @@ struct CycleRhythmReportView: View {
                 }
                 .buttonStyle(ForgePressStyle())
                 if let linkExpires {
-                    Text("Expires \(linkExpires). Not stored on Forge servers.")
+                    Text("Expires \(linkExpires). Ciphertext only — key stays in the URL fragment. Not stored on Forge servers.")
                         .font(HomeType.body)
                         .foregroundStyle(Color.textTertiary)
                         .forgeWrapping()
@@ -209,6 +213,8 @@ struct CycleRhythmReportView: View {
             }
         }
         .forgeContentCard(tint: .vitality)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Months in this pack")
     }
 
     private func monthRow(_ month: CycleMonthlyDigest) -> some View {
@@ -321,7 +327,7 @@ private struct ReportActionLabel: View {
     private var primaryBody: some View {
         HStack(spacing: FDS.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .font(ForgeFont.sans(ForgeUX.icon, weight: .semibold, relativeTo: .callout))
                 .accessibilityHidden(true)
             Text(title)
                 .font(HomeType.cta)
@@ -329,7 +335,7 @@ private struct ReportActionLabel: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: FDS.Spacing.sm)
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold))
+                .font(ForgeFont.sans(14, weight: .bold, relativeTo: .subheadline))
                 .accessibilityHidden(true)
         }
         .foregroundColor(.white)
@@ -349,7 +355,7 @@ private struct ReportActionLabel: View {
     private var secondaryBody: some View {
         HStack(spacing: FDS.Spacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .font(ForgeFont.sans(ForgeUX.icon, weight: .semibold, relativeTo: .callout))
                 .accessibilityHidden(true)
             Text(title)
                 .font(HomeType.label)
@@ -423,5 +429,7 @@ struct CycleTrainingPrescriptionCard: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .forgeWell()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(label)
+        .accessibilityValue(text)
     }
 }

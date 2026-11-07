@@ -1770,7 +1770,7 @@ def load(user_id: str) -> PersonaState:
     return PersonaState.from_dict(payload if isinstance(payload, dict) else item)
 
 
-def save(user_id: str, state: PersonaState) -> None:
+def save(user_id: str, state: PersonaState, ctx: Any = None) -> None:
     uid = (user_id or "").strip()
     if not uid:
         return
@@ -1781,7 +1781,10 @@ def save(user_id: str, state: PersonaState) -> None:
         return
     key_fn = getattr(storage_keys, "aria_persona_key", None)
     key = key_fn(uid) if callable(key_fn) else persona_key(uid)
-    dynamodb.put_item({**key, "payload": state.as_dict(), "user_id": uid})
+    from . import health_privacy
+
+    persistable = health_privacy.strip_health_from_persona(state, ctx=ctx)
+    dynamodb.put_item({**key, "payload": persistable.as_dict(), "user_id": uid})
 
 
 def observe_turn(

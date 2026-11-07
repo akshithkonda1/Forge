@@ -178,7 +178,7 @@ final class MenstrualHealthStore: ObservableObject {
 // MARK: - HealthKit DTO
 
 struct MenstrualHealthKitBundle {
-    var flowSamples: [(date: Date, flow: MenstrualFlowLevel)]
+    var flowSamples: [(date: Date, flow: MenstrualFlowLevel, updatedAt: Date)]
     var bbtSamples: [(date: Date, celsius: Double)]
     var ovulationTests: [(date: Date, result: OvulationTestResult)]
     var mucusSamples: [(date: Date, quality: CervicalMucusQuality)]
