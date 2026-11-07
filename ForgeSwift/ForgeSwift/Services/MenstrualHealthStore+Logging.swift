@@ -284,6 +284,13 @@ extension MenstrualHealthStore {
         persistLogs()
         recompute()
         pushAriaTags()
+        Task {
+            await CycleHealthKitPolicy.perform(
+                [.deleteMenstrualFlow, .deleteIntermenstrualBleeding],
+                dayKey: dayKey,
+                client: HealthKitManager.shared
+            )
+        }
     }
 
     /// Local tester history. Refreshes when the session seed changes if logs

@@ -7,23 +7,34 @@ import Foundation
 /// engine cannot load, the line stays on screen and the failure is logged
 /// locally.
 ///
-/// Package: `mattmireles/kokoro-coreml` (Apache-2.0), product `KokoroTTS`.
-/// Weights: `hexgrad/Kokoro-82M` (Apache-2.0). G2P assets from
-/// FluidInference/kokoro-82m-coreml are also Apache-2.0. Ship preset
+/// Package: `mattmireles/kokoro-coreml` v2.0 (Apache-2.0), product `KokoroTTS`.
+/// Pin is the `v2.0` tag. Weights: `hexgrad/Kokoro-82M` (Apache-2.0).
+/// G2P is MisakiSwift (Apache-2.0) with no eSpeak fallback. Ship preset
 /// voices only — no cloning, no custom uploads.
 ///
 /// ARIA's locked preset is `af_heart` (Warm). The starter Core ML bundle
-/// is about 210 MB (one voice, 15 s bucket). Lazy-load it on first speak
-/// from an on-device bundle; do not download Hugging Face at speak time.
-/// WatchOS is unsupported. This type is network-free.
+/// is about 210 MB (one voice, 15 s bucket). Deliver it through an
+/// Apple-hosted Background Asset pack, a bundled copy, or one consented
+/// first-launch download into Application Support. Hugging Face is never
+/// contacted at speak time. WatchOS is unsupported. This type is network-free.
 public enum AriaKokoroVoice: Sendable {
 
     public static let provider = "kokoro"
     public static let model = "kokoro-82m"
     public static let packageURL = "https://github.com/mattmireles/kokoro-coreml"
     public static let packageProduct = "KokoroTTS"
+    /// Tagged release. Exact git object of `refs/tags/v2.0`.
+    public static let packageVersion = "2.0"
+    public static let packageRevision = "e4242c94c0dc5be62258cc3cf15c86c37382c3d5"
     public static let weightsRepo = "hexgrad/Kokoro-82M"
+    public static let hostedModelRepo = "mattmireles/kokoro-coreml"
+    /// Immutable Hugging Face commit of the schema-2 starter bundle.
+    public static let hostedRevision = "034f7741bf938fd6b4b9c75c22bc72cd795f908a"
+    /// SHA-256 of `HostedManifest.json` at ``hostedRevision``.
+    public static let hostedManifestSHA256 =
+        "f3abd5811585b8c89f1c15e647409311731b4262da4315242c69f88675bced9d"
     public static let license = "Apache-2.0"
+    public static let g2p = "MisakiSwift"
     public static let ariaPreset = "af_heart"
     public static let catalogPath = "ai/voice"
     /// Retired. Hex no longer synthesizes speech.
@@ -32,10 +43,13 @@ public enum AriaKokoroVoice: Sendable {
         "I'm ARIA. Let's look at how you actually slept and what that means for training today. One next move, not a new identity."
     public static let loadFailedMessage = "Voice could not load. The text reply is shown."
     public static let starterBundleMegabytes = 210
+    public static let starterBundleBytes = 218_081_866
     public static let shipsPresetVoicesOnly = true
     public static let allowsNetworkAtSpeakTime = false
     public static let allowsCloudTTS = false
     public static let appleEmergencyFallbackEnabled = false
+    public static let usesEspeak = false
+    public static let usesOnDemandResources = false
 
     public static let allowedPresets: Set<String> = [
         "af_heart", "af_bella", "af_sarah", "af_aoede", "am_michael",

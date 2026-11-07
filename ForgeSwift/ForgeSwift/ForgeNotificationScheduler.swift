@@ -27,12 +27,41 @@ enum ForgeNotificationScheduler {
         static let partnerSupport = "forge.notif.partner.support"
     }
 
+    /// Launch / prep must not show the system permission sheet. A fresh
+    /// simulator install otherwise sits on that alert until the launch
+    /// first-frame window expires. Settings toggles pass `promptIfUndetermined: true`.
+    nonisolated enum AuthorizationIntent: Equatable {
+        case alreadyGranted
+        case denied
+        case prompt
+        case skipPrompt
+    }
+
+    /// Pure status mapping. SleepAlarmScheduler.arm is not on MainActor,
+    /// so this cannot inherit the enum's actor isolation.
+    nonisolated static func authorizationIntent(
+        status: UNAuthorizationStatus,
+        promptIfUndetermined: Bool
+    ) -> AuthorizationIntent {
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            return .alreadyGranted
+        case .denied:
+            return .denied
+        case .notDetermined:
+            return promptIfUndetermined ? .prompt : .skipPrompt
+        @unknown default:
+            return .denied
+        }
+    }
+
     static func sync(
         settings: AppNotificationSettings,
         briefEnabled: Bool,
-        brief: BriefNotificationSettings
+        brief: BriefNotificationSettings,
+        promptIfUndetermined: Bool = false
     ) async {
-        guard await requestAuthorizationIfNeeded() else { return }
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: promptIfUndetermined) else { return }
 
         await removeAllForgeNotifications()
 
@@ -63,6 +92,7 @@ enum ForgeNotificationScheduler {
             )
         }
 
+        SleepNudgePolicy.setQuietWeek(settings.sleepQuietWeek)
         if settings.lifestyleReminders {
             await scheduleInterval(
                 id: ID.lifestyleHydration,
@@ -90,6 +120,9 @@ enum ForgeNotificationScheduler {
                 quietWeek: settings.sleepQuietWeek,
                 lowEnergyDay: false
             )
+        } else {
+            SleepNudgePolicy.setPhoneWindDownScheduled(false)
+            WatchAriaConfigBridge.sync(force: true)
         }
 
         if briefEnabled {
@@ -136,8 +169,13 @@ enum ForgeNotificationScheduler {
 
     /// One phone wind-down. Replaces both the old 21:00 lifestyle id and
     /// LifestyleServices `sleep-wind-down`. Watch `WindDownScheduler` stays.
+    /// Quiet week is the App Group flag — never force it off from this path.
     static func schedulePhoneWindDown(bedtimeHour: Double?) async {
-        await scheduleSleepNudges(bedtimeHour: bedtimeHour, quietWeek: false, lowEnergyDay: false)
+        await scheduleSleepNudges(
+            bedtimeHour: bedtimeHour,
+            quietWeek: SleepNudgePolicy.isQuietWeek(),
+            lowEnergyDay: false
+        )
     }
 
     /// At most two sleep nudges a day: caffeine cutoff, then wind-down.
@@ -150,44 +188,84 @@ enum ForgeNotificationScheduler {
             + SleepWindDownNotice.retiredPhoneIdentifiers
         center.removePendingNotificationRequests(withIdentifiers: ids)
         SleepNudgePolicy.setQuietWeek(quietWeek)
-        guard !quietWeek else { return }
+        let requested = [
+            SleepWindDownNotice.phoneIdentifier,
+            SleepWindDownNotice.caffeineIdentifier,
+        ]
+        let allowed = SleepNudgePolicy.allowed(requested, quietWeek: quietWeek)
+        SleepNudgePolicy.setPhoneWindDownScheduled(
+            allowed.contains(SleepWindDownNotice.phoneIdentifier)
+        )
 
-        let wind = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
-        await scheduleDaily(
-            id: SleepWindDownNotice.phoneIdentifier,
-            hour: wind.hour,
-            minute: wind.minute,
-            title: "Wind Down",
-            body: SleepWindDownNotice.phoneBody(lowReadinessDay: lowEnergyDay),
-            destination: "forge://sleep/night",
-            interruptionLevel: .passive
-        )
-        let caffeine = SleepWindDownNotice.caffeineHourMinute(bedtimeHour: bedtimeHour)
-        await scheduleDaily(
-            id: SleepWindDownNotice.caffeineIdentifier,
-            hour: caffeine.hour,
-            minute: caffeine.minute,
-            title: "Last caffeine",
-            body: SleepWindDownNotice.caffeineBody(),
-            destination: "forge://sleep/night",
-            interruptionLevel: .passive
-        )
+        if allowed.contains(SleepWindDownNotice.phoneIdentifier) {
+            let wind = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
+            await scheduleDaily(
+                id: SleepWindDownNotice.phoneIdentifier,
+                hour: wind.hour,
+                minute: wind.minute,
+                title: "Wind Down",
+                body: SleepWindDownNotice.phoneBody(lowReadinessDay: lowEnergyDay),
+                destination: "forge://sleep/night",
+                interruptionLevel: .passive
+            )
+        }
+        if allowed.contains(SleepWindDownNotice.caffeineIdentifier) {
+            let caffeine = SleepWindDownNotice.caffeineHourMinute(bedtimeHour: bedtimeHour)
+            await scheduleDaily(
+                id: SleepWindDownNotice.caffeineIdentifier,
+                hour: caffeine.hour,
+                minute: caffeine.minute,
+                title: "Last caffeine",
+                body: SleepWindDownNotice.caffeineBody(),
+                destination: "forge://sleep/night",
+                interruptionLevel: .passive
+            )
+        }
+
+        WatchAriaConfigBridge.sync(force: true)
     }
 
     // MARK: - Cycle notifications
+
+    /// True after we have actually talked to `UNUserNotificationCenter` for
+    /// cycle ids. Default-disabled launch must not hit that XPC.
+    private static var didScheduleCycleNotifications = false
+
+    /// Default-disabled `MenstrualHealthStore` init must not call
+    /// `removePendingNotificationRequests` (sync XPC). Disable-after-enable
+    /// still clears.
+    static func shouldTouchCycleNotificationCenter(
+        enabled: Bool,
+        previouslyScheduled: Bool
+    ) -> Bool {
+        enabled || previouslyScheduled
+    }
 
     static func syncCycleNotifications(
         settings: MenstrualTrackingSettings,
         snapshot: MenstrualCycleSnapshot
     ) async {
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         let cycleIds = [
             ID.cycleBBTReminder, ID.cycleOPKWindow, ID.cycleFertileWindow,
             ID.cyclePeriodReminder,
         ]
-        center.removePendingNotificationRequests(withIdentifiers: cycleIds)
-        center.removeDeliveredNotifications(withIdentifiers: cycleIds)
-
-        guard settings.enabled else { return }
+        // `removePendingNotificationRequests` is a synchronous XPC wait on
+        // `UNUserNotificationServiceConnection`. Calling it from MainActor
+        // during MenstrualHealthStore.init → recompute hid the main thread
+        // from `sample` (idle=missing) and stalled first layout.
+        if !shouldTouchCycleNotificationCenter(
+            enabled: settings.enabled,
+            previouslyScheduled: didScheduleCycleNotifications
+        ) {
+            return
+        }
+        await clearCycleRequests(cycleIds)
+        guard settings.enabled else {
+            didScheduleCycleNotifications = false
+            return
+        }
+        didScheduleCycleNotifications = true
         if settings.discretionMode == .stealth { return }
 
         let kind = settings.discretionMode == .kind
@@ -255,14 +333,25 @@ enum ForgeNotificationScheduler {
         }
     }
 
+    /// XPC off MainActor. `removePending` uses
+    /// `dispatch_lane_barrier_sync` + `xpc_connection_send_message_with_reply_sync`.
+    private static func clearCycleRequests(_ ids: [String]) async {
+        await Task.detached(priority: .utility) {
+            let center = UNUserNotificationCenter.current()
+            center.removePendingNotificationRequests(withIdentifiers: ids)
+            center.removeDeliveredNotifications(withIdentifiers: ids)
+        }.value
+    }
+
     /// Morning “how to help” on the supporter's phone. Uses the lock-safe line
     /// so a lock screen never names a period. Cleared when the share is empty,
     /// paused, or stale.
     static func syncPartnerSupport(_ glance: PartnerSupportGlance?) async {
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         center.removePendingNotificationRequests(withIdentifiers: [ID.partnerSupport])
         center.removeDeliveredNotifications(withIdentifiers: [ID.partnerSupport])
         guard let glance, !glance.isPaused, !glance.isStale else { return }
-        guard await requestAuthorizationIfNeeded() else { return }
+        guard await requestAuthorizationIfNeeded(promptIfUndetermined: false) else { return }
         await scheduleDaily(
             id: ID.partnerSupport,
             hour: 8, minute: 0,
@@ -272,13 +361,27 @@ enum ForgeNotificationScheduler {
         )
     }
 
-    static func requestAuthorizationIfNeeded() async -> Bool {
-        do {
-            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
-        } catch {
-            print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
+    static func requestAuthorizationIfNeeded(promptIfUndetermined: Bool = false) async -> Bool {
+        let status = await center.notificationSettings().authorizationStatus
+        switch authorizationIntent(status: status, promptIfUndetermined: promptIfUndetermined) {
+        case .alreadyGranted:
+            return true
+        case .denied, .skipPrompt:
             return false
+        case .prompt:
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            } catch {
+                print("ForgeNotificationScheduler: authorization failed: \(error.localizedDescription)")
+                return false
+            }
         }
+    }
+
+    /// Schedule only. If the user has not been asked yet, skip — do not present
+    /// the system sheet over the launch splash.
+    static func requestAuthorizationIfNeeded() async -> Bool {
+        await hasAuthorization()
     }
 
     private static func scheduleDaily(

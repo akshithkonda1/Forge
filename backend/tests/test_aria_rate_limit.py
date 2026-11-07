@@ -67,32 +67,34 @@ class AriaRateLimitTests(unittest.TestCase):
         self.assertEqual(json.loads(response["body"]), {"message": "rate limit exceeded"})
 
     def test_local_concurrent_admits_exactly_limit(self) -> None:
-        uid = "rate-limit-local-race"
-        delay_s = 0.03
-        real_get = dynamodb.get_item
+        for round_id in range(5):
+            dynamodb.clear_local_store()
+            uid = f"rate-limit-local-race-{round_id}"
+            delay_s = 0.03
+            real_get = dynamodb.get_item
 
-        def delayed_get(pk: str, sk: str):
-            item = real_get(pk, sk)
-            time.sleep(delay_s)
-            return item
+            def delayed_get(pk: str, sk: str, get=real_get):
+                item = get(pk, sk)
+                time.sleep(delay_s)
+                return item
 
-        def attempt() -> int:
-            try:
-                enforce_user_rate_limit(uid, action="aria-chat", limit=60, window_hours=1)
-                return 200
-            except PermissionError as exc:
-                response = error_response(RouteError(429, str(exc) or "Too many requests."))
-                return int(response["statusCode"])
+            def attempt() -> int:
+                try:
+                    enforce_user_rate_limit(uid, action="aria-chat", limit=60, window_hours=1)
+                    return 200
+                except PermissionError as exc:
+                    response = error_response(RouteError(429, str(exc) or "Too many requests."))
+                    return int(response["statusCode"])
 
-        with patch.object(dynamodb, "get_item", side_effect=delayed_get):
-            with ThreadPoolExecutor(max_workers=64) as pool:
-                codes = list(pool.map(lambda _: attempt(), range(200)))
+            with patch.object(dynamodb, "get_item", side_effect=delayed_get):
+                with ThreadPoolExecutor(max_workers=64) as pool:
+                    codes = list(pool.map(lambda _: attempt(), range(200)))
 
-        self.assertEqual(codes.count(200), 60)
-        self.assertEqual(codes.count(429), 140)
-        key = rate_limit_key(uid, f"aria-chat:{_rate_window(hours=1)[0]}")
-        stored = dynamodb.get_item(key["pk"], key["sk"])
-        self.assertEqual(int(stored["count"]), 60)
+            self.assertEqual(codes.count(200), 60, f"round {round_id}")
+            self.assertEqual(codes.count(429), 140, f"round {round_id}")
+            key = rate_limit_key(uid, f"aria-chat:{_rate_window(hours=1)[0]}")
+            stored = dynamodb.get_item(key["pk"], key["sk"])
+            self.assertEqual(int(stored["count"]), 60, f"round {round_id}")
 
 
 def _moto_or_skip() -> object:
@@ -153,7 +155,6 @@ class MotoRateLimitRaceTests(unittest.TestCase):
 
     def test_two_hundred_concurrent_calls_admit_exactly_sixty(self) -> None:
         mock_aws = _moto_or_skip()
-        uid = "rate-limit-moto-user"
         env = {
             "AWS_ACCESS_KEY_ID": "testing",
             "AWS_SECRET_ACCESS_KEY": "testing",
@@ -166,7 +167,7 @@ class MotoRateLimitRaceTests(unittest.TestCase):
         moto_update_lock = threading.Lock()
 
         def delayed_get(pk: str, sk: str):
-            # Widens the race for a get-then-put limiter. Atomic UpdateItem
+            # Widens the race for a get-then-put limiter. Atomic reservation
             # never calls get_item, so this sleep must not change admission.
             item = real_get(pk, sk)
             time.sleep(0.03)
@@ -174,9 +175,8 @@ class MotoRateLimitRaceTests(unittest.TestCase):
 
         def locking_table():
             # moto's in-process table is not atomic across threads the way
-            # real Dynamo UpdateItem is. Serialize only UpdateItem so this
-            # test matches Dynamo; put_item stays unlocked so a read-then-
-            # write regression still over-admits.
+            # real Dynamo UpdateItem is. Serialize only UpdateItem so a
+            # get-then-put regression still over-admits (put_item unlocked).
             table = real_get_table()
             original_update = table.update_item
 
@@ -187,7 +187,7 @@ class MotoRateLimitRaceTests(unittest.TestCase):
             table.update_item = locked_update
             return table
 
-        def attempt() -> int:
+        def attempt(uid: str) -> int:
             try:
                 enforce_user_rate_limit(uid, action="aria-chat", limit=60, window_hours=1)
                 return 200
@@ -200,18 +200,19 @@ class MotoRateLimitRaceTests(unittest.TestCase):
             with patch.dict(os.environ, env, clear=False):
                 _create_app_data_table(self.TABLE)
                 with patch.object(dynamodb, "_TABLE_NAME", self.TABLE):
-                    with patch.object(dynamodb, "_get_table", side_effect=locking_table):
-                        with patch.object(dynamodb, "get_item", side_effect=delayed_get):
-                            with ThreadPoolExecutor(max_workers=64) as pool:
-                                codes = list(pool.map(lambda _: attempt(), range(200)))
-                    key = rate_limit_key(uid, f"aria-chat:{_rate_window(hours=1)[0]}")
-                    stored = dynamodb.get_item(key["pk"], key["sk"])
-
-        self.assertEqual(codes.count(200), 60)
-        self.assertEqual(codes.count(429), 140)
-        self.assertIsNotNone(stored)
-        self.assertEqual(int(stored["count"]), 60)
-        self.assertIn("ttl", stored)
+                    for round_id in range(5):
+                        uid = f"rate-limit-moto-user-{round_id}"
+                        with patch.object(dynamodb, "_get_table", side_effect=locking_table):
+                            with patch.object(dynamodb, "get_item", side_effect=delayed_get):
+                                with ThreadPoolExecutor(max_workers=64) as pool:
+                                    codes = list(pool.map(lambda _: attempt(uid), range(200)))
+                        key = rate_limit_key(uid, f"aria-chat:{_rate_window(hours=1)[0]}")
+                        stored = dynamodb.get_item(key["pk"], key["sk"])
+                        self.assertEqual(codes.count(200), 60, f"round {round_id}")
+                        self.assertEqual(codes.count(429), 140, f"round {round_id}")
+                        self.assertIsNotNone(stored, f"round {round_id}")
+                        self.assertEqual(int(stored["count"]), 60, f"round {round_id}")
+                        self.assertIn("ttl", stored)
 
 
 class InjectionMarkerTests(unittest.TestCase):

@@ -23,13 +23,14 @@ struct AriaForgePrepView: View {
             VStack(spacing: 0) {
                 topBar
 
-                // Never size the copy against a GeometryReader that can report
-                // zero height on first layout — that collapsed the stack into
-                // a blank dark screen when prep resumed after a kill.
+                // Flexible frame so the first layout has height. A ScrollView
+                // that hugs zero collapsed this stack into Color.background
+                // (#09090B) — the launch gate's 87% rgb(9,9,11) blank.
                 ScrollView(showsIndicators: false) {
                     content(stage: stage, progress: progress)
                         .frame(maxWidth: .infinity, minHeight: 420)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollBounceBehavior(.basedOnSize)
             }
         }
@@ -58,6 +59,9 @@ struct AriaForgePrepView: View {
                     size: orbSize,
                     followPresence: false
                 )
+                // Frozen nest still-pose paints on the first commit.
+                // TimelineView animation is a later tick — not the ring.
+                .environment(\.forgeMinimalAnimation, true)
                 .accessibilityHidden(true)
 
                 statusCopy(stage: stage)
@@ -82,7 +86,6 @@ struct AriaForgePrepView: View {
                 .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
                 .forgeWrapping()
-                .animation(reduceMotion ? nil : ForgeMotion.smooth, value: stage)
 
             Text(stage.detail(healthConnected: coordinator.prepHealthConnected))
                 .font(HomeType.body)
@@ -91,7 +94,6 @@ struct AriaForgePrepView: View {
                 .forgeWrapping()
                 .padding(.top, ForgeLayout.pairGap)
                 .padding(.horizontal, FDS.Spacing.sm)
-                .animation(reduceMotion ? nil : ForgeMotion.smooth, value: stage)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)

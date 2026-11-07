@@ -2,7 +2,7 @@ import XCTest
 @testable import ForgeSwift
 
 /// Locks the interview relationship layer: spoken copy, suggested replies,
-/// and voice matching. Does not spin AVSpeech — that's AriaPresence.
+/// and voice matching. Playback is AriaPresence / Kokoro, not AVSpeech.
 final class AriaInterviewVoiceTests: XCTestCase {
 
     func testIntroAlwaysSaysARIANotAriaAsAFriend() {
