@@ -61,6 +61,7 @@ struct ForgeSwiftApp: App {
                     )
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    guard !LaunchHarnessPolicy.lightRoot else { return }
                     WatchAriaConfigBridge.sync(
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)

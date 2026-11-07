@@ -332,6 +332,21 @@ enum AriaForgePrepHandoff {
             }
         }
     }
+
+    /// DEBUG simulator skip-hold must clear a leftover handoff at restore so
+    /// the 60s watchdog does not wait on OnboardingView / UserDefaults flush.
+    /// XCTest keeps the flag so resume-prep cases can still observe it.
+    static func shouldFinishLeftoverPrepOnRestore(
+        isDebugSimulator: Bool,
+        isTestHost: Bool,
+        isAuthenticated: Bool,
+        isInterviewComplete: Bool,
+        launchPrepWedge: Bool = false
+    ) -> Bool {
+        if isTestHost { return false }
+        if launchPrepWedge && isDebugSimulator { return true }
+        return isDebugSimulator && isAuthenticated && isInterviewComplete
+    }
 }
 
 extension AriaForgePrep {
