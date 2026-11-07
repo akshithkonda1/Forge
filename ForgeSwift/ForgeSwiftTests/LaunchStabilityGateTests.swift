@@ -19,6 +19,29 @@ final class LaunchStabilityGateTests: XCTestCase {
         super.tearDown()
     }
 
+    func testDisabledCycleTrackingSkipsNotificationCenterOnLaunch() {
+        XCTAssertFalse(
+            ForgeNotificationScheduler.shouldTouchCycleNotificationCenter(
+                enabled: false,
+                previouslyScheduled: false
+            ),
+            "MenstrualHealthStore.init must not XPC UNUserNotificationCenter when cycle tracking was never on"
+        )
+        XCTAssertTrue(
+            ForgeNotificationScheduler.shouldTouchCycleNotificationCenter(
+                enabled: true,
+                previouslyScheduled: false
+            )
+        )
+        XCTAssertTrue(
+            ForgeNotificationScheduler.shouldTouchCycleNotificationCenter(
+                enabled: false,
+                previouslyScheduled: true
+            ),
+            "Turning tracking off still clears previously scheduled cycle ids"
+        )
+    }
+
     func testLaunchDoesNotPromptForNotificationPermission() {
         XCTAssertEqual(
             ForgeNotificationScheduler.authorizationIntent(
@@ -144,6 +167,127 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(LaunchBrandField.markSide, 220)
     }
 
+    func testKokoroOnlyStopAndIsSpeakingDoNotAllocateSynthesizer() {
+        let presence = AriaPresence.shared
+        presence.resetSynthesizerStorageForTests()
+        XCTAssertNil(presence.synthesizerStorageForTests)
+
+        presence.stopSpeaking()
+        XCTAssertNil(
+            presence.synthesizerStorageForTests,
+            "stopSpeaking must use synthesizerStorage?, not the lazy getter"
+        )
+        XCTAssertFalse(presence.isSpeaking)
+
+        XCTAssertFalse(presence.appleSynthesizerIsSpeaking)
+        XCTAssertNil(
+            presence.synthesizerStorageForTests,
+            "isSpeaking must return false when storage is nil, without allocating"
+        )
+    }
+
+    func testAriaPresenceNeverPlaysAppleFallbackVoice() {
+        let presence = AriaPresence.shared
+        presence.resetSynthesizerStorageForTests()
+        let previousMute = AriaSpokenMute.isMuted
+        AriaSpokenMute.isMuted = false
+        defer {
+            AriaSpokenMute.isMuted = previousMute
+            presence.resetSynthesizerStorageForTests()
+            presence.stopSpeaking()
+        }
+
+        XCTAssertFalse(
+            AriaPresence.appleFallbackPlaybackEnabled,
+            "Kokoro-82M is ARIA's only voice — AVSpeechSynthesizer must not play"
+        )
+        presence.speak("Kokoro-82M is the only voice.")
+        XCTAssertNil(
+            presence.synthesizerStorageForTests,
+            "speak() must not allocate AVSpeechSynthesizer as an Apple fallback"
+        )
+        XCTAssertFalse(presence.appleSynthesizerIsSpeaking)
+        presence.stopSpeaking()
+        XCTAssertNil(presence.synthesizerStorageForTests)
+    }
+
+    func testNeedsPrepShortCircuitsOnboardedWithoutInterviewPlist() {
+        AriaForgePrepHandoff.markInterviewComplete()
+        defer { AriaForgePrepHandoff.clearInterviewComplete() }
+        XCTAssertFalse(
+            AriaForgePrepHandoff.needsPrep(isOnboarded: true, isAuthenticated: true),
+            "Cold Home must not read the interview plist on the first body"
+        )
+        XCTAssertFalse(
+            AriaForgePrepHandoff.needsPrep(isOnboarded: false, isAuthenticated: false)
+        )
+        XCTAssertTrue(
+            AriaForgePrepHandoff.needsPrep(isOnboarded: false, isAuthenticated: true)
+        )
+    }
+
+    func testLeftoverPrepFirstCommitIsForgePrepNotBrandField() {
+        XCTAssertTrue(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: true))
+        XCTAssertFalse(LaunchFirstCommit.leftoverPrepPending(needsForgePrep: false))
+        XCTAssertEqual(
+            LaunchFirstCommit.surface(leftoverPrep: true, revealRoot: false),
+            .forgePrep,
+            "Wedged prep must draw AriaForgePrep before afterPaint / splash"
+        )
+        XCTAssertEqual(
+            LaunchFirstCommit.surface(leftoverPrep: false, revealRoot: false),
+            .brandField
+        )
+        XCTAssertEqual(
+            LaunchFirstCommit.surface(leftoverPrep: false, revealRoot: true),
+            .routed
+        )
+        XCTAssertFalse(
+            LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: true),
+            "ForgeSplashScreen is Color.background #09090B — it must not cover prep"
+        )
+        XCTAssertTrue(LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: false))
+
+        let coordinator = OnboardingCoordinator()
+        XCTAssertEqual(coordinator.prepStage, .profile)
+        XCTAssertEqual(coordinator.prepStage.eyebrow, "Prepping Forge")
+        XCTAssertFalse(coordinator.prepStage.headline.isEmpty)
+        XCTAssertFalse(coordinator.prepStage.detail(healthConnected: false).isEmpty)
+        XCTAssertEqual(AriaForgePrep.Stage.profile.eyebrow, "Prepping Forge")
+        XCTAssertEqual(AriaForgePrep.Stage.profile.headline, "Loading your profile")
+    }
+
+    func testLeftoverFailOpenBeatsWatchdogWithMargin() {
+        XCTAssertEqual(AriaForgePrep.floor, 45)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertEqual(AriaForgePrep.leftoverFailOpen, 24)
+        // Origin slop (dyld / AppStore init) plus the harness's 2s poll
+        // must still leave real margin under PREP_WATCHDOG_S. The old
+        // watchdog-12 (48s) path ended near 57s.
+        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen + 8 + 2, AriaForgePrep.watchdog)
+        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen, AriaForgePrep.watchdog - 20)
+        // Process-handoff retries are 8 × 2s after leftoverFailOpen.
+        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen + 16 + 8, AriaForgePrep.watchdog)
+
+        let atProcessStart = AriaForgePrep.leftoverRemaining(
+            requested: AriaForgePrep.cap,
+            elapsed: 0
+        )
+        XCTAssertEqual(atProcessStart, AriaForgePrep.leftoverFailOpen)
+        XCTAssertLessThan(atProcessStart, AriaForgePrep.watchdog)
+
+        let afterTenSeconds = AriaForgePrep.leftoverRemaining(
+            requested: AriaForgePrep.cap,
+            elapsed: 10
+        )
+        XCTAssertEqual(afterTenSeconds, AriaForgePrep.leftoverFailOpen - 10)
+        XCTAssertLessThan(afterTenSeconds + 10 + 8 + 2, AriaForgePrep.watchdog)
+
+        let injected = AriaForgePrep.leftoverRemaining(requested: 0.05, elapsed: 0)
+        XCTAssertEqual(injected, 0.05)
+    }
+
     func testLeftoverTimeoutArmsWithoutRestoredAuth() async {
         AriaForgePrep.resetLeftoverSessionForTests()
         defer { AriaForgePrep.resetLeftoverSessionForTests() }
@@ -264,12 +408,18 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertTrue(store.needsForgePrep)
 
         AriaForgePrep.armLeftoverTimeout(store: store, after: 0.05)
+        // Flush clears interview off-actor so needsForgePrep goes false
+        // before finishForgePrep hops isOnboarded. Wait on isOnboarded;
+        // do not `await` inside XCTAssert (autoclosure) or to the right of `||`.
         let deadline = Date().addingTimeInterval(2)
-        while store.needsForgePrep && Date() < deadline {
+        var onboarded = false
+        while Date() < deadline {
+            onboarded = store.isOnboarded
+            if onboarded { break }
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
+        XCTAssertTrue(onboarded)
         XCTAssertFalse(store.needsForgePrep)
-        XCTAssertTrue(store.isOnboarded)
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
     }
 
