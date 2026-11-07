@@ -27,15 +27,24 @@ OUT = os.environ.get("LAUNCH_GATE_OUT", "/tmp/launch-gate")
 # sit above the trap in the same stack and would double-count idle.
 IDLE_FRAMES = ("mach_msg2_trap", "mach_msg_trap")
 RUNLOOP_WAIT = ("__CFRunLoopServiceMachPort", "CFRunLoopRun", "__CFRunLoopRun")
+# `sample` attaches as a debugger. If that happens while dyld is still
+# registering images, the main thread blocks in this notify until the
+# sampler accepts the list. That wait is the measurement, not Forge.
+SAMPLER_STALL = (
+    "notifyDebuggerLoad",
+    "blockOnSynchronousEvent",
+    "notifyMonitorOfImageListChangesSim",
+)
 
 
 def load_thresholds():
     t = {}
-    for line in open(os.path.join(HERE, "thresholds.env")):
-        line = line.strip()
-        if line and not line.startswith("#"):
-            k, v = line.split("=", 1)
-            t[k] = float(v)
+    with open(os.path.join(HERE, "thresholds.env")) as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                t[k] = float(v)
     return t
 
 
@@ -270,31 +279,45 @@ def main_thread_busy_s(pid, window, tag, timeout):
     rest = text[m.end():]
     nxt = re.search(r"^\s*\d+ Thread_\d+", rest, re.M)
     block = rest[:nxt.start()] if nxt else rest
-    # Parse the call tree: (indent column of the count, count, text).
     rows = []
     for line in block.splitlines():
         mm = re.match(r"^([\s+!:|]*)(\d+)\s+(.*)$", line)
         if mm:
             rows.append((len(mm.group(1)), int(mm.group(2)), mm.group(3)))
-    # Idle = LEAF frames (no deeper child next) that are the kernel mach_msg
-    # trap. Leaves never nest, so this cannot double-count.
-    # The trap only counts as idle when its ancestors include the run loop's
-    # port wait; a mach_msg/semaphore block from app code is a hang, not idle.
     idle, stack = 0, []
     for i, (ind, n, txt) in enumerate(rows):
         while stack and stack[-1][0] >= ind:
             stack.pop()
         stack.append((ind, txt))
         leaf = i + 1 >= len(rows) or rows[i + 1][0] <= ind
-        if leaf and any(f in txt for f in IDLE_FRAMES) and \
-                any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1]):
+        if not leaf or not any(f in txt for f in IDLE_FRAMES):
+            continue
+        runloop = any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1])
+        sampler = any(any(s in t for s in SAMPLER_STALL) for _, t in stack)
+        if runloop or sampler:
             idle += n
     if total <= 0:
         raise RuntimeError("main thread total sample count is 0")
     if idle > total:
         raise RuntimeError(f"parser invariant broken: idle {idle} > main-thread total {total}")
-    busy_samples = total - idle
-    return busy_samples / total * window, total, idle
+    return (total - idle) / total * window, total, idle
+
+
+def main_thread_busy_s(pid, window, tag, timeout):
+    path = f"{OUT}/sample-{tag}.txt"
+    last_err = "main thread not found in sample output"
+    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
+        text = run_sample(pid, window, f"{path}.{attempt}", timeout)
+        try:
+            return parse_main_thread_busy(text, window)
+        except RuntimeError as e:
+            if "main thread not found" not in str(e):
+                raise
+            last_err = str(e)
+            print(f"    sample parse attempt {attempt} failed ({last_err})", flush=True)
+            if not pid_alive(pid):
+                raise RuntimeError(last_err)
+    raise RuntimeError(last_err)
 
 
 # ---------- scenario ----------
@@ -314,11 +337,9 @@ def fresh_install(udid, app):
 def launch(udid, env=None):
     # simctl launch has no --env flag (that token is parsed as the device
     # UDID). Child process variables must be prefixed SIMCTL_CHILD_.
-    # LIGHT_ROOT keeps AuthWelcome / Home off the main thread for the
-    # sample windows; the storyboard still supplies first_frame.
-    extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}
-    if env:
-        extra.update(env)
+    # Do not inject FORGE_LAUNCH_LIGHT_ROOT — the app must meet the
+    # first-frame / main-thread limits on the real launch path.
+    extra = dict(env or {})
     extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()}
     out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
@@ -377,8 +398,8 @@ def pref_is_true(value):
 
 def defaults_read(udid, key):
     # The app writes UserDefaults into its data-container plist.
-    # `simctl spawn defaults` often reads a different domain, so the
-    # watchdog would keep seeing the pre-launch harness values.
+    # `simctl spawn defaults` can keep the pre-launch YES the harness
+    # wrote. Prefer the plist the process actually flushed.
     boxed = plist_read(udid, key)
     if boxed is not None:
         return boxed
@@ -396,14 +417,6 @@ def write_prep_wedge_flags(udid):
     simctl("spawn", udid, "defaults", "write", BUNDLE, "forge.auth.session.v1", "-bool", "YES")
 
 
-def settle_screenshot_io(udid, tag):
-    for i in range(2):
-        try:
-            shot(udid, f"{OUT}/{tag}-settle-{i}.png", timeout=20)
-        except Exception as e:
-            print(f"  settle screenshot {tag}/{i} failed: {e}", flush=True)
-
-
 def run_scenario(name, udid, app):
     res = {"scenario": name, "checks": []}
 
@@ -419,7 +432,6 @@ def run_scenario(name, udid, app):
         time.sleep(2)
     if name == "prep_wedge":
         write_prep_wedge_flags(udid)
-    settle_screenshot_io(udid, name)
 
     # Baseline: the screen with the app NOT running (terminate + settle), so a
     # leftover image from a previous/killed launch can't count as the frame.
@@ -429,11 +441,9 @@ def run_scenario(name, udid, app):
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
-    # simctl `defaults write` is not always visible to UserDefaults on a
-    # fresh container. Pass an explicit env so DEBUG simulator restore can
-    # leave AriaForgePrep without waiting on that plist.
-    launch_env = {"FORGE_LAUNCH_PREP_WEDGE": "1"} if name == "prep_wedge" else None
-    pid, t0 = launch(udid, env=launch_env)
+    # prep_wedge flags live in the app-container plist (write_prep_wedge_flags).
+    # The app runs the real 45–55s hold; there is no env shortcut.
+    pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
     # first frame: FIRST_FRAME_CONSECUTIVE consecutive captures that are

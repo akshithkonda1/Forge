@@ -50,9 +50,8 @@ final class ForgeAlarmStore: ObservableObject {
             routine = RoutineItem.defaults
         }
         SleepAlarmScheduler.registerCategories()
-        // Launch must not present the system permission sheet. A default
-        // enabled weekday alarm used to call requestAuthorization from
-        // AppDelegate and pin first_frame / AriaForgePrep on CI.
+        // Launch must not show the system permission sheet. Sleep tab
+        // onAppear / persistAndSchedule pass promptIfUndetermined: true.
         Task { await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: false) }
     }
 
@@ -116,6 +115,10 @@ final class ForgeAlarmStore: ObservableObject {
 enum SleepAlarmScheduler {
     private static let center = UNUserNotificationCenter.current()
 
+    /// Launch used to ask here via `ForgeAlarmStore` init and cover the splash.
+    /// The system sheet now waits for onboarding after sign-in.
+    static let promptsWhenUndetermined = false
+
     static func registerCategories() {
         let snooze = UNNotificationAction(
             identifier: SleepWakeEngine.actionSnooze,
@@ -142,19 +145,19 @@ enum SleepAlarmScheduler {
     }
 
     /// Schedules every enabled alarm, then fail-closes if iPhone cannot deliver.
-    /// Launch / prep pass `promptIfUndetermined: false` so a fresh install
-    /// does not sit on the system permission sheet.
+    /// Launch / leftover prep pass `promptIfUndetermined: false` so a fresh
+    /// simulator install does not sit on the system sheet until first-frame
+    /// and the prep watchdog expire.
     private static func arm(
         _ alarms: [ForgeAlarm],
         promptIfUndetermined: Bool
     ) async -> SleepAlarmDelivery {
         var authError: String?
         var authorization = await center.notificationSettings().authorizationStatus
-        switch ForgeNotificationScheduler.authorizationIntent(
+        if ForgeNotificationScheduler.authorizationIntent(
             status: authorization,
             promptIfUndetermined: promptIfUndetermined
-        ) {
-        case .prompt:
+        ) == .prompt {
             do {
                 _ = try await center.requestAuthorization(
                     options: SleepAlarmAppleAPI.authorizationOptions
@@ -183,7 +186,7 @@ enum SleepAlarmScheduler {
                 expected: expected,
                 pending: 0,
                 addFailures: 0,
-                authError: authError
+                authError: nil
             )
         }
 
@@ -206,7 +209,7 @@ enum SleepAlarmScheduler {
             expected: expected,
             pending: standing,
             addFailures: addFailures,
-            authError: authError
+            authError: nil
         )
     }
 

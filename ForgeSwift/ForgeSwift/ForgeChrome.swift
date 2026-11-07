@@ -711,6 +711,8 @@ struct ForgeIconWell: View {
         ZStack {
             Circle()
                 .fill(tint.opacity(0.16))
+            Circle()
+                .strokeBorder(tint.opacity(0.28), lineWidth: ForgeUX.hairline)
             Image(systemName: systemImage)
                 .font(.system(size: size * 0.39, weight: .semibold))
                 .foregroundStyle(tint)

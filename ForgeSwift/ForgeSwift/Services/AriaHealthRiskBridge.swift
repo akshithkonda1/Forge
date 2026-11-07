@@ -51,7 +51,7 @@ enum AriaHealthRiskBridge {
                 content: content,
                 trigger: nil
             )
-            try? await center.add(request)
+            try? await UNUserNotificationCenter.current().add(request)
             UserDefaults.standard.set(Date(), forKey: key)
         }
     }

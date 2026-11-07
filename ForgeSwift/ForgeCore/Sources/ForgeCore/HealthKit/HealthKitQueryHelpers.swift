@@ -334,6 +334,8 @@ public enum ForgeHealthQueries {
             ) { _, added, deleted, newAnchor, error in
                 if let error {
                     print("ForgeHealthQueries sleep query failed: \(error.localizedDescription)")
+                    // Kind and HealthKit error code only, never the samples.
+                    ReliabilityLog.noteFailure(.healthKit, .sleepQuery, error: error)
                 }
                 let samples = (added as? [HKCategorySample]) ?? []
                 let removed = (deleted ?? []).map(\.uuid)
@@ -604,7 +606,11 @@ public enum ForgeHealthQueries {
                 let query = HKSampleQuery(
                     sampleType: type, predicate: predicate, limit: limit,
                     sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)]
-                ) { _, samples, _ in
+                ) { _, samples, error in
+                    if let error {
+                        // Kind and HealthKit error code only, never the samples.
+                        ReliabilityLog.noteFailure(.healthKit, .quantityQuery, error: error)
+                    }
                     continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
                 }
                 store.execute(query)

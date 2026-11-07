@@ -436,6 +436,8 @@ struct AuthSignUpFlowView: View {
     private var accountActions: some View {
         if awaitingCode {
             verifyCodeBlock
+        } else if ForgeAuthClient.shared.offersLocalAccount {
+            localEntryBlock
         } else if !showEmailForm {
             entryBlock
         } else {
@@ -456,6 +458,29 @@ struct AuthSignUpFlowView: View {
             }
 
             Text("Apple and Google sign-up will appear here when connected for this build.")
+                .font(ForgeFont.sans(.footnote))
+                .foregroundColor(.textTertiary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// No Cognito in this build, so the account is this iPhone. Email sign-up
+    /// takes this place once the Cognito ids are configured.
+    private var localEntryBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            errorText
+
+            primaryButton(
+                title: "Start on this iPhone",
+                enabled: true,
+                icon: "iphone"
+            ) {
+                startOnThisIPhone()
+            }
+
+            Text("No account needed. Your profile and health data stay on this iPhone.")
                 .font(ForgeFont.sans(.footnote))
                 .foregroundColor(.textTertiary)
                 .multilineTextAlignment(.center)
@@ -667,6 +692,22 @@ struct AuthSignUpFlowView: View {
             complete(with: session)
         } catch {
             errorMessage = "Tester account is off. It only exists in debug builds pointed at a dev API."
+            isBusy = false
+        }
+    }
+
+    private func startOnThisIPhone() {
+        isBusy = true
+        errorMessage = nil
+        do {
+            seedDraft(name: trimmedName)
+            let session = try ForgeAuthClient.shared.startLocalAccount(displayName: trimmedName)
+            complete(with: session)
+        } catch let error as ForgeAuthError {
+            errorMessage = error.userMessage
+            isBusy = false
+        } catch {
+            errorMessage = "Couldn’t save your profile on this iPhone. Try again."
             isBusy = false
         }
     }

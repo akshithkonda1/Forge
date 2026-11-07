@@ -111,6 +111,10 @@ enum ForgePlaybackSession: Equatable, Sendable {
 final class AriaPresence {
     static let shared = AriaPresence()
 
+    /// Kokoro-82M is ARIA's only voice. `AVSpeechSynthesizer` is never a
+    /// fallback mouth and never receives `speak(_:)`.
+    static let appleFallbackPlaybackEnabled = false
+
     private(set) var isSpeaking = false
     private(set) var isListening = false
     private(set) var isThinking = false
@@ -124,6 +128,10 @@ final class AriaPresence {
         return .idle
     }
 
+    /// Held only so a leftover Apple engine from an older session can be
+    /// stopped. Nothing in this type allocates or calls `speak(_:)` on it.
+    @ObservationIgnored
+    private var synthesizerStorage: AVSpeechSynthesizer?
     @ObservationIgnored
     private var kokoroGeneration = 0
 
@@ -174,6 +182,7 @@ final class AriaPresence {
             return
         }
         if interrupt {
+            synthesizerStorage?.stopSpeaking(at: .immediate)
             AriaKokoroEngine.stop()
         }
         kokoroGeneration += 1
@@ -188,6 +197,11 @@ final class AriaPresence {
                 speed: config.speed
             )
             guard generation == kokoroGeneration else { return }
+            if started {
+                return
+            }
+            // Kokoro failed: leave the text on screen. Never allocate or
+            // speak() AVSpeechSynthesizer — Apple TTS is not a fallback.
             isSpeaking = false
             if !started {
                 AriaVoiceProfileStore.shared.noteBusy(true)
@@ -199,6 +213,23 @@ final class AriaPresence {
     func stopSpeaking() {
         kokoroGeneration += 1
         AriaKokoroEngine.stop()
+        synthesizerStorage?.stopSpeaking(at: .immediate)
+        isSpeaking = false
+    }
+
+    /// `AVSpeechSynthesizer.isSpeaking` without allocating. Nil storage is
+    /// a Kokoro-only session — never create the Apple engine to ask.
+    var appleSynthesizerIsSpeaking: Bool {
+        synthesizerStorage?.isSpeaking ?? false
+    }
+
+    /// XCTest: a Kokoro-only session must leave this nil after stop / isSpeaking.
+    var synthesizerStorageForTests: AVSpeechSynthesizer? { synthesizerStorage }
+
+    func resetSynthesizerStorageForTests() {
+        synthesizerStorage?.stopSpeaking(at: .immediate)
+        synthesizerStorage?.delegate = nil
+        synthesizerStorage = nil
         isSpeaking = false
     }
 }

@@ -188,6 +188,12 @@ def _route(event, _context):
                     code="bedrock_disabled",
                 )
             payload = _parse_json_body(event)
+            # Same health-data inspection as the authenticated AI surface.
+            # This route used to return before inspect_request, so a health
+            # payload reached Bedrock without the leak guard (BH-02).
+            from services import health_leak_guard
+
+            health_leak_guard.inspect_request(method, path, payload)
             request = RouteRequest.from_payload(payload)
             router = AIRouter()
             return ok(router.route(request))
@@ -429,11 +435,14 @@ def handler(event, context=None):
         method, path = _describe(event)
         from aria_core.privacy import redact_for_log
 
-        LOGGER.exception(
-            "Unhandled error serving %s %s (request %s): %s",
+        # LOGGER.exception dumps a traceback whose frames can quote request
+        # content into CloudWatch. Log a sanitized summary only (BH-01).
+        LOGGER.error(
+            "Unhandled error serving %s %s (request %s) type=%s: %s",
             method,
             path,
             request_id,
+            type(exc).__name__,
             redact_for_log(exc),
         )
         return error_response(

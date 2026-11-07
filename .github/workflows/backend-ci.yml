@@ -11,6 +11,7 @@ on:
   push:
     paths:
       - "backend/**"
+      - "shared/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
   merge_group:
@@ -38,6 +39,7 @@ jobs:
           filters: |
             relevant:
               - "backend/**"
+              - "shared/**"
               - ".github/workflows/backend-ci.yml"
 
   health-leak:
