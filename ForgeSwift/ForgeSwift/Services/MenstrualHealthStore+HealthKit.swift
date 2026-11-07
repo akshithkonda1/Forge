@@ -13,7 +13,11 @@ extension MenstrualHealthStore {
         isSyncing = true
         defer { isSyncing = false }
 
-        let bundle = await HealthKitManager.shared.fetchMenstrualHealthBundle(days: days)
+        let bundle = await HealthKitManager.shared.fetchMenstrualHealthBundle(
+            days: days,
+            flowAnchor: loadFlowAnchor()
+        )
+        persistFlowAnchor(bundle.newFlowAnchor)
         mergeHealthKit(bundle)
         lastSyncAt = Date()
         defaults.set(Date().timeIntervalSince1970, forKey: quietSyncKey)
@@ -36,73 +40,24 @@ extension MenstrualHealthStore {
     }
 
     private func mergeHealthKit(_ bundle: MenstrualHealthKitBundle) {
-        // `Dictionary(uniqueKeysWithValues:)` traps at runtime on a duplicate key. A single
-        // duplicated dayKey — from an interrupted migration, a restored backup, or two
-        // writers racing — would crash the app on every HealthKit sync. Keep the newest.
-        var byDay = Dictionary(logs.map { ($0.dayKey, $0) }) { older, newer in
-            newer.updatedAt >= older.updatedAt ? newer : older
-        }
-
-        /// Manual entries are the user's own words about their body — HealthKit never
-        /// silently overwrites them, and merging never downgrades a "manual" log to a
-        /// weaker precedence tier.
-        func mergedSource(_ existing: String) -> String {
-            existing == "manual" || existing == "merged" ? "merged" : "healthkit"
-        }
-
-        var flowByDay: [String: [(flow: MenstrualFlowLevel, date: Date)]] = [:]
-        for sample in bundle.flowSamples {
-            flowByDay[CycleDayKey.key(for: sample.date), default: []].append((sample.flow, sample.date))
-        }
-        for (key, samples) in flowByDay {
-            guard let winner = HealthKitSameDayFlow.resolve(samples) else { continue }
-            var log = byDay[key] ?? CycleDayLog(dayKey: key, flow: .none, source: "healthkit")
-            let manualIsAuthoritative = (log.source == "manual" || log.source == "merged")
-                && log.updatedAt > winner.date
-            if !manualIsAuthoritative {
-                log.flow = winner.flow
-                log.source = mergedSource(log.source)
-                log.updatedAt = max(log.updatedAt, winner.date)
-            }
-            byDay[key] = log
-        }
-
-        for bbt in bundle.bbtSamples {
-            let key = CycleDayKey.key(for: bbt.date)
-            var log = byDay[key] ?? CycleDayLog(dayKey: key, source: "healthkit")
-            if log.bbtCelsius == nil || log.source == "healthkit" {
-                log.bbtCelsius = bbt.celsius
-                log.source = mergedSource(log.source)
-            }
-            byDay[key] = log
-        }
-
-        for opk in bundle.ovulationTests {
-            let key = CycleDayKey.key(for: opk.date)
-            var log = byDay[key] ?? CycleDayLog(dayKey: key, source: "healthkit")
-            if log.ovulationTest == nil || log.source == "healthkit" {
-                log.ovulationTest = opk.result
-                log.source = mergedSource(log.source)
-            }
-            byDay[key] = log
-        }
-
-        for mucus in bundle.mucusSamples {
-            let key = CycleDayKey.key(for: mucus.date)
-            var log = byDay[key] ?? CycleDayLog(dayKey: key, source: "healthkit")
-            if log.mucus == nil || log.source == "healthkit" {
-                log.mucus = mucus.quality
-                log.source = mergedSource(log.source)
-            }
-            byDay[key] = log
-        }
-
-        var merged = byDay.values.sorted { $0.dayKey < $1.dayKey }
-        if merged.count > Self.maxRetainedLogs {
-            merged = Array(merged.suffix(Self.maxRetainedLogs))
-        }
-        logs = merged
+        logs = CycleHealthKitPolicy.merge(
+            existing: logs,
+            bundle: bundle,
+            maxRetainedLogs: Self.maxRetainedLogs
+        )
         persistLogs()
+    }
+
+    private func loadFlowAnchor() -> HKQueryAnchor? {
+        guard let data = defaults.data(forKey: flowAnchorKey) else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
+    }
+
+    private func persistFlowAnchor(_ anchor: HKQueryAnchor?) {
+        guard let anchor,
+              let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
+        else { return }
+        defaults.set(data, forKey: flowAnchorKey)
     }
 
     func writeFlowToHealthKitIfNeeded(_ log: CycleDayLog) async {
@@ -119,17 +74,13 @@ extension MenstrualHealthStore {
     func writeCycleDayToAppleHealth(_ log: CycleDayLog) async {
         guard log.source == "manual" || log.source == "merged" else { return }
         let hk = HealthKitManager.shared
-        if log.flow.isBleeding || log.flow == .none {
-            let isEpisodeStart = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
-                .contains { $0.startDayKey == log.dayKey }
-            if log.flow.isBleeding {
-                await hk.saveMenstrualFlow(
-                    dayKey: log.dayKey,
-                    flow: log.flow,
-                    isCycleStart: isEpisodeStart
-                )
-            }
-        }
+        let isEpisodeStart = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
+            .contains { $0.startDayKey == log.dayKey }
+        let actions = CycleHealthKitPolicy.outboundActions(
+            flow: log.flow,
+            isCycleStart: isEpisodeStart
+        )
+        await CycleHealthKitPolicy.perform(actions, dayKey: log.dayKey, client: hk)
         if let bbt = log.bbtCelsius {
             await hk.saveBasalBodyTemperature(dayKey: log.dayKey, celsius: bbt)
         }

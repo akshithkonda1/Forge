@@ -47,6 +47,25 @@ final class LaunchBootstrapTests: XCTestCase {
         XCTAssertEqual(coordinator.prepStage.eyebrow, "Prepping Forge")
     }
 
+    func testDebugSimulatorResumePrepLeavesWithoutWaitingOnIngest() async {
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        let coordinator = OnboardingCoordinator()
+        coordinator.prepClock = AriaForgePrepInstantClock()
+        coordinator.skipPrepHold = true
+        coordinator.resumePrep(in: store)
+        for _ in 0..<80 where AriaForgePrepHandoff.isInterviewComplete {
+            await Task.yield()
+        }
+        XCTAssertFalse(
+            AriaForgePrepHandoff.isInterviewComplete,
+            "DEBUG skipHold resume must clear the handoff flag without Health ingest"
+        )
+        XCTAssertTrue(store.isOnboarded)
+    }
+
     func testUnauthenticatedLeftoverFlagDoesNotForcePrep() {
         let store = AppStore()
         store.isAuthenticated = false
@@ -58,6 +77,26 @@ final class LaunchBootstrapTests: XCTestCase {
         )
         XCTAssertFalse(store.needsForgePrep)
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
+    }
+
+    func testStartIfNeededResumesPrepWhenFlagAppearsLater() {
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+
+        let coordinator = OnboardingCoordinator()
+        coordinator.prepClock = AriaForgePrepInstantClock()
+        coordinator.skipPrepHold = true
+        coordinator.prepWorkOverride = { }
+
+        coordinator.startIfNeeded(in: store)
+        XCTAssertFalse(coordinator.isPrepping)
+        XCTAssertFalse(store.needsForgePrep)
+
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(store.needsForgePrep)
+        coordinator.startIfNeeded(in: store)
+        XCTAssertTrue(coordinator.isPrepping)
     }
 
     func testDeviceHoldPolicyUnchanged() {
@@ -79,7 +118,15 @@ final class LaunchBootstrapTests: XCTestCase {
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: 180,
+                elapsed: AriaForgePrep.cap,
+                duration: 90,
+                workFinished: false,
+                skipHold: false
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.leftoverWatchdog,
                 duration: 90,
                 workFinished: false,
                 skipHold: false

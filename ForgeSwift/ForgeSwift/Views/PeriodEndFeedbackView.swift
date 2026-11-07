@@ -149,7 +149,7 @@ struct PeriodEndFeedbackView: View {
     private var painQuestion: some View {
         question(
             title: "PEAK PAIN",
-            subtitle: "0 = none · 10 = worst — optional, just helps recovery coaching"
+            subtitle: "0 = none · 10 = worst — optional, just helps readiness coaching"
         ) {
             VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 painReadout

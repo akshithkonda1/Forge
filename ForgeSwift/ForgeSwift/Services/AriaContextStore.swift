@@ -224,8 +224,24 @@ final class AriaContextStore: ObservableObject {
             let phaseRaw = String(phaseTag.dropFirst("cycle_phase:".count))
             guard let phase = MenstrualPhase(rawValue: phaseRaw), phase != .unknown else { return nil }
             let domain = CyclePhaseCoachingDirective.classifyDomain(from: query ?? "")
-            let lutealDays = MenstrualHealthStore.shared.settings.effectiveLutealDays
-            let text = CyclePhaseCoachingDirective.directive(for: phase, domain: domain, lutealDays: lutealDays)
+            let snap = MenstrualHealthStore.shared.snapshot
+            let confidence: Double = {
+                if snap.trackingEnabled, snap.phase == phase, snap.confidence > 0 {
+                    return snap.confidence
+                }
+                if let tag = context.lifestyleTags.first(where: { $0.hasPrefix("cycle:confidence:") }),
+                   let pct = Int(tag.dropFirst("cycle:confidence:".count)) {
+                    return Double(pct) / 100.0
+                }
+                return 0.45
+            }()
+            let method = snap.trackingEnabled && snap.phase == phase ? snap.ovulationMethod : nil
+            let text = CyclePhaseCoachingDirective.directive(
+                for: phase,
+                domain: domain,
+                confidence: confidence,
+                ovulationMethod: method
+            )
             return text.isEmpty ? nil : text
         }()
         // Life Context — Reminders counts, shared-conversation facts, and the
@@ -1214,6 +1230,8 @@ final class AriaContextStore: ObservableObject {
     func persist() {
         if let data = try? JSONEncoder().encode(context) {
             defaults.set(data, forKey: storageKey)
+        } else {
+            ReliabilityLog.noteFailure(.persistence, .ariaContextSave, kind: .encoding)
         }
         persistMemory()
     }

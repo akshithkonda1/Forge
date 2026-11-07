@@ -95,6 +95,15 @@ def handle_post_cycle_report_upload(
 
 
 def _s3_client():
+    from aws_todo import aws_enabled
+
+    # TODO(aws): unset fails closed. No live S3/KMS without an explicit config.
+    if not aws_enabled():
+        raise RouteError(
+            503,
+            "Temporary links are unavailable. Share the PDF from this iPhone.",
+            code="uploads_unconfigured",
+        )
     try:
         import boto3
         from aws_clients import client_config

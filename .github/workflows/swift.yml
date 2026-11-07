@@ -13,6 +13,7 @@ on:
     paths:
       - "ForgeSwift/**"
       - "ForgeWidget/**"
+      - "shared/**"
       - ".github/workflows/swift.yml"
       - "scripts/xcode_test_outcome.py"
   pull_request:
@@ -66,6 +67,7 @@ jobs:
             relevant:
               - "ForgeSwift/**"
               - "ForgeWidget/**"
+              - "shared/**"
               - ".github/workflows/swift.yml"
               - "scripts/xcode_test_outcome.py"
       - name: Dispatch always builds
@@ -112,6 +114,13 @@ jobs:
           xcodebuild -resolvePackageDependencies \
             -project ForgeSwift.xcodeproj \
             -scheme ForgeSwift
+
+      - name: Kokoro license / G2P gate
+        if: needs.changes.outputs.relevant == 'true'
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/check-kokoro-licenses.py
+        env:
+          KOKORO_SOURCEPACKAGES: ${{ github.workspace }}/ForgeSwift/SourcePackages/checkouts
 
       - name: Test ForgeCore
         if: needs.changes.outputs.relevant == 'true'

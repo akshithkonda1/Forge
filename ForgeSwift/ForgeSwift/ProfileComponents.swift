@@ -10,15 +10,11 @@ struct ForgeSkeletonBlock: View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(Color.surfaceElevated)
             .overlay(
-                LinearGradient(
-                    colors: [.clear, .white.opacity(0.08), .clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.borderHairline, lineWidth: 0.5)
             )
             .frame(maxWidth: .infinity)
             .frame(height: height)
-            .redacted(reason: .placeholder)
             .accessibilityHidden(true)
     }
 }
@@ -98,6 +94,9 @@ struct SettingsRow<Trailing: View>: View {
             ZStack {
                 RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
                     .fill(tint.opacity(0.14))
+                    .frame(width: 32, height: 32)
+                RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
+                    .strokeBorder(tint.opacity(0.28), lineWidth: ForgeUX.hairline)
                     .frame(width: 32, height: 32)
                 Image(systemName: icon)
                     .font(.system(size: ForgeUX.icon, weight: .semibold))

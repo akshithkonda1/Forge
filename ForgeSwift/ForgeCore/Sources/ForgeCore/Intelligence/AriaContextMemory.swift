@@ -852,8 +852,15 @@ public enum AriaContextMemoryStore: Sendable {
         let url = root.appendingPathComponent(fileName)
         let fitted = fitToFileBudget(snap)
         guard let data = try? JSONEncoder().encode(fitted),
-              data.count <= ForgeRuntimeGuard.maxFileBytes else { return nil }
-        try? data.write(to: url, options: .atomic)
+              data.count <= ForgeRuntimeGuard.maxFileBytes else {
+            ReliabilityLog.noteFailure(.persistence, .ariaMemorySave, kind: .encoding)
+            return nil
+        }
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            ReliabilityLog.noteFailure(.persistence, .ariaMemorySave, error: error)
+        }
         return url
     }
 

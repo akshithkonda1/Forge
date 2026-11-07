@@ -512,7 +512,7 @@ struct MenstrualHealthView: View {
     private var fertileScoreSection: some View {
         if let score = cycleStore.snapshot.fertileScore {
             FertileScoreCard(score: score, phase: cycleStore.snapshot.phase) {
-                store.openChat(with: "My Fertile Score is \(score)/100 right now. What does that mean for training, recovery, and lifestyle timing today?")
+                store.openChat(with: "My Fertile Score is \(score)/100 right now. What does that mean for training, readiness, and lifestyle timing today?")
             }
         }
     }
@@ -940,7 +940,7 @@ struct MenstrualHealthView: View {
             ForgePageHeader(
                 title: pane == .me ? "Know your rhythm" : "Show up for them",
                 subtitle: pane == .me
-                    ? "Periods, fertile windows, and recovery — personal math from your signals. Lifestyle guidance only."
+                    ? "Periods, fertile windows, and readiness — personal math from your signals. Lifestyle guidance only."
                     : "Partners, spouses, daughters — log what they share so ARIA can coach you with care.",
                 accent: accent
             )
@@ -1889,7 +1889,7 @@ struct MenstrualHealthView: View {
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)
                         .forgeWrapping()
-                    Text("Phase-aware training & recovery")
+                    Text("Phase-aware training & readiness")
                         .font(HomeType.body)
                         .foregroundColor(.textTertiary)
                         .forgeWrapping()
