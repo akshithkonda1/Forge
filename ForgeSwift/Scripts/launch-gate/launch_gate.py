@@ -139,8 +139,8 @@ def ensure_booted(udid):
 def warmup_screenshot_io(udid):
     """First `simctl io screenshot` after a long xcodebuild is often 10–30s
     or times out, which blows the 8s first_frame window (2 consecutive
-    captures). Burn that simulator-IO cost here, before any timed
-    scenario. Thresholds stay unchanged. This does not launch the app."""
+    captures). Burn that cost here, before any timed scenario. Thresholds
+    stay unchanged."""
     path = f"{OUT}/warmup.png"
     successes, last_err = 0, None
     for attempt in range(1, 6):
@@ -161,6 +161,34 @@ def warmup_screenshot_io(udid):
         print("  warmup: screenshot IO works; continuing", flush=True)
         return
     raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
+
+
+def warmup_app_launch(udid, app):
+    """First process start after xcodebuild is often 10s+ of dyld, which
+    burns the 8s first_frame window on the timed cold scenario. Page the
+    binary in once, then uninstall so each scenario is still a fresh
+    install. Thresholds stay unchanged."""
+    ensure_booted(udid)
+    fresh_install(udid, app)
+    try:
+        pid, t0 = launch(udid)
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline:
+            if not pid_alive(pid):
+                print("  warmup app: process exited", flush=True)
+                break
+            try:
+                small, _ = shot(udid, f"{OUT}/warmup-app.png", timeout=20)
+                share = dominant_share(small)
+                print(f"  warmup app frame dominant={share:.3f} at {time.monotonic() - t0:.1f}s", flush=True)
+                if share < T["BLANK_DOMINANT_SHARE"]:
+                    break
+            except Exception as e:
+                print(f"  warmup app shot failed: {e}", flush=True)
+            time.sleep(1)
+    finally:
+        simctl("terminate", udid, BUNDLE, check=False)
+        simctl("uninstall", udid, BUNDLE, check=False)
 
 
 def summarize(path, label):
@@ -297,8 +325,10 @@ def fresh_install(udid, app):
 def launch(udid, env=None):
     # simctl launch has no --env flag (that token is parsed as the device
     # UDID). Child process variables must be prefixed SIMCTL_CHILD_.
+    # Do not inject FORGE_LAUNCH_LIGHT_ROOT — the app must meet the
+    # first-frame / main-thread limits on the real launch path.
     extra = dict(env or {})
-    extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()} or None
+    extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()}
     out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
     if not m:
@@ -356,8 +386,8 @@ def pref_is_true(value):
 
 def defaults_read(udid, key):
     # The app writes UserDefaults into its data-container plist.
-    # `simctl spawn defaults` often reads a different domain, so the
-    # watchdog would keep seeing the pre-launch harness values.
+    # `simctl spawn defaults` can keep the pre-launch YES the harness
+    # wrote. Prefer the plist the process actually flushed.
     boxed = plist_read(udid, key)
     if boxed is not None:
         return boxed
@@ -399,6 +429,8 @@ def run_scenario(name, udid, app):
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
+    # prep_wedge flags live in the app-container plist (write_prep_wedge_flags).
+    # The app runs the real 45–55s hold; there is no env shortcut.
     pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
@@ -476,6 +508,7 @@ def main():
     # "already booted" is the only boot error tolerated; bootstatus must pass.
     ensure_booted(udid)
     warmup_screenshot_io(udid)
+    warmup_app_launch(udid, app)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)

@@ -712,11 +712,11 @@ struct TypingIndicatorView: View {
     }
 
     private func dot(_ index: Int) -> some View {
-        let scale: CGFloat = reduceMotion ? 1 : (dotAnimate ? 1.2 : 0.5)
-        let opacity: Double = reduceMotion ? 0.7 : (dotAnimate ? 1 : 0.28)
+        let scale: CGFloat = reduceMotion ? 1 : (dotAnimate ? 1.08 : 0.92)
+        let opacity: Double = reduceMotion ? 0.7 : (dotAnimate ? 0.88 : 0.48)
         let pulse: Animation? = reduceMotion
             ? nil
-            : Animation.easeInOut(duration: 0.52).repeatForever().delay(Double(index) * 0.17)
+            : Animation.easeInOut(duration: 0.84).repeatForever().delay(Double(index) * 0.16)
         return Circle()
             .fill(stateColor)
             .frame(width: 8, height: 8)

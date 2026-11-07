@@ -12,7 +12,7 @@ import ForgeCore
 
 enum WindDownScheduler {
 
-    private static let identifier = "forge.watch.winddown"
+    private static let identifier = SleepNudgePolicy.watchWindDownIdentifier
 
     /// Returns true if the reminder is scheduled.
     @discardableResult
@@ -30,7 +30,18 @@ enum WindDownScheduler {
             break
         }
 
-        guard plan.windDownStart > Date() else { return false }
+        let snapshot = WatchSnapshotStore.load()
+        let now = Date()
+        guard SleepNudgePolicy.watchMayFire(
+            windDownStart: plan.windDownStart,
+            now: now,
+            quietWeek: snapshot?.sleepQuietWeek == true,
+            phoneWindDownScheduled: snapshot?.phoneWindDownScheduled,
+            phoneScheduledAt: snapshot?.phoneWindDownScheduledAt
+        ) else {
+            center.removePendingNotificationRequests(withIdentifiers: [identifier])
+            return false
+        }
 
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
 

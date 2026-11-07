@@ -14,6 +14,7 @@ import json
 import re
 import socket
 import ssl
+import threading
 import time
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
@@ -261,6 +262,7 @@ def resolve_public_ips(
     hostname: str,
     *,
     resolver: Callable[[str], list[str]] | None = None,
+    timeout: float | None = None,
 ) -> list[str]:
     """Resolve ``hostname`` and reject the target if any address is blocked."""
     host = (hostname or "").strip().rstrip(".").lower()
@@ -270,7 +272,10 @@ def resolve_public_ips(
         _fail(CODE_VALIDATION, "IP-literal hosts cannot be fetched.")
     if host in BLOCKED_HOSTS:
         _fail(CODE_VALIDATION, "This host cannot be fetched.")
-    lookup = resolver or _default_resolver
+    if resolver is None:
+        lookup = lambda name: _default_resolver(name, timeout=timeout)
+    else:
+        lookup = resolver
     try:
         ips = lookup(host)
     except OSError as exc:
@@ -290,14 +295,36 @@ def resolve_public_ips(
     return out
 
 
-def _default_resolver(hostname: str) -> list[str]:
-    infos = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
-    ips: list[str] = []
-    for info in infos:
-        sockaddr = info[4]
-        if sockaddr:
-            ips.append(str(sockaddr[0]))
-    return ips
+def _default_resolver(hostname: str, timeout: float | None = None) -> list[str]:
+    def lookup() -> list[str]:
+        infos = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
+        ips: list[str] = []
+        for info in infos:
+            sockaddr = info[4]
+            if sockaddr:
+                ips.append(str(sockaddr[0]))
+        return ips
+
+    if timeout is None:
+        return lookup()
+    if timeout <= 0:
+        raise TimeoutError("DNS lookup timed out")
+    box: dict[str, Any] = {}
+
+    def run() -> None:
+        try:
+            box["ips"] = lookup()
+        except BaseException as exc:  # noqa: BLE001 - marshalled back to caller
+            box["exc"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError("DNS lookup timed out")
+    if "exc" in box:
+        raise box["exc"]
+    return list(box.get("ips") or [])
 
 
 # ---------------------------------------------------------------------------
@@ -360,7 +387,8 @@ def default_transport(url: str, pinned_ip: str, timeout: float) -> HttpResponse:
         length = _content_length(headers)
         if length is not None and length > MAX_BODY_BYTES:
             _fail(CODE_VALIDATION, "Response is larger than the ingest limit.")
-        body = _read_capped(resp, MAX_BODY_BYTES)
+        deadline = time.monotonic() + max(float(timeout), 0.0)
+        body = _read_capped(resp, MAX_BODY_BYTES, deadline=deadline)
         return HttpResponse(status=resp.status, headers=headers, body=body, url=url)
     finally:
         conn.close()
@@ -377,10 +405,19 @@ def _content_length(headers: dict[str, str]) -> int | None:
     return value if value >= 0 else None
 
 
-def _read_capped(resp: Any, limit: int) -> bytes:
+def _read_capped(
+    resp: Any,
+    limit: int,
+    *,
+    deadline: float | None = None,
+    clock: Callable[[], float] | None = None,
+) -> bytes:
+    now = clock or time.monotonic
     chunks: list[bytes] = []
     total = 0
     while True:
+        if deadline is not None and now() >= deadline:
+            _fail(CODE_UPSTREAM, "The page fetch timed out.", status=504)
         chunk = resp.read(min(16_384, limit - total + 1))
         if not chunk:
             break
@@ -388,6 +425,8 @@ def _read_capped(resp: Any, limit: int) -> bytes:
         if total > limit:
             _fail(CODE_VALIDATION, "Response is larger than the ingest limit.")
         chunks.append(chunk)
+        if deadline is not None and now() >= deadline:
+            _fail(CODE_UPSTREAM, "The page fetch timed out.", status=504)
     return b"".join(chunks)
 
 
@@ -431,7 +470,11 @@ def fetch_https(
             seen.add(hop)
             parsed = urlparse(hop)
             remaining()
-            ips = resolve_public_ips(parsed.hostname or "", resolver=resolver)
+            ips = resolve_public_ips(
+                parsed.hostname or "",
+                resolver=resolver,
+                timeout=remaining(),
+            )
             hop_timeout = remaining()
             try:
                 response = send(hop, ips[0], hop_timeout)

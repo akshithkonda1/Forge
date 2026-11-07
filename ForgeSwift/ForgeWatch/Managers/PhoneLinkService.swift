@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 import WatchConnectivity
 import ForgeCore
 
@@ -162,6 +163,30 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     // MARK: Inbound companion config (from iPhone)
 
     private func ingest(_ message: [String: Any]) {
+        // Quiet-week / phone-wind-down flags ride the same applicationContext
+        // as companion config. Apply them even when parse rejects a mixed
+        // workout payload, so the Watch stays the fallback nudge.
+        let flags = SleepNudgePolicy.nudgeFlags(from: message)
+        WatchSnapshotStore.applySleepNudgeFlags(
+            quietWeek: flags.quietWeek,
+            phoneWindDownScheduled: flags.phoneWindDownScheduled,
+            phoneScheduledAt: flags.phoneScheduledAt
+        )
+        let snapshot = WatchSnapshotStore.load()
+        let now = Date()
+        if !SleepNudgePolicy.watchMayFire(
+            windDownStart: snapshot?.tonightWindDown ?? now.addingTimeInterval(1),
+            now: now,
+            quietWeek: snapshot?.sleepQuietWeek == true,
+            phoneWindDownScheduled: snapshot?.phoneWindDownScheduled,
+            phoneScheduledAt: snapshot?.phoneWindDownScheduledAt
+        ) {
+            UNUserNotificationCenter.current()
+                .removePendingNotificationRequests(
+                    withIdentifiers: [SleepNudgePolicy.watchWindDownIdentifier]
+                )
+        }
+
         // Which half of this payload is a secret is a security decision, so it
         // is made in ForgeCore where it is tested, not inline here. Workout
         // payloads are the watch's own, travelling the other way; parse returns

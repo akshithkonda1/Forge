@@ -31,7 +31,7 @@ struct AriaSpecialistActivityView: View {
                         energy: worker.kind.accent,
                         selected: true
                     )
-                    .opacity(pulse ? 1 : 0.72)
+                    .opacity(pulse ? 0.92 : 0.70)
                 }
             }
         }
@@ -44,7 +44,7 @@ struct AriaSpecialistActivityView: View {
             if reduceMotion {
                 pulse = true
             } else {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                withAnimation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true)) {
                     pulse = true
                 }
             }

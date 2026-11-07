@@ -9,9 +9,18 @@ enum CoachingDomain {
 /// the model interpreting raw cycle tags.
 enum CyclePhaseCoachingDirective {
 
-    static func directive(for phase: MenstrualPhase, domain: CoachingDomain) -> String {
+    /// Calendar-estimate confidence at or below this (e.g. `population_fallback` ~0.45)
+    /// must not push max efforts. Readiness stays the primary guide.
+    static let lowConfidenceCeiling = 0.55
+
+    static func directive(
+        for phase: MenstrualPhase,
+        domain: CoachingDomain,
+        confidence: Double = 0.45,
+        ovulationMethod: String? = nil
+    ) -> String {
         switch domain {
-        case .workout:   return workoutDirective(for: phase)
+        case .workout:   return workoutDirective(for: phase, confidence: confidence, ovulationMethod: ovulationMethod)
         case .nutrition: return nutritionDirective(for: phase)
         case .sleep:     return sleepDirective(for: phase)
         case .stress:    return stressDirective(for: phase)
@@ -21,18 +30,42 @@ enum CyclePhaseCoachingDirective {
 
     // MARK: - Workout
 
-    private static func workoutDirective(for phase: MenstrualPhase) -> String {
+    private static func isLowConfidenceCalendarEstimate(
+        confidence: Double,
+        ovulationMethod: String?
+    ) -> Bool {
+        confidence < lowConfidenceCeiling || ovulationMethod == "population_fallback"
+    }
+
+    private static func workoutRail(lowConfidence: Bool) -> String {
+        let disclaimer = "Lifestyle coaching, not medical advice. Never diagnose. Readiness is the primary guide — a phase label is a tendency, not a green light."
+        if lowConfidence {
+            return "This phase is a low-confidence calendar estimate. Do not push max efforts or treat the label as a strong signal. \(disclaimer)"
+        }
+        return disclaimer
+    }
+
+    private static func workoutDirective(
+        for phase: MenstrualPhase,
+        confidence: Double,
+        ovulationMethod: String?
+    ) -> String {
+        let lowConfidence = isLowConfidenceCalendarEstimate(
+            confidence: confidence,
+            ovulationMethod: ovulationMethod
+        )
+        let rail = workoutRail(lowConfidence: lowConfidence)
         switch phase {
         case .menstruation:
-            return "The user is menstruating. Prostaglandins cause uterine cramping and may reduce performance. Recommend lower intensity: walking, yoga, gentle swimming. Avoid heavy PRs or max-effort sessions. Validate rest if needed — this is physiologically appropriate, not weakness."
+            return "The user appears to be menstruating. Many people notice cramping and that hard efforts feel heavier. Suggest lower-intensity options they already like — walking, yoga, easy swimming — and treat rest as a valid choice if that is what they need. Skip max-effort sessions unless readiness is clearly high. \(rail)"
         case .follicular:
-            return "The user is in the follicular phase. Rising estrogen improves neuromuscular efficiency, pain tolerance, and recovery speed. This is the best phase for strength PRs, high-intensity interval work, learning new movement patterns, and pushing volume. Encourage ambitious training."
+            return "The user appears to be in the follicular phase. Many people notice movement clicking more easily and that they can handle a bit more volume. Some find strength work, intervals, and new patterns feel more available — scale to readiness, not the label. Do not treat the label as permission to chase PRs. \(rail)"
         case .fertileWindow:
-            return "The user is in their fertile window approaching ovulation. Estrogen and LH surge peak — power output and coordination are at their highest. Excellent for team sports, explosive work, and technical skill sessions. Watch for ligament laxity (estrogen loosens connective tissue) — prioritise good form on heavy lifts."
+            return "The user appears to be in their fertile window approaching ovulation. Some people notice power and coordination feel more available. Favor a thorough warm-up and clean form on heavier lifts — some find joints feel a bit looser around this window. Keep intensity honest to readiness. \(rail)"
         case .ovulation:
-            return "The user is ovulating. Testosterone briefly spikes alongside the LH surge — peak power, aggression, and motivation. Best day for one-rep maxes or race efforts. Again flag ligament laxity risk: form over load."
+            return "The user appears to be ovulating. Some people notice power and motivation feel higher. If readiness is clearly high they can train with intent — still warm up thoroughly and prioritize form. Do not prescribe max singles or race-effort days from this label. \(rail)"
         case .luteal:
-            return "The user is in the luteal phase. Progesterone rises, increasing core body temperature by ~0.3°C and raising RPE for the same effort. Early luteal (days 1–7 post-ovulation): maintain strength and moderate cardio. Late luteal (days 8–14): reduce intensity, prioritise sleep, watch for fatigue accumulation and PMS-driven motivation dips. Avoid scheduling major competitions in late luteal."
+            return "The user appears to be in the luteal phase. Many people notice the same effort feels harder and that heat tolerance dips, especially later in the phase. Early luteal: some can maintain strength and moderate cardio. Late luteal: some prefer lower intensity, more sleep, and a lighter calendar. Match the session to readiness rather than forcing a plan. \(rail)"
         case .unknown:
             return ""
         }

@@ -19,7 +19,7 @@ struct LifestyleProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (LifestyleEntry) -> Void) {
-        completion(LifestyleEntry(date: Date(), snapshot: Self.load() ?? .preview))
+        completion(LifestyleEntry(date: Date(), snapshot: Self.load() ?? (context.isPreview ? .preview : nil)))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<LifestyleEntry>) -> Void) {
@@ -30,9 +30,9 @@ struct LifestyleProvider: TimelineProvider {
     }
 
     static func load() -> LifestyleWidgetSnapshot? {
-        guard let defaults = UserDefaults(suiteName: appGroup),
-              let data = defaults.data(forKey: snapshotKey) else { return nil }
-        return try? JSONDecoder().decode(LifestyleWidgetSnapshot.self, from: data)
+        guard let defaults = UserDefaults(suiteName: appGroup) else { return nil }
+        let data = defaults.data(forKey: snapshotKey)
+        return LifestyleWidgetContent.decode(data).snapshot
     }
 }
 
@@ -42,9 +42,7 @@ struct LifestyleWidgetView: View {
     var entry: LifestyleProvider.Entry
     @Environment(\.widgetFamily) private var family
 
-    private var qol: Int { entry.snapshot?.qol ?? 0 }
-
-    private var qolColor: Color {
+    private func qolColor(_ qol: Int) -> Color {
         switch qol {
         case 80...:   return .green
         case 60..<80: return .yellow
@@ -60,24 +58,33 @@ struct LifestyleWidgetView: View {
                 Spacer()
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(qol)")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(qolColor)
-                    .contentTransition(.numericText())
-                Text("QOL").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            }
-
-            if let title = entry.snapshot?.topTitle {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text((entry.snapshot?.topCategory ?? "ARIA").uppercased())
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.orange)
-                    Text(title)
-                        .font(family == .systemSmall ? .caption2 : .caption)
-                        .foregroundStyle(.primary)
-                        .lineLimit(family == .systemSmall ? 2 : 3)
+            if let snapshot = entry.snapshot {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(snapshot.qol)")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(qolColor(snapshot.qol))
+                        .contentTransition(.numericText())
+                    Text("QOL").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
+
+                if let title = snapshot.topTitle {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text((snapshot.topCategory ?? "ARIA").uppercased())
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.orange)
+                        Text(title)
+                            .font(family == .systemSmall ? .caption2 : .caption)
+                            .foregroundStyle(.primary)
+                            .lineLimit(family == .systemSmall ? 2 : 3)
+                    }
+                }
+            } else {
+                Text("No lifestyle data yet")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Text("Open Forge to sync your QOL score.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
 
             Spacer(minLength: 0)

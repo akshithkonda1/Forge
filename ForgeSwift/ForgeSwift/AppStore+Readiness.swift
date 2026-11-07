@@ -990,7 +990,9 @@ extension AppStore {
         sleepData = merged.values.sorted { $0.date > $1.date }
         HealthKitSleepService.shared.rememberSleepSignals(from: sleepData)
         invalidatePredictiveCoachPicture()
-        Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms) }
+        if isOnboarded, !needsForgePrep {
+            Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms, promptIfUndetermined: false) }
+        }
         // Only last night counts toward today. After a night without the
         // watch the newest entry can be days old, and that is not today's sleep.
         if let latest = sleepData.first, Self.isLastNight(latest) {

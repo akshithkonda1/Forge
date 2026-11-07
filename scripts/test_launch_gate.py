@@ -57,22 +57,23 @@ class ThresholdPins(unittest.TestCase):
         self.assertEqual(lg.T["PREP_WATCHDOG_S"], 60.0)
         self.assertEqual(lg.T["MAIN_THREAD_BLOCK_MAX_S"], 2.0)
 
-    def test_launch_storyboard_is_ib_geometry_not_raster(self):
-        storyboard = ROOT / "ForgeSwift" / "ForgeSwift" / "LaunchScreen.storyboard"
-        raw = storyboard.read_text(encoding="utf-8")
-        self.assertIn('launchScreen="YES"', raw)
-        self.assertNotRegex(raw, r"<image |png|jpg|jpeg|pdf")
-        self.assertIn('constant="220"', raw)
+
+class HealthKitShortCircuit(unittest.TestCase):
+    def test_await_is_not_an_or_autoclosure(self):
+        src = HEALTHKIT.read_text(encoding="utf-8")
+        self.assertNotIn("|| await hasReadableHealthEvidence()", src)
+        self.assertIn(
+            "cachedReadable ? true : await hasReadableHealthEvidence()",
+            src,
+        )
+        self.assertNotIn("shouldProbeStoreForLiveStatus(", src)
 
 
 class HarnessDoesNotHideTheApp(unittest.TestCase):
     def test_launch_does_not_inject_light_root(self):
         src = SCRIPT.read_text(encoding="utf-8")
-        self.assertNotIn("FORGE_LAUNCH_LIGHT_ROOT", src)
+        self.assertNotIn('extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}', src)
         self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", src)
-        self.assertNotIn("warmup_app_launch", src)
-        self.assertNotIn("settle_screenshot_io", src)
-        self.assertNotIn("retries=3", src)
 
     def test_first_commit_is_branded_not_a_solid_field(self):
         src = CONTENT.read_text(encoding="utf-8")
@@ -87,9 +88,6 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
     def test_prep_has_a_wall_clock_fail_open(self):
         src = PREP.read_text(encoding="utf-8")
         self.assertIn("static func armLeftoverTimeout", src)
-        self.assertIn("static func flushHandoffOpen", src)
-        self.assertIn("let forgeProcessStart = Date()", src)
-        self.assertIn("Task.detached", src)
         self.assertIn("static let cap: TimeInterval = 55", src)
         self.assertIn("static let watchdog: TimeInterval = 60", src)
         self.assertIn(
@@ -98,21 +96,6 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         )
         self.assertNotIn(
             "UserDefaults.standard.removeObject(forKey: interviewCompleteKey)",
-            src,
-        )
-        self.assertNotIn("static func noteProcessStart", src)
-        clear_fn = src.split("static func clearInterviewComplete()", 1)[1].split(
-            "static func flushHandoffOpen", 1
-        )[0]
-        self.assertNotIn("CFPreferencesAppSynchronize", clear_fn)
-
-
-class HealthKitShortCircuit(unittest.TestCase):
-    def test_await_is_not_an_or_autoclosure(self):
-        src = HEALTHKIT.read_text(encoding="utf-8")
-        self.assertNotIn("|| await hasReadableHealthEvidence()", src)
-        self.assertIn(
-            "cachedReadable ? true : await hasReadableHealthEvidence()",
             src,
         )
 

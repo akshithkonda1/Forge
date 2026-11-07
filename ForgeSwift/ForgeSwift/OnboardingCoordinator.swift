@@ -18,12 +18,11 @@ final class OnboardingCoordinator {
     var prepStage: AriaForgePrep.Stage = .profile
     var prepProgress: Double = 0
     var prepHealthConnected = false
-    /// Tests and DEBUG skip-wait inject these. Production uses the system clock
-    /// and real Health / cloud loads.
+    /// Tests and the DEBUG "Skip wait" button inject these. Production uses
+    /// the system clock and the 45–55s hold on every build.
     var prepClock: AriaForgePrepClock = AriaForgePrepSystemClock()
-    /// Launch never skips the hold. DEBUG "Skip wait" is the only setter;
-    /// every build, including the simulator, runs the real hold and leaves
-    /// at `AriaForgePrep.cap`.
+    /// Explicit debug skip only. Launch never sets this — leftover prep
+    /// runs the real hold and leaves at `AriaForgePrep.cap`.
     var skipPrepHold = false
     var prepWorkOverride: (() async -> Void)?
     var showAgeBlocked = false
@@ -48,6 +47,11 @@ final class OnboardingCoordinator {
     var calendarState: HealthKitState = .unknown
     var calendarBusyToday: Int = 0
     var contactsState: HealthKitState = .unknown
+    /// Presents `CNContactPickerViewController` from the Health nest. No Contacts permission.
+    var showContactsPicker = false
+    /// True once a picker callback (pick or cancel) has been applied, so
+    /// `onDismiss` cannot double-speak ARIA.
+    private var contactsPickerSettled = false
     var remindersState: HealthKitState = .unknown
 
     // MARK: Presence
@@ -216,7 +220,7 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         ariaOrbState = .processing
         prepHealthConnected = store.healthKitLive || healthKitState == .authorized
-        Task { await runPrep(in: store) }
+        Task { await runPrep(in: store, leftoverResume: true) }
     }
 
     /// Pulls name, last name, and first quest chosen during Day 0 sign-up.
@@ -234,6 +238,7 @@ final class OnboardingCoordinator {
     }
 
     private func runIntro() async {
+        await LaunchFirstFrame.afterPaint()
         await ariaSay(
             AriaInterviewVoice.introLine(
                 firstName: profile.firstName,
@@ -400,8 +405,9 @@ final class OnboardingCoordinator {
         guard step == .health else { return }
         interruptInterviewVoice()
         appendUser("Connect Contacts")
+        contactsPickerSettled = false
         contactsState = .requesting
-        Task { await requestContacts() }
+        showContactsPicker = true
     }
 
     func skipContacts() {
@@ -791,17 +797,29 @@ final class OnboardingCoordinator {
         ariaOrbState = .listening
     }
 
-    func requestContacts() async {
+    func requestContacts(picks: [(givenName: String, identifier: String)] = []) async {
+        contactsPickerSettled = true
+        showContactsPicker = false
         contactsState = .requesting
         ariaOrbState = .processing
-        let ok = await PeopleContactsBridge.requestAccess()
-        var directory = PeopleDirectoryStore.load()
-        directory.contactsAccess = ok ? .granted : .denied
-        if ok { directory.optedIn = true }
+        let directory = PeopleContactPicks.applying(picks, relation: .friend, to: PeopleDirectoryStore.load())
         PeopleDirectoryStore.save(directory)
+        let ok = !directory.coachingPeople.isEmpty
         contactsState = ok ? .authorized : .denied
         await ariaSay(AriaInterviewVoice.acknowledgeContacts(contactsState), mood: ok ? .energized : .calm)
         ariaOrbState = .listening
+    }
+
+    func cancelContactsPicker() {
+        showContactsPicker = false
+        guard !contactsPickerSettled else { return }
+        contactsPickerSettled = true
+        guard contactsState == .requesting else { return }
+        contactsState = .unknown
+        Task {
+            await ariaSay(AriaInterviewVoice.acknowledgeContacts(.denied), mood: .calm)
+            ariaOrbState = .listening
+        }
     }
 
     func requestReminders() async {
@@ -815,10 +833,11 @@ final class OnboardingCoordinator {
     }
 
     func refreshNestPermissionStates() {
-        switch PeopleContactsBridge.currentAccess() {
-        case .granted: contactsState = .authorized
-        case .denied: contactsState = .denied
-        case .notAsked: contactsState = .unknown
+        let directory = PeopleDirectoryStore.load()
+        if !directory.coachingPeople.isEmpty {
+            contactsState = .authorized
+        } else if contactsState == .authorized {
+            contactsState = .unknown
         }
         switch RemindersManager.shared.accessState {
         case .connected: remindersState = .authorized
@@ -1076,7 +1095,7 @@ final class OnboardingCoordinator {
         skipPrepHold = true
     }
 
-    private func runPrep(in store: AppStore) async {
+    private func runPrep(in store: AppStore, leftoverResume: Bool = false) async {
         // DEBUG "Skip wait" only. Launch never sets skipPrepHold.
         if skipPrepHold {
             await finishPrepWithoutHold(in: store)
@@ -1129,6 +1148,10 @@ final class OnboardingCoordinator {
                     await override()
                     return
                 }
+                // Leftover / wedge: HealthKit ingest on MainActor pinned
+                // sample 3 at 2.86s. Fail-open shows partial data; ingest
+                // starts from finishForgePrep after the sample windows.
+                if leftoverResume { return }
                 AriaForgePrep.startLeftoverIngest(into: store, trainingTheme: theme)
                 await AriaForgePrep.awaitLeftoverIngest()
             }

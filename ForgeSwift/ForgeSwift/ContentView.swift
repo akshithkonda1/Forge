@@ -10,40 +10,51 @@ struct ContentView: View {
     /// Once per process — recreating this view must not put the splash back
     /// on top of Home and eat taps.
     @State private var showSplash = !Self.didFinishSplash
+    @State private var splashBlocksHits = !Self.didFinishSplash
+    /// Mount the app chrome on the next turn so the splash's first frame
+    /// is only the matched launch field + strike, not AuthWelcome/Home.
+    @State private var revealApp = Self.didFinishSplash
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
-    /// First SwiftUI commit is the splash field only. AuthWelcome / interview
-    /// / Home attach after that paint — every build, not a simulator env.
+    /// First SwiftUI commit is the splash field only — except leftover /
+    /// wedged prep, which must paint AriaForgePrep on that commit.
+    /// AuthWelcome / interview / Home attach after that paint — every build,
+    /// not a simulator env.
     @State private var revealRoot = Self.didFinishSplash
     private static var didFinishSplash = false
 
     var body: some View {
+        let leftoverPrep = LaunchFirstCommit.leftoverPrepPending(
+            needsForgePrep: store.needsForgePrep
+        )
         ZStack {
             Group {
-                if !revealRoot {
+                if leftoverPrep {
+                    OnboardingView()
+                } else if !revealRoot {
                     LaunchBrandField()
-                } else if !store.isAuthenticated {
+                } else if store.launchRootDestination == .authWelcome {
                     AuthWelcomeView()
-                } else if !store.isOnboarded {
+                } else if store.launchRootDestination == .onboarding {
                     OnboardingView()
                 } else if !showSplash {
                     MainTabView()
                 } else {
                     LaunchBrandField()
                 }
+                .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
+                .animation(ForgeMotion.crossfade, value: store.isOnboarded)
             }
-            .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
-            .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
-            if showSplash {
+            if showSplash && LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: leftoverPrep) {
                 ForgeSplashScreen()
                     .transition(.opacity)
                     .zIndex(999)
                     // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
                     .accessibilityHidden(true)
-                    // Never block Home if the hide animation stalls.
-                    .allowsHitTesting(false)
+                    // Tap skips. Hits pass through once the fade starts.
+                    .allowsHitTesting(splashBlocksHits)
             }
         }
         .sheet(isPresented: neuralPromptBinding) {
@@ -54,13 +65,41 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 neuralVoiceGate?.refreshCatalog()
+                store.refreshOnDeviceModel()
+            }
+        }
+        .onAppear {
+            if leftoverPrep {
+                revealRoot = true
+                showSplash = false
+                Self.didFinishSplash = true
             }
         }
         .task {
+            let leftoverPrep = LaunchFirstCommit.leftoverPrepPending(
+                needsForgePrep: store.needsForgePrep
+            )
+            if leftoverPrep {
+                revealRoot = true
+                showSplash = false
+                Self.didFinishSplash = true
+                AriaForgePrep.armLeftoverTimeout(store: store)
+                await LaunchFirstFrame.afterPaint()
+                let gate = AriaNeuralVoiceGate.shared
+                neuralVoiceGate = gate
+                gate.refreshCatalog()
+                return
+            }
             await LaunchFirstFrame.afterPaint()
             revealRoot = true
+            // Cheap cache only. CFPreferencesAppSynchronize on this hop
+            // pinned kill_relaunch sample 0 at 3.00s after SIGKILL.
+            // Leftover miss is recovered on a background queue; the process
+            // watchdog still fail-opens at leftoverFailOpen.
             if store.needsForgePrep {
                 AriaForgePrep.armLeftoverTimeout(store: store)
+            } else if !store.isOnboarded {
+                AriaForgePrep.refreshInterviewOffMainActor(store: store)
             }
             guard showSplash else {
                 let gate = AriaNeuralVoiceGate.shared
@@ -122,12 +161,24 @@ struct ForgeSplashScreen: View {
 
     var body: some View {
         ZStack {
-            PremiumAtmosphere(
-                accent: ForgePalette.ember,
-                secondary: Color(hex: "A9D8FF"),
-                intensity: 0.55 + 0.45 * glowIntensity,
-                loopMotion: false
-            )
+            Color(hex: Self.backdropHex)
+                .ignoresSafeArea()
+
+            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
+            // flat field; without this mark the first SwiftUI commit is a
+            // blank #08080C frame and the launch gate resets its streak.
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(LaunchBrandField.ember)
+                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
+                .accessibilityHidden(true)
+
+            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
+            // flat field; without this mark the first SwiftUI commit is a
+            // blank #08080C frame and the launch gate resets its streak.
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(LaunchBrandField.ember)
+                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
+                .accessibilityHidden(true)
 
             // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
             // flat field; without this mark the first SwiftUI commit is a
@@ -145,17 +196,11 @@ struct ForgeSplashScreen: View {
                         frost: Color(hex: "A9D8FF"),
                         live: false
                     )
-                    AuroraOrbView(
-                        state: .idle,
-                        amplitude: 0.62,
-                        mood: .energized,
-                        size: 148,
-                        followPresence: false
-                    )
-                    .environment(\.forgeMinimalAnimation, true)
+                    .frame(width: side, height: side)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .scaleEffect(logoScale)
-                .opacity(logoOpacity)
+                .frame(maxWidth: 460)
+                .frame(height: 380)
 
                 VStack(spacing: FDS.Spacing.md) {
                     HStack(spacing: FDS.Spacing.md) {
@@ -175,19 +220,26 @@ struct ForgeSplashScreen: View {
                 .offset(y: textOffset)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onSkip?() }
+        .accessibilityAction(.escape) { onSkip?() }
+        .task {
+            // One rigid tap as the hammer lands. Off under Reduce Motion
+            // (static pose) and on the signed-in trim (no swing).
+            guard !reduceMotion, !signedIn else { return }
+            try? await Task.sleep(nanoseconds: UInt64(ForgeStrikeGeometry.splashImpactTime * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            ForgeHaptics.playStrike()
+        }
         .onAppear {
-            let base: Animation = reduceMotion
-                ? .easeOut(duration: 0.3)
-                : ForgeMotion.gentle
-            withAnimation(base) {
-                logoScale = 1.0
-                logoOpacity = 1.0
-            }
-            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : ForgeMotion.gentle).delay(0.18)) {
+            if reduceMotion || signedIn {
+                logoOpacity = 1
                 textOffset = 0
+                return
             }
-            withAnimation(.easeInOut(duration: 0.5).delay(0.1)) {
-                glowIntensity = 1.0
+            withAnimation(ForgeMotion.gentle.delay(ForgeStrikeGeometry.splashImpactTime)) {
+                logoOpacity = 1
+                textOffset = 0
             }
         }
     }
@@ -510,7 +562,7 @@ struct RegularForgeTab: View {
                 .frame(height: ShellTabStyle.iconSlotHeight)
             if isActive {
                 Capsule()
-                    .fill(FDS.Gradient.ember)
+                    .fill(Color.ember)
                     .frame(width: 14, height: 2.5)
                     .offset(y: 2)
                     .matchedGeometryEffect(id: "tab-dot", in: namespace)

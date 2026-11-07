@@ -173,7 +173,12 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
                 lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
             }
             let domain = CyclePhaseCoachingDirective.classifyDomain(from: input)
-            let phaseDirective = CyclePhaseCoachingDirective.directive(for: c.phase, domain: domain)
+            let phaseDirective = CyclePhaseCoachingDirective.directive(
+                for: c.phase,
+                domain: domain,
+                confidence: c.confidence,
+                ovulationMethod: c.ovulationMethod
+            )
             if !phaseDirective.isEmpty {
                 lines.append("## Phase Coaching Directive\n\(phaseDirective)")
             }

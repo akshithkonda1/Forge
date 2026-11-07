@@ -79,6 +79,26 @@ final class LaunchBootstrapTests: XCTestCase {
         XCTAssertFalse(AriaForgePrepHandoff.isInterviewComplete)
     }
 
+    func testStartIfNeededResumesPrepWhenFlagAppearsLater() {
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+
+        let coordinator = OnboardingCoordinator()
+        coordinator.prepClock = AriaForgePrepInstantClock()
+        coordinator.skipPrepHold = true
+        coordinator.prepWorkOverride = { }
+
+        coordinator.startIfNeeded(in: store)
+        XCTAssertFalse(coordinator.isPrepping)
+        XCTAssertFalse(store.needsForgePrep)
+
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(store.needsForgePrep)
+        coordinator.startIfNeeded(in: store)
+        XCTAssertTrue(coordinator.isPrepping)
+    }
+
     func testDeviceHoldPolicyUnchanged() {
         XCTAssertFalse(
             AriaForgePrep.shouldFinish(
@@ -98,7 +118,15 @@ final class LaunchBootstrapTests: XCTestCase {
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: 180,
+                elapsed: AriaForgePrep.cap,
+                duration: 90,
+                workFinished: false,
+                skipHold: false
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.leftoverWatchdog,
                 duration: 90,
                 workFinished: false,
                 skipHold: false

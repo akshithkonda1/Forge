@@ -451,11 +451,11 @@ resource "aws_s3_bucket_versioning" "uploads" {
   }
 }
 
+# Cycle-report ciphertext only. Root administers the key; the backend Lambda
+# is the only Forge principal that sets SSEKMSKeyId (presigned PUT/GET via S3).
 data "aws_iam_policy_document" "uploads_kms" {
-  # Account root can administer the key. CI plan uses account_id_for_naming
-  # ("ci" when skip_aws_provider_checks is true) so this does not call STS.
   statement {
-    sid    = "EnableIAMUserPermissions"
+    sid    = "EnableRootAccountAdmin"
     effect = "Allow"
 
     principals {
@@ -465,6 +465,30 @@ data "aws_iam_policy_document" "uploads_kms" {
 
     actions   = ["kms:*"]
     resources = ["*"]
+  }
+
+  statement {
+    sid    = "AllowBackendLambdaViaS3"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.backend_lambda.arn]
+    }
+
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:GenerateDataKey",
+    ]
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["s3.${var.aws_region}.amazonaws.com"]
+    }
   }
 }
 
