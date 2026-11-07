@@ -1,7 +1,13 @@
 import Foundation
 import HealthKit
 import Observation
+import os
 import ForgeCore
+
+private let backgroundDeliveryLog = Logger(
+    subsystem: ForgePerf.subsystem,
+    category: "healthkit"
+)
 
 // MARK: - WatchHealthKitManager
 //
@@ -263,9 +269,8 @@ final class WatchHealthKitManager {
     /// HK background delivery so temperature / HRV / sleep checks still run when
     /// ForgeWatch is not on screen (complication + HealthKit wake).
     ///
-    /// Watch does not carry `com.apple.developer.healthkit.background-delivery`
-    /// (the phone does). `enableBackgroundDelivery` is still requested so a
-    /// worn watch can wake opportunistically; it is not a guaranteed live stream.
+    /// Watch carries `com.apple.developer.healthkit.background-delivery`.
+    /// Delivery is still opportunistic, not a guaranteed live stream.
     func startBackgroundObservers() {
         guard isAuthorized else { return }
         var observed: [HKSampleType] = [
@@ -301,15 +306,27 @@ final class WatchHealthKitManager {
             store.execute(query)
             observerQueries.append(query)
             let frequency: HKUpdateFrequency = type == HKCategoryType(.sleepAnalysis) ? .hourly : .immediate
-            store.enableBackgroundDelivery(for: type, frequency: frequency) { success, deliveryError in
-                if let deliveryError {
-                    HealthKitObserverGate.recordBackgroundDeliveryFailure(
-                        typeIdentifier: type.identifier,
-                        error: deliveryError
+            store.enableBackgroundDelivery(for: type, frequency: frequency) { success, error in
+                let identifier = type.identifier
+                if let error {
+                    let nsError = error as NSError
+                    backgroundDeliveryLog.error(
+                        "enableBackgroundDelivery failed type=\(identifier, privacy: .public) domain=\(nsError.domain, privacy: .public) code=\(nsError.code)"
                     )
-                } else if !success {
                     HealthKitObserverGate.recordBackgroundDeliveryFailure(
-                        typeIdentifier: type.identifier,
+                        typeIdentifier: identifier,
+                        error: error
+                    )
+                } else if success {
+                    backgroundDeliveryLog.info(
+                        "enableBackgroundDelivery succeeded type=\(identifier, privacy: .public)"
+                    )
+                } else {
+                    backgroundDeliveryLog.error(
+                        "enableBackgroundDelivery failed type=\(identifier, privacy: .public)"
+                    )
+                    HealthKitObserverGate.recordBackgroundDeliveryFailure(
+                        typeIdentifier: identifier,
                         error: nil
                     )
                 }

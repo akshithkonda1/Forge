@@ -130,9 +130,19 @@ extension HealthKitManager {
     }
 
     /// Full multi-signal menstrual bundle for the high-accuracy cycle engine.
-    func fetchMenstrualHealthBundle(days: Int = 400) async -> MenstrualHealthKitBundle {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            return MenstrualHealthKitBundle(flowSamples: [], bbtSamples: [], ovulationTests: [], mucusSamples: [])
+    ///
+    /// Intermenstrual bleeding (spotting) is intentionally omitted from
+    /// `flowSamples` so a read-back can never open a period. Deletions come
+    /// from an `HKAnchoredObjectQuery` on menstrual flow.
+    func fetchMenstrualHealthBundle(days: Int = 400, flowAnchor: HKQueryAnchor? = nil) async -> MenstrualHealthKitBundle {
+        guard HKHealthStore.isHealthDataAvailable(), isAuthorized else {
+            return MenstrualHealthKitBundle(
+                flowSamples: [],
+                bbtSamples: [],
+                ovulationTests: [],
+                mucusSamples: [],
+                sampleQuerySucceeded: false
+            )
         }
         let calendar = Calendar.current
         let end = Date()
@@ -143,25 +153,17 @@ extension HealthKitManager {
         async let mucusSamples = fetchCategorySamples(.cervicalMucusQuality, predicate: predicate, limit: HKObjectQueryNoLimit)
         async let ovuSamples = fetchCategorySamples(.ovulationTestResult, predicate: predicate, limit: HKObjectQueryNoLimit)
         async let bbtSamples = fetchQuantitySamples(.basalBodyTemperature, unit: .degreeCelsius(), predicate: predicate, limit: HKObjectQueryNoLimit)
+        async let flowDeletions = fetchMenstrualFlowDeletions(anchor: flowAnchor)
 
         let flow = await flowSamples
         let mucus = await mucusSamples
         let ovu = await ovuSamples
         let bbt = await bbtSamples
+        let deletions = await flowDeletions
 
         let flowMapped: [(date: Date, flow: MenstrualFlowLevel)] = flow.compactMap { sample in
-            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value) else { return nil }
-            let level: MenstrualFlowLevel
-            switch value {
-            case .none: level = .none
-            case .light: level = .light
-            case .medium: level = .medium
-            case .heavy: level = .heavy
-            case .unspecified: level = .unspecified
-            @unknown default: level = .unspecified
-            }
-            // Skip pure none samples unless marked cycle start
-            if level == .none { return nil }
+            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value),
+                  let level = CycleHealthKitPolicy.importedMenstrualFlow(value) else { return nil }
             return (sample.startDate, level)
         }
 
@@ -199,8 +201,39 @@ extension HealthKitManager {
             flowSamples: flowMapped,
             bbtSamples: bbtMapped,
             ovulationTests: ovuMapped,
-            mucusSamples: mucusMapped
+            mucusSamples: mucusMapped,
+            deletedFlowDayKeys: deletions.dayKeys,
+            sampleQuerySucceeded: true,
+            newFlowAnchor: deletions.newAnchor
         )
+    }
+
+    /// One-shot anchored query: Health deletions of menstrual flow since `anchor`.
+    /// Day keys prefer `forge.cycle.flow.<day>`; samples without that identifier
+    /// are recovered by the merge reconciliation (Health-sourced days missing
+    /// from the live sample set).
+    func fetchMenstrualFlowDeletions(
+        anchor: HKQueryAnchor?
+    ) async -> (dayKeys: Set<String>, newAnchor: HKQueryAnchor?) {
+        let type = HKCategoryType(.menstrualFlow)
+        return await withCheckedContinuation { continuation in
+            let query = HKAnchoredObjectQuery(
+                type: type,
+                predicate: nil,
+                anchor: anchor,
+                limit: HKObjectQueryNoLimit
+            ) { _, _, deleted, newAnchor, _ in
+                var keys = Set<String>()
+                for object in deleted ?? [] {
+                    if let syncId = object.metadata?[HKMetadataKeySyncIdentifier] as? String,
+                       let key = CycleHealthKitPolicy.dayKey(fromFlowSyncIdentifier: syncId) {
+                        keys.insert(key)
+                    }
+                }
+                continuation.resume(returning: (keys, newAnchor))
+            }
+            healthStore.execute(query)
+        }
     }
 
     func fetchUserProfile() async -> UserHealthProfile? {

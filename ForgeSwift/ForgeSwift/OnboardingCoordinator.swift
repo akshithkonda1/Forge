@@ -220,7 +220,7 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         ariaOrbState = .processing
         prepHealthConnected = store.healthKitLive || healthKitState == .authorized
-        Task { await runPrep(in: store) }
+        Task { await runPrep(in: store, leftoverResume: true) }
     }
 
     /// Pulls name, last name, and first quest chosen during Day 0 sign-up.
@@ -1095,7 +1095,7 @@ final class OnboardingCoordinator {
         skipPrepHold = true
     }
 
-    private func runPrep(in store: AppStore) async {
+    private func runPrep(in store: AppStore, leftoverResume: Bool = false) async {
         // DEBUG "Skip wait" only. Launch never sets skipPrepHold.
         if skipPrepHold {
             await finishPrepWithoutHold(in: store)
@@ -1148,6 +1148,10 @@ final class OnboardingCoordinator {
                     await override()
                     return
                 }
+                // Leftover / wedge: HealthKit ingest on MainActor pinned
+                // sample 3 at 2.86s. Fail-open shows partial data; ingest
+                // starts from finishForgePrep after the sample windows.
+                if leftoverResume { return }
                 AriaForgePrep.startLeftoverIngest(into: store, trainingTheme: theme)
                 await AriaForgePrep.awaitLeftoverIngest()
             }
