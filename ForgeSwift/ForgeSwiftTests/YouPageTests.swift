@@ -46,7 +46,7 @@ final class YouPageTests: XCTestCase {
         XCTAssertEqual(YouContextGlance.goalsLine(on), "Strength, Sleep")
     }
 
-    func testMeasurementSystemDefaultIsImperialAndRoundTrips() {
+    func testMeasurementSystemDefaultIsImperialAndRoundTrips() throws {
         XCTAssertEqual(emptyProfile.measurementSystem, .imperial)
         var profile = emptyProfile
         profile.measurementSystem = .metric

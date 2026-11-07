@@ -183,10 +183,18 @@ public final class InMemorySecureStore: SecureStore {
     /// for real on a device that has never been unlocked since boot.
     public var failNextWrite: SecureStoreError?
 
+    /// Same idea for reads: the Keychain refuses reads before first unlock, and
+    /// a caller must not mistake that for "nothing saved".
+    public var failNextRead: SecureStoreError?
+
     public init() {}
 
     public func data(forKey key: String) throws -> Data? {
         lock.lock(); defer { lock.unlock() }
+        if let failure = failNextRead {
+            failNextRead = nil
+            throw failure
+        }
         return storage[key]
     }
 

@@ -88,4 +88,28 @@ final class PharmacyVaultTests: XCTestCase {
         _ = vault.toggle(id: "lipitor", name: "Lipitor")
         XCTAssertNil(defaults.stringArray(forKey: PharmacyVault.legacySavedKey))
     }
+
+    func testUnreadableKeychainNeverOverwritesASavedList() {
+        let seeded = vault()
+        _ = seeded.ensure(id: "lipitor", name: "Lipitor")
+
+        let relaunched = vault()
+        store.failNextRead = .keychain(status: -25308) // errSecInteractionNotAllowed
+        XCTAssertEqual(relaunched.toggle(id: "xcopri", name: "Xcopri"), .unavailable)
+
+        // The read recovers; the original list is intact and writable again.
+        XCTAssertEqual(relaunched.savedNames(), ["Lipitor"])
+        XCTAssertEqual(relaunched.ensure(id: "xcopri", name: "Xcopri"), .added)
+        XCTAssertEqual(relaunched.savedNames(), ["Xcopri", "Lipitor"])
+    }
+
+    func testUnreadableKeychainDoesNotMigrateLegacyNames() {
+        defaults.set(["Xcopri"], forKey: PharmacyVault.legacySavedKey)
+        store.failNextRead = .keychain(status: -25308)
+        let vault = vault()
+        XCTAssertTrue(vault.load().items.isEmpty)
+        // Plaintext is kept until a readable launch can migrate it.
+        XCTAssertNotNil(defaults.stringArray(forKey: PharmacyVault.legacySavedKey))
+        XCTAssertEqual(vault.savedNames(), ["Xcopri"])
+    }
 }

@@ -42,6 +42,9 @@ public enum PharmacySaveResult: Equatable, Sendable {
     case added
     case removed
     case atCap
+    /// The secure copy could not be read (for example before first unlock).
+    /// Nothing was changed, so a saved list is never overwritten by a guess.
+    case unavailable
 }
 
 /// Keychain-backed pharmacy list. Medication names never sit in a plist.
@@ -58,6 +61,10 @@ public final class PharmacyVault {
     private let defaults: UserDefaults
     private let lock = NSLock()
     private var cached: PharmacyVaultState?
+    /// True when the last read of the secure copy threw, as opposed to finding
+    /// nothing. While true, writes are refused so an empty guess cannot replace
+    /// a real list.
+    private var readFailed = false
 
     public init(store: SecureStore, defaults: UserDefaults = .standard) {
         self.store = store
@@ -83,7 +90,7 @@ public final class PharmacyVault {
         lock.lock(); defer { lock.unlock() }
         if let cached { return cached }
         let state = readUnlocked()
-        cached = state
+        if !readFailed { cached = state }
         return state
     }
 
@@ -102,7 +109,7 @@ public final class PharmacyVault {
     @discardableResult
     public func toggle(id: String, name: String) -> PharmacySaveResult {
         lock.lock(); defer { lock.unlock() }
-        var state = cached ?? readUnlocked()
+        guard var state = mutableStateUnlocked() else { return .unavailable }
         if let index = indexOf(id: id, name: name, in: state.items) {
             state.items.remove(at: index)
             persistUnlocked(state)
@@ -120,7 +127,7 @@ public final class PharmacyVault {
     @discardableResult
     public func ensure(id: String, name: String) -> PharmacySaveResult {
         lock.lock(); defer { lock.unlock() }
-        var state = cached ?? readUnlocked()
+        guard var state = mutableStateUnlocked() else { return .unavailable }
         if indexOf(id: id, name: name, in: state.items) != nil {
             return .added
         }
@@ -135,14 +142,14 @@ public final class PharmacyVault {
 
     public func setShareWithAria(_ value: Bool) {
         lock.lock(); defer { lock.unlock() }
-        var state = cached ?? readUnlocked()
+        guard var state = mutableStateUnlocked() else { return }
         state.shareWithAria = value
         persistUnlocked(state)
     }
 
     public func setRefreshOutcome(failed: Bool, at: Date? = Date()) {
         lock.lock(); defer { lock.unlock() }
-        var state = cached ?? readUnlocked()
+        guard var state = mutableStateUnlocked() else { return }
         state.lastRefreshFailed = failed
         if !failed { state.lastRefreshAt = at }
         persistUnlocked(state)
@@ -151,14 +158,35 @@ public final class PharmacyVault {
     public func wipe() {
         lock.lock(); defer { lock.unlock() }
         cached = .empty
+        readFailed = false
         try? store.remove(Self.storageKey)
         defaults.removeObject(forKey: Self.legacySavedKey)
     }
 
     // MARK: - IO
 
+    /// The state a mutation should start from, or nil when the secure copy
+    /// exists but cannot be read right now.
+    private func mutableStateUnlocked() -> PharmacyVaultState? {
+        if let cached { return cached }
+        let state = readUnlocked()
+        if readFailed { return nil }
+        cached = state
+        return state
+    }
+
     private func readUnlocked() -> PharmacyVaultState {
-        if let data = try? store.data(forKey: Self.storageKey),
+        let stored: Data?
+        do {
+            stored = try store.data(forKey: Self.storageKey)
+            readFailed = false
+        } catch {
+            // Locked or unavailable Keychain: say so, and do not migrate or
+            // write anything on top of what we could not see.
+            readFailed = true
+            return .empty
+        }
+        if let data = stored,
            let state = try? JSONDecoder().decode(PharmacyVaultState.self, from: data) {
             defaults.removeObject(forKey: Self.legacySavedKey)
             return state
