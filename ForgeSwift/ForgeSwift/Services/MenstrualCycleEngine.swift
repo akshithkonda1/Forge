@@ -514,10 +514,13 @@ enum MenstrualCycleEngine {
         let maxOvulationDay = max(21, Int(cycleLength.rounded()) + 7)
         func clampDay(_ day: Int) -> Int { max(6, min(maxOvulationDay, day)) }
 
-        // 1) LH / OPK
-        if let lh = cycleLogs.last(where: { $0.ovulationTest?.indicatesNearOvulation == true }),
+        // 1) LH / OPK — first positive of the latest consecutive run, not the last
+        // positive. A 2–3 day surge must not slide ovulation later.
+        if let lh = firstPositiveOfLatestLHRun(in: cycleLogs, periodStart: start, asOfDayKey: asOfDayKey),
            let day = CycleDayKey.daysBetween(start, lh.dayKey) {
-            // LH surge day + ~24h → ovulation day ≈ surge day index + 1
+            // `day` is the 0-based offset from period start (`daysBetween`).
+            // Day-in-cycle is `day + 1`; ovulation is ~24h after the surge, so
+            // `day + 2` == surge day-in-cycle + 1.
             return OvulationEstimate(dayInCycle: clampDay(day + 2), method: "lh_surge", confidence: 0.9)
         }
 
@@ -537,6 +540,30 @@ enum MenstrualCycleEngine {
         // 4) Personalized calendar: cycle − luteal
         let calc = max(10, min(Int(cycleLength.rounded()) - max(10, min(16, lutealDays)), Int(cycleLength.rounded()) - 10))
         return OvulationEstimate(dayInCycle: calc, method: "calendar_minus_luteal", confidence: 0.45)
+    }
+
+    /// First positive OPK day in the latest consecutive run of positives.
+    /// Isolated earlier positives are ignored once a newer run starts.
+    static func firstPositiveOfLatestLHRun(
+        in logs: [CycleDayLog],
+        periodStart: String,
+        asOfDayKey: String
+    ) -> CycleDayLog? {
+        let positives = logs
+            .filter { $0.dayKey >= periodStart && $0.dayKey <= asOfDayKey }
+            .filter { $0.ovulationTest?.indicatesNearOvulation == true }
+            .sorted { $0.dayKey < $1.dayKey }
+        guard let last = positives.last else { return nil }
+        var runStart = last
+        for prior in positives.dropLast().reversed() {
+            let gap = CycleDayKey.daysBetween(prior.dayKey, runStart.dayKey) ?? 99
+            if gap == 1 {
+                runStart = prior
+            } else {
+                break
+            }
+        }
+        return runStart
     }
 
     /// Classic fertility-awareness: 3 consecutive temps higher than prior 6 coverline.
