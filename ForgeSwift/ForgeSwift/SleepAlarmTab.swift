@@ -166,6 +166,8 @@ enum SleepAlarmScheduler {
                 authError = error.localizedDescription
                 print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
             }
+        case .alreadyGranted, .denied, .skipPrompt:
+            break
         }
 
         let afterAsk = await center.notificationSettings()

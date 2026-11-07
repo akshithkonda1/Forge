@@ -49,6 +49,7 @@ struct ForgeSwiftApp: App {
                         guard store.isOnboarded, !store.needsForgePrep else { return }
                         WorkoutActivityCoordinator.shared.activate()
                         HealthDeviceCatalogSync.shared.loadCached()
+                        guard !store.needsForgePrep else { return }
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }

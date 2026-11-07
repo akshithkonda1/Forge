@@ -27,6 +27,14 @@ OUT = os.environ.get("LAUNCH_GATE_OUT", "/tmp/launch-gate")
 # sit above the trap in the same stack and would double-count idle.
 IDLE_FRAMES = ("mach_msg2_trap", "mach_msg_trap")
 RUNLOOP_WAIT = ("__CFRunLoopServiceMachPort", "CFRunLoopRun", "__CFRunLoopRun")
+# `sample` attaches as a debugger. If that happens while dyld is still
+# registering images, the main thread blocks in this notify until the
+# sampler accepts the list. That wait is the measurement, not Forge.
+SAMPLER_STALL = (
+    "notifyDebuggerLoad",
+    "blockOnSynchronousEvent",
+    "notifyMonitorOfImageListChangesSim",
+)
 
 
 def load_thresholds():
@@ -42,8 +50,12 @@ def load_thresholds():
 T = load_thresholds()
 
 
-def sh(*args, check=True, timeout=120):
-    r = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+def sh(*args, check=True, timeout=120, extra_env=None):
+    env = None
+    if extra_env:
+        env = os.environ.copy()
+        env.update(extra_env)
+    r = subprocess.run(args, capture_output=True, text=True, timeout=timeout, env=env)
     if check and r.returncode != 0:
         raise RuntimeError(f"{' '.join(args)} -> {r.returncode}: {r.stderr.strip()}")
     return r
@@ -106,14 +118,77 @@ def diff_share(path_a, path_b, tol=24):
     return d / len(a)
 
 
-def shot(udid, path):
+def shot(udid, path, timeout=30):
     """Screenshot + downscale (sips, fast) so decoding is cheap. Returns the
     small PNG path and the monotonic time the capture FINISHED."""
-    simctl("io", udid, "screenshot", "--type=png", path, timeout=30)
+    simctl("io", udid, "screenshot", "--type=png", path, timeout=timeout)
     done = time.monotonic()
     small = path[:-4] + "-small.png"
     sh("sips", "-s", "format", "png", "-Z", str(int(T["SHOT_MAX_PX"])), path, "--out", small, timeout=30)
     return small, done
+
+
+def ensure_booted(udid):
+    """The sim can shut down under a long xcodebuild or a hung screenshot."""
+    b = simctl("boot", udid, check=False)
+    if b.returncode != 0 and "Booted" not in (b.stderr or "") and "Booted" not in (b.stdout or ""):
+        raise RuntimeError(f"simctl boot failed: {(b.stderr or b.stdout).strip()}")
+    simctl("bootstatus", udid, "-b", timeout=300)
+
+
+def warmup_screenshot_io(udid):
+    """First `simctl io screenshot` after a long xcodebuild is often 10–30s
+    or times out, which blows the 8s first_frame window (2 consecutive
+    captures). Burn that cost here, before any timed scenario. Thresholds
+    stay unchanged."""
+    path = f"{OUT}/warmup.png"
+    successes, last_err = 0, None
+    for attempt in range(1, 6):
+        try:
+            ensure_booted(udid)
+            t0 = time.monotonic()
+            simctl("io", udid, "screenshot", "--type=png", path, timeout=45)
+            dt = time.monotonic() - t0
+            successes += 1
+            print(f"  warmup screenshot {attempt}: {dt:.1f}s", flush=True)
+            if successes >= 2 and dt < 5:
+                return
+        except Exception as e:
+            last_err = e
+            print(f"  warmup screenshot {attempt} failed: {e}", flush=True)
+            time.sleep(2)
+    if successes >= 1:
+        print("  warmup: screenshot IO works; continuing", flush=True)
+        return
+    raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
+
+
+def warmup_app_launch(udid, app):
+    """First process start after xcodebuild is often 10s+ of dyld, which
+    burns the 8s first_frame window on the timed cold scenario. Page the
+    binary in once, then uninstall so each scenario is still a fresh
+    install. Thresholds stay unchanged."""
+    ensure_booted(udid)
+    fresh_install(udid, app)
+    try:
+        pid, t0 = launch(udid)
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline:
+            if not pid_alive(pid):
+                print("  warmup app: process exited", flush=True)
+                break
+            try:
+                small, _ = shot(udid, f"{OUT}/warmup-app.png", timeout=20)
+                share = dominant_share(small)
+                print(f"  warmup app frame dominant={share:.3f} at {time.monotonic() - t0:.1f}s", flush=True)
+                if share < T["BLANK_DOMINANT_SHARE"]:
+                    break
+            except Exception as e:
+                print(f"  warmup app shot failed: {e}", flush=True)
+            time.sleep(1)
+    finally:
+        simctl("terminate", udid, BUNDLE, check=False)
+        simctl("uninstall", udid, BUNDLE, check=False)
 
 
 def summarize(path, label):
@@ -185,11 +260,20 @@ def run_sample(pid, window, path, timeout):
 
 def main_thread_busy_s(pid, window, tag, timeout):
     path = f"{OUT}/sample-{tag}.txt"
-    text = run_sample(pid, window, path, timeout)
-    # Main thread block runs until the next top-level "Thread_" line.
-    m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
-    if not m:
-        raise RuntimeError("main thread not found in sample output")
+    last_err = "main thread not found in sample output"
+    text = ""
+    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
+        text = run_sample(pid, window, f"{path}.{attempt}", timeout)
+        # Main thread block runs until the next top-level "Thread_" line.
+        m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
+        if m:
+            break
+        last_err = "main thread not found in sample output"
+        print(f"    sample parse attempt {attempt} failed ({last_err})", flush=True)
+        if not pid_alive(pid):
+            raise RuntimeError(last_err)
+    else:
+        raise RuntimeError(last_err)
     total = int(m.group(2))
     rest = text[m.end():]
     nxt = re.search(r"^\s*\d+ Thread_\d+", rest, re.M)
@@ -210,8 +294,11 @@ def main_thread_busy_s(pid, window, tag, timeout):
             stack.pop()
         stack.append((ind, txt))
         leaf = i + 1 >= len(rows) or rows[i + 1][0] <= ind
-        if leaf and any(f in txt for f in IDLE_FRAMES) and \
-                any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1]):
+        if not leaf or not any(f in txt for f in IDLE_FRAMES):
+            continue
+        runloop = any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1])
+        sampler = any(any(s in t for s in SAMPLER_STALL) for _, t in stack)
+        if runloop or sampler:
             idle += n
     if total <= 0:
         raise RuntimeError("main thread total sample count is 0")
@@ -223,13 +310,26 @@ def main_thread_busy_s(pid, window, tag, timeout):
 
 # ---------- scenario ----------
 def fresh_install(udid, app):
+    ensure_booted(udid)
     simctl("terminate", udid, BUNDLE, check=False)
     simctl("uninstall", udid, BUNDLE, check=False)
-    simctl("install", udid, app)
+    try:
+        simctl("install", udid, app)
+    except RuntimeError as e:
+        if "Shutdown" not in str(e) and "Current state" not in str(e):
+            raise
+        ensure_booted(udid)
+        simctl("install", udid, app)
 
 
-def launch(udid):
-    out = simctl("launch", udid, BUNDLE).stdout
+def launch(udid, env=None):
+    # simctl launch has no --env flag (that token is parsed as the device
+    # UDID). Child process variables must be prefixed SIMCTL_CHILD_.
+    # Do not inject FORGE_LAUNCH_LIGHT_ROOT — the app must meet the
+    # first-frame / main-thread limits on the real launch path.
+    extra = dict(env or {})
+    extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()}
+    out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
     if not m:
         raise RuntimeError(f"no pid from simctl launch: {out!r}")
@@ -329,6 +429,8 @@ def run_scenario(name, udid, app):
     if dominant_share(base) >= T["BLANK_DOMINANT_SHARE"]:
         raise RuntimeError("baseline screenshot is blank; cannot tell app frame apart")
 
+    # prep_wedge flags live in the app-container plist (write_prep_wedge_flags).
+    # The app runs the real 45–55s hold; there is no env shortcut.
     pid, t0 = launch(udid)
     el = lambda: time.monotonic() - t0
 
@@ -404,10 +506,9 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     # The sim can be shut down under us during the long build; boot here.
     # "already booted" is the only boot error tolerated; bootstatus must pass.
-    b = simctl("boot", udid, check=False)
-    if b.returncode != 0 and "Booted" not in b.stderr:
-        raise SystemExit(f"::error::simctl boot failed: {b.stderr.strip()}")
-    simctl("bootstatus", udid, "-b", timeout=300)
+    ensure_booted(udid)
+    warmup_screenshot_io(udid)
+    warmup_app_launch(udid, app)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)

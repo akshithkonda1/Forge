@@ -202,5 +202,10 @@ final class AriaForgePrepTests: XCTestCase {
 
         AriaForgePrepHandoff.clearInterviewComplete()
         XCTAssertFalse(AriaForgePrepHandoff.needsPrep(isOnboarded: false))
+        XCTAssertNotNil(
+            UserDefaults.standard.object(forKey: key),
+            "Clear must write false so the launch gate does not fall back to the harness YES"
+        )
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: key))
     }
 }
