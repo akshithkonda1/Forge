@@ -13,7 +13,7 @@ import Foundation
 enum MenstrualCycleEngine {
 
     static let disclaimer = """
-    Cycle insights are lifestyle estimates for training, recovery, and personal timing. \
+    Cycle insights are lifestyle estimates for training, readiness, and personal timing. \
     They are not medical diagnosis or a fertility treatment. Forge’s tracker is not itself \
     a contraceptive method — ARIA may discuss sexual-health and contraception materials as \
     lifestyle education; use clinician-approved methods for pregnancy prevention. \
@@ -258,7 +258,7 @@ enum MenstrualCycleEngine {
         if let hrv = recentHRV, let base = baselineHRV, base > 0, phase == .luteal {
             let dip = Double(base - hrv) / Double(base)
             if dip >= 0.12 {
-                insights.append("HRV is ~\(Int(dip * 100))% under your baseline — common in late luteal; don't over-read it as pure under-recovery.")
+                insights.append("HRV is ~\(Int(dip * 100))% under your baseline — common in late luteal; don't over-read it as a simple readiness slump.")
             }
         }
         if let rhr = restingHR, phase == .luteal, rhr >= 65 {
@@ -852,7 +852,7 @@ enum MenstrualCycleEngine {
         case .luteal:
             return recoveryBias
                 ? "Late luteal: expect slightly lower HRV / higher RHR for some people. Bias quality over max intent."
-                : "Luteal: keep standards high but leave a rep in the tank if recovery markers soft."
+                : "Luteal: keep standards high but leave a rep in the tank if readiness markers are soft."
         case .follicular, .fertileWindow, .ovulation:
             return "Often a resilient window — still respect readiness and pain signals."
         case .unknown:
@@ -892,7 +892,7 @@ enum MenstrualCycleEngine {
         case .perimenopause:
             lines.append("Perimenopause mode: fertile-window and ovulation labels are withheld because they are not reliable here — period timing stays a range, not a date.")
         case .endometriosis:
-            lines.append("Endometriosis mode: pain and pelvic symptoms are weighted into recovery guidance. Pain that disrupts daily life is worth raising with a clinician.")
+            lines.append("Endometriosis mode: pain and pelvic symptoms are weighted into readiness guidance. Pain that disrupts daily life is worth raising with a clinician.")
         case .thyroid:
             lines.append("Thyroid mode: BBT baselines shift with thyroid status and medication timing — take temperature before any morning dose.")
         case .other, .none:
