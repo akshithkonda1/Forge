@@ -47,6 +47,25 @@ final class LaunchBootstrapTests: XCTestCase {
         XCTAssertEqual(coordinator.prepStage.eyebrow, "Prepping Forge")
     }
 
+    func testDebugSimulatorResumePrepLeavesWithoutWaitingOnIngest() async {
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        let coordinator = OnboardingCoordinator()
+        coordinator.prepClock = AriaForgePrepInstantClock()
+        coordinator.skipPrepHold = true
+        coordinator.resumePrep(in: store)
+        for _ in 0..<80 where AriaForgePrepHandoff.isInterviewComplete {
+            await Task.yield()
+        }
+        XCTAssertFalse(
+            AriaForgePrepHandoff.isInterviewComplete,
+            "DEBUG skipHold resume must clear the handoff flag without Health ingest"
+        )
+        XCTAssertTrue(store.isOnboarded)
+    }
+
     func testUnauthenticatedLeftoverFlagDoesNotForcePrep() {
         let store = AppStore()
         store.isAuthenticated = false

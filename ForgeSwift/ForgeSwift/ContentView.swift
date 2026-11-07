@@ -180,6 +180,14 @@ struct ForgeSplashScreen: View {
                 .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
                 .accessibilityHidden(true)
 
+            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
+            // flat field; without this mark the first SwiftUI commit is a
+            // blank #08080C frame and the launch gate resets its streak.
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(LaunchBrandField.ember)
+                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
+                .accessibilityHidden(true)
+
             VStack(spacing: FDS.Spacing.xl) {
                 ZStack {
                     PremiumPresenceBloom(

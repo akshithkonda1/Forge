@@ -75,7 +75,6 @@ extension AppStore {
         learnFromFirstHealthConnectIfNeeded()
 
         await ingestTestReadyCalendarIfNeeded()
-        // Reminders workload: counts only, memory only, never prompts.
         await RemindersManager.shared.ingestIfAuthorized()
 
         lastMetricsRefresh = Date()

@@ -1230,6 +1230,8 @@ final class AriaContextStore: ObservableObject {
     func persist() {
         if let data = try? JSONEncoder().encode(context) {
             defaults.set(data, forKey: storageKey)
+        } else {
+            ReliabilityLog.noteFailure(.persistence, .ariaContextSave, kind: .encoding)
         }
         persistMemory()
     }

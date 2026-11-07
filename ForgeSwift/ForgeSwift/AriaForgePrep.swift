@@ -1,6 +1,10 @@
 import Foundation
 import ForgeCore
 
+/// Module load, before `AppStore.init`. Leftover fail-open is counted from
+/// here so a true-cold dyld still leaves AriaForgePrep before `watchdog`.
+let forgeProcessStart = Date()
+
 /// Console-style first boot after the ARIA interview: load this person's
 /// profile, Health, history, plan, Watch, and reminders before the shell
 /// opens. Duration is 45–55 seconds from how much data there is. The cap

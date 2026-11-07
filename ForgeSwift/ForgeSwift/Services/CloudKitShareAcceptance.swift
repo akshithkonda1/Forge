@@ -79,6 +79,10 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         AriaForgePrep.markProcessStart()
         UNUserNotificationCenter.current().delegate = self
+        // MetricKit + crash-free session tracking. Off the launch main
+        // thread — sysctl / MetricKit subscribe / ledger I/O must not sit
+        // in first_frame or kill_relaunch samples.
+        ReliabilityMonitor.scheduleStart()
         SleepAlarmScheduler.registerCategories()
         Task { @MainActor in _ = ForgeAlarmStore.shared }
         return true

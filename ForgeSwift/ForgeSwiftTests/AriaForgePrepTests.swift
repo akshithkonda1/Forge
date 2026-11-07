@@ -119,8 +119,8 @@ final class AriaForgePrepTests: XCTestCase {
         // Visual cap still applies when leftoverWatchdog is raised.
         XCTAssertFalse(
             AriaForgePrep.shouldFinish(
-                elapsed: 90,
-                duration: 90,
+                elapsed: AriaForgePrep.cap - 1,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false,
                 leftoverWatchdog: AriaForgePrep.cap
@@ -128,8 +128,8 @@ final class AriaForgePrepTests: XCTestCase {
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: 180,
-                duration: 90,
+                elapsed: AriaForgePrep.cap,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false,
                 leftoverWatchdog: AriaForgePrep.cap
