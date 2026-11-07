@@ -79,7 +79,7 @@ public enum ForgeExerciseDiscovery: Sendable {
         conditions: [ForgeLifestyleProfile.HealthConstraint] = [],
         freeform: String = ""
     ) -> [Candidate] {
-        let seizureAware = conditions.contains(.seizures) || conditions.contains(.epilepsy)
+        let grounded = conditions.contains(.seizures) || conditions.contains(.epilepsy)
         let diabetesAware = conditions.contains(.diabetes)
         let adhdAware = conditions.contains(.adhd)
         let adaptedModel = ForgeConditionAdaptation.applyToTrainingModel(
@@ -93,7 +93,7 @@ public enum ForgeExerciseDiscovery: Sendable {
             if memory.saved.contains(item.id) { continue }
             if let decay = memory.suppressed[item.id], decay > 0.4 { continue }
             guard fits(item, memory: memory) else { continue }
-            if seizureAware, ForgeConditionAdaptation.isSoloHighRisk(item.name) { continue }
+            if grounded, ForgeConditionAdaptation.isSoloHighRisk(item.name) { continue }
             var score = 0.4
             var reasons: [String] = ["Fits unused catalog"]
             score += 0.25
@@ -102,7 +102,7 @@ public enum ForgeExerciseDiscovery: Sendable {
                 score += 0.15
                 reasons.append("Adaptive training model")
             }
-            if seizureAware {
+            if grounded {
                 score += 0.04
                 reasons.append("Here's what works with your body — grounded intensity, rest windows")
             }

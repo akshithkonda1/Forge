@@ -356,6 +356,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     from aria_core import contextual_learner
     from aria_core import fusion as fusion_mod
     from aria_core import guidance
+    from aria_core import health_privacy
 
     # Voice-first triage: the client echoes the previous turn's
     # ``safety.reply_topic`` so this answer resolves case by case. Unknown or
@@ -372,7 +373,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         uid,
         payload,
         permissions,
-        persist=not safety_lock,
+        include_stored=False,
+        persist=False,
         load_learner=True,
     )
     context = fused.context
@@ -386,7 +388,9 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     raw_tags = list(getattr(living, "lifestyle_tags", None) or [])
     raw_patterns = list(getattr(living, "recent_patterns", None) or [])
     living.lifestyle_tags = _filter_lifestyle_tokens(raw_tags)
-    living.recent_patterns = _filter_lifestyle_tokens(raw_patterns)
+    living.recent_patterns = health_privacy.filter_health_pattern_tokens(
+        _filter_lifestyle_tokens(raw_patterns)
+    )
     if (
         not safety_lock
         and (
@@ -543,13 +547,9 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         snapshot = fused.snapshot if isinstance(fused.snapshot, dict) else {}
         response["swarm"] = swarm_mod.run_swarm(
             context=context,
-            samples=payload.get("samples") if isinstance(payload.get("samples"), list) else None,
+            samples=None,
             connected=snapshot.get("sources") or [],
-            persist_to=(
-                _context
-                if permissions.allows("lifestyle") and allow_ingest
-                else None
-            ),
+            persist_to=None,
             user_id=uid,
         )
 
@@ -593,7 +593,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             hours_since = (now - last_promoted).total_seconds() / 3600
             if hours_since < 24:
                 should_promote = False
-    rich = _context.build_rich_context(uid, {"readiness": context.readiness.recovery_score or 0})
+    rich = _context.build_rich_context(uid, {})
     if should_promote:
         updated_level = min(10, int(rich.get("relationship_level", 1)) + 1)
         from datetime import timezone
@@ -627,8 +627,12 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
                 sources=sources,
             )
             contextual_learner.observe_relationship(persona, updated_level)
-            contextual_learner.save(uid, persona)
-            if isinstance(persona.last_plan, dict):
+            contextual_learner.save(uid, persona, ctx=context)
+            from aria_core import health_privacy
+
+            if isinstance(persona.last_plan, dict) and not health_privacy.plan_has_health_conclusions(
+                persona.last_plan
+            ):
                 _context.update_context(uid, {"supervision_plan": dict(persona.last_plan)})
         except fusion_mod.PERSONA_IO_ERRORS as exc:
             response.setdefault("fusion", {})
@@ -662,7 +666,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         and allow_ingest
         and not safety_lock
     ):
-        _context.add_insight(uid, takeaway[:180])
+        if not health_privacy.insight_has_health_conclusions(takeaway):
+            _context.add_insight(uid, takeaway[:180])
 
     extras: dict[str, Any] = {
         "rich_card": None,

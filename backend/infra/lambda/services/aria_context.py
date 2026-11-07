@@ -279,15 +279,12 @@ class CoachContextEngine:
 
     def build_rich_context(self, user_id: str, recent_metrics: dict[str, float]) -> dict[str, Any]:
         context = self.get_or_create_context(user_id)
-        patterns = list(context.recent_patterns)
-        readiness = recent_metrics.get("readiness", 0)
-        if readiness and readiness < 55 and "low_readiness_streak" not in patterns:
-            patterns.append("low_readiness_streak")
-        sleep_score = recent_metrics.get("sleep_score", 0)
-        if sleep_score >= 85 and "strong_sleep_recovery" not in patterns:
-            patterns.append("strong_sleep_recovery")
+        from aria_core import health_privacy
 
-        if patterns != context.recent_patterns:
+        # Readiness/sleep metrics may shape this turn. They must not write
+        # derived body tokens onto ARIA#CONTEXT.
+        patterns = health_privacy.filter_health_pattern_tokens(context.recent_patterns)
+        if patterns != list(context.recent_patterns):
             context.recent_patterns = patterns
             self._save(user_id, context)
 
@@ -297,13 +294,17 @@ class CoachContextEngine:
             "goals": context.current_goals,
             "constraints": context.constraints,
             "recent_patterns": patterns,
-            "recent_metrics": recent_metrics,
+            "recent_metrics": {},
             "relationship_level": context.relationship_level,
             "timestamp": _utcnow().isoformat(),
         }
 
     def add_insight(self, user_id: str, insight: str) -> UserContext:
         context = self.get_or_create_context(user_id)
+        from aria_core import health_privacy
+
+        if health_privacy.insight_has_health_conclusions(insight):
+            return context
         context.last_insights.insert(0, insight)
         if len(context.last_insights) > 15:
             context.last_insights.pop()

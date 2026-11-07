@@ -70,7 +70,7 @@ enum TrainDayCall: Equatable {
     var cta: String {
         switch self {
         case .rest: return "Optional easy work"
-        case .recover: return "Start recovery session"
+        case .recover: return "Start easy session"
         case .easy: return "Start easy session"
         case .train: return "Start session"
         }
@@ -211,7 +211,7 @@ enum AdaptiveEngine {
         } else {
             // First working set — anchor to readiness.
             if readiness.overall >= 85 {
-                rec.rationale = "Recovery is high — treat the first set as a primer, then push the top set."
+                rec.rationale = "Readiness is high — treat the first set as a primer, then push the top set."
             } else if readiness.overall < 60 {
                 rec.rpeTarget = max(6, targetRPE - 1)
                 rec.rationale = "Cap effort near RPE \(rec.rpeTarget) today and leave reps in reserve."

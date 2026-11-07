@@ -99,6 +99,21 @@ data "aws_iam_policy_document" "backend_lambda" {
   }
 
   statement {
+    sid = "UploadsKms"
+
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey",
+    ]
+
+    resources = [
+      aws_kms_key.uploads.arn,
+    ]
+  }
+
+  statement {
     sid = "AriaPauseRead"
 
     actions = [
