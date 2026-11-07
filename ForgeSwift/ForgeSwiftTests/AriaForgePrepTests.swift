@@ -3,9 +3,11 @@ import XCTest
 
 final class AriaForgePrepTests: XCTestCase {
 
-    func testFloorIsFortyFiveSecondsAndCapIsThreeMinutes() {
+    func testFloorIsFortyFiveSecondsAndCapBeatsTheWatchdog() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
-        XCTAssertEqual(AriaForgePrep.cap, 180)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
     }
 
     func testEmptyLoadStaysAtTheFloor() {
@@ -30,10 +32,9 @@ final class AriaForgePrepTests: XCTestCase {
         let empty = AriaForgePrep.duration(for: .empty)
         let lightDuration = AriaForgePrep.duration(for: light)
         let heavyDuration = AriaForgePrep.duration(for: heavy)
+        XCTAssertEqual(empty, AriaForgePrep.floor)
         XCTAssertGreaterThan(lightDuration, empty)
-        XCTAssertGreaterThan(heavyDuration, lightDuration)
-        XCTAssertLessThanOrEqual(heavyDuration, AriaForgePrep.cap)
-        XCTAssertGreaterThanOrEqual(empty, AriaForgePrep.floor)
+        XCTAssertLessThanOrEqual(lightDuration, AriaForgePrep.cap)
         XCTAssertEqual(heavyDuration, AriaForgePrep.cap)
     }
 
@@ -101,16 +102,16 @@ final class AriaForgePrepTests: XCTestCase {
         // leftoverWatchdog (50) opens the shell before PREP_WATCHDOG_S=60.
         XCTAssertFalse(
             AriaForgePrep.shouldFinish(
-                elapsed: 49,
-                duration: 90,
+                elapsed: AriaForgePrep.cap - 1,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false
             )
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: AriaForgePrep.leftoverWatchdog,
-                duration: 90,
+                elapsed: AriaForgePrep.cap,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false
             )
@@ -221,6 +222,11 @@ final class AriaForgePrepTests: XCTestCase {
 
         AriaForgePrepHandoff.clearInterviewComplete()
         XCTAssertFalse(AriaForgePrepHandoff.needsPrep(isOnboarded: false))
+        XCTAssertNotNil(
+            UserDefaults.standard.object(forKey: key),
+            "Clear must write false so the launch gate does not fall back to the harness YES"
+        )
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: key))
     }
 
     func testLeftoverWatchdogClearsHandoffBeforeLaunchPrepWatchdog() {

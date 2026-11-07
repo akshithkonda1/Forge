@@ -77,6 +77,7 @@ final class ForgeAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        AriaForgePrep.markProcessStart()
         UNUserNotificationCenter.current().delegate = self
         SleepAlarmScheduler.registerCategories()
         Task { @MainActor in _ = ForgeAlarmStore.shared }

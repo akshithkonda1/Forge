@@ -92,7 +92,7 @@ extension AppStore {
         )
         ForgePersistence.saveBriefNotificationSettings(settings)
         objectWillChange.send()
-        Task { await resyncNotifications(promptIfNeeded: true) }
+        Task { await resyncNotifications(promptIfUndetermined: true) }
     }
 
     func updateNutritionPreferences(_ preferences: NutritionPreferences) {
@@ -100,12 +100,12 @@ extension AppStore {
         publishHomeWidgets()
     }
 
-    func resyncNotifications(promptIfNeeded: Bool = false) async {
+    func resyncNotifications(promptIfUndetermined: Bool = false) async {
         await ForgeNotificationScheduler.sync(
             settings: notificationSettings,
             briefEnabled: briefNotificationsEnabled,
             brief: ForgePersistence.loadBriefNotificationSettings(),
-            promptIfNeeded: promptIfNeeded
+            promptIfUndetermined: promptIfUndetermined
         )
     }
 

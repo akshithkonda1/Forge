@@ -26,9 +26,15 @@ private struct SleepQualityComplicationView: View {
     let entry: SnapshotEntry
     @Environment(\.widgetFamily) private var family
 
-    private var quality: Int? { entry.snapshot?.sleepQualityScore }
+    private var quality: Int? {
+        entry.snapshot?.sleepQualityScore.flatMap { (0...100).contains($0) ? $0 : nil }
+    }
     private var durationText: String? {
-        guard let raw = entry.snapshot?.sleepMinutes, raw.isFinite, raw >= 0 else { return nil }
+        guard let raw = entry.snapshot?.sleepMinutes,
+              raw.isFinite,
+              raw >= 0,
+              raw <= 24 * 60
+        else { return nil }
         let minutes = raw >= Double(Int.max) ? Int.max : Int(raw.rounded())
         return "\(minutes / 60)h \(minutes % 60)m"
     }

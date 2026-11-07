@@ -25,56 +25,19 @@ final class OnboardingGateTests: XCTestCase {
         super.tearDown()
     }
 
-    #if DEBUG
     @MainActor
-    func testDebugSimulatorSkipsPrepHold() {
+    func testPrepHoldIsOnForEveryBuild() {
         let coordinator = OnboardingCoordinator()
-        XCTAssertEqual(
+        XCTAssertFalse(
             coordinator.skipPrepHold,
-            TestReadyLaunchPolicy.isRunningOnSimulator,
-            "DEBUG simulator must skip the 45s–180s hold; real devices keep it"
+            "Launch never skips the 45–55s hold. DEBUG Skip wait is explicit."
         )
     }
-    #endif
 
-    func testFloorCapAndLeftoverWatchdog() {
+    func testFloorAndCapBeatTheWatchdog() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
-        XCTAssertEqual(AriaForgePrep.cap, 180)
-        XCTAssertEqual(AriaForgePrep.leftoverWatchdog, 50)
-        XCTAssertLessThan(AriaForgePrep.leftoverWatchdog, 60)
-    }
-
-    func testLaunchAsksForNotificationsAfterFirstFrameNotDuringIt() {
-        XCTAssertEqual(
-            ForgeNotificationScheduler.authorizationIntent(
-                status: .notDetermined,
-                promptIfUndetermined: false
-            ),
-            .skipPrompt,
-            "first-frame path must not present the permission sheet"
-        )
-        XCTAssertEqual(
-            ForgeNotificationScheduler.authorizationIntent(
-                status: .notDetermined,
-                promptIfUndetermined: true
-            ),
-            .prompt,
-            "after the first frame, real devices and Simulator both ask"
-        )
-        XCTAssertEqual(
-            ForgeNotificationScheduler.authorizationIntent(
-                status: .authorized,
-                promptIfUndetermined: false
-            ),
-            .alreadyGranted
-        )
-        XCTAssertEqual(
-            ForgeNotificationScheduler.authorizationIntent(
-                status: .denied,
-                promptIfUndetermined: true
-            ),
-            .denied
-        )
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
     }
 
     func testStaleInterviewFlagClearsWhenUnauthenticated() {

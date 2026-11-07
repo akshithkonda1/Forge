@@ -18,7 +18,6 @@ struct OnboardingView: View {
                     .forgeTransition(.scale(scale: 0.96).combined(with: .opacity))
             } else if coordinator.isPrepping || store.needsForgePrep {
                 AriaForgePrepView(coordinator: coordinator)
-                    .transition(.opacity)
             } else {
                 AriaInterviewLayout(coordinator: coordinator) {
                     coordinator.complete(in: store)
@@ -31,11 +30,9 @@ struct OnboardingView: View {
         }
         .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.showAgeBlocked)
         .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.isPrepping)
-        .onAppear { coordinator.startIfNeeded(in: store) }
-        .onChange(of: store.needsForgePrep) { _, needs in
-            if needs {
-                coordinator.startIfNeeded(in: store)
-            }
+        .onAppear {
+            coordinator.startIfNeeded(in: store)
+            Task { await ForgeNotificationScheduler.promptAuthorization() }
         }
         .onDisappear { coordinator.stopInterviewVoice() }
     }

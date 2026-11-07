@@ -56,7 +56,10 @@ final class SleepWindDownPlayer {
     @ObservationIgnored private var wasInterrupted = false
     @ObservationIgnored private let renderer = SoundscapeRenderer()
 
-    private init() {
+    private init() {}
+
+    private func ensureSessionObservers() {
+        guard sessionObservers.isEmpty else { return }
         let session = AVAudioSession.sharedInstance()
         #if compiler(>=6.4)
         sessionObservers.append(
@@ -98,6 +101,7 @@ final class SleepWindDownPlayer {
     }
 
     func start(kind: SleepSoundKind? = nil, minutes: Int = 30) {
+        ensureSessionObservers()
         if let kind {
             if isPlaying {
                 if mix.contains(kind) {
@@ -119,6 +123,7 @@ final class SleepWindDownPlayer {
     }
 
     func startMix(kinds: [SleepSoundKind], minutes: Int) {
+        ensureSessionObservers()
         let layers = Array(kinds.prefix(3))
         mix = layers.isEmpty ? [.brown] : layers
         kind = mix[0]

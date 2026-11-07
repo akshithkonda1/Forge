@@ -99,7 +99,7 @@ final class LaunchBootstrapTests: XCTestCase {
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: 180,
+                elapsed: AriaForgePrep.cap,
                 duration: 90,
                 workFinished: false,
                 skipHold: false
