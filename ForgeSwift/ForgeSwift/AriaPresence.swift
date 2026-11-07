@@ -105,6 +105,7 @@ enum ForgePlaybackSession: Equatable, Sendable {
 
 /// App-wide ARIA voice presence. Welcome, chat, Train “show me how”, and the
 /// tab mark all read this so the same Aurora orb moves when she talks.
+/// Playback is Kokoro only. There is no `AVSpeechSynthesizer`.
 @MainActor
 @Observable
 final class AriaPresence {
@@ -202,7 +203,9 @@ final class AriaPresence {
             // Kokoro failed: leave the text on screen. Never allocate or
             // speak() AVSpeechSynthesizer — Apple TTS is not a fallback.
             isSpeaking = false
-            AriaVoiceProfileStore.shared.noteBusy(true)
+            if !started {
+                AriaVoiceProfileStore.shared.noteBusy(true)
+            }
             AriaVoiceSession.shared.mouthDidFinish()
         }
     }

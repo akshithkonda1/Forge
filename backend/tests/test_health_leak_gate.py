@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import unittest
 
 import _bootstrap  # noqa: F401
@@ -11,6 +12,35 @@ import _bootstrap  # noqa: F401
 from handler import handler
 from services import health_leak_guard
 from storage import dynamodb, keys
+
+CANARY_HRV = 188
+# Whole-token 188, not a timestamp fraction like .233188.
+CANARY_STRING = re.compile(r"(?<![\d.])188(?![\d])")
+
+
+def _contains_int(obj, needle):
+    if obj == needle:
+        return True
+    if isinstance(obj, dict):
+        return any(_contains_int(value, needle) for value in obj.values())
+    if isinstance(obj, list):
+        return any(_contains_int(value, needle) for value in obj)
+    return False
+
+
+def _contains_canary_string(obj):
+    if isinstance(obj, str):
+        return CANARY_STRING.search(obj) is not None
+    if isinstance(obj, dict):
+        return any(_contains_canary_string(value) for value in obj.values())
+    if isinstance(obj, list):
+        return any(_contains_canary_string(value) for value in obj)
+    return False
+
+
+def audit_leaks_canary(obj):
+    """True when the planted HRV 188 is present as an int or a string token."""
+    return _contains_int(obj, CANARY_HRV) or _contains_canary_string(obj)
 
 
 def _event(method, path, body, user="leak-user"):

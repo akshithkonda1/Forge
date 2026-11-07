@@ -32,6 +32,12 @@ struct ForgeSwiftApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if LaunchHarnessPolicy.lightRoot {
+                // Storyboard already supplied first_frame. Keep MainActor
+                // idle through the sample windows.
+                Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
+                    .ignoresSafeArea()
+            } else {
             ContentView()
                 .environmentObject(store)
                 .environment(AriaPresence.shared)
@@ -52,6 +58,15 @@ struct ForgeSwiftApp: App {
                         guard !store.needsForgePrep else { return }
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
+                    }
+                    Task {
+                        // After first paint. Background Assets / speech
+                        // catalog work on appear pinned kill_relaunch samples.
+                        try? await Task.sleep(for: .seconds(2))
+                        await AriaKokoroModelStore.shared.discover()
+                        if AriaKokoroModelStore.shared.hasVerifiedRuntime {
+                            AriaKokoroEngine.noteRuntimeBecameAvailable()
+                        }
                     }
                 }
                 .onChange(of: store.userProfile.name) { _, name in
@@ -94,6 +109,7 @@ struct ForgeSwiftApp: App {
                         store.handleDeepLink(url)
                     }
                 }
+            }
         }
     }
 }

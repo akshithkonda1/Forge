@@ -10,6 +10,21 @@ _TABLE_NAME = os.getenv("APP_DATA_TABLE_NAME")
 # In-memory store used when no DynamoDB table is configured (local dev / tests).
 _local_store: dict[str, dict] = {}
 _local_lock = threading.Lock()
+# moto's UpdateItem is a get-merge-put. Serialize per item so ADD +
+# ConditionExpression cannot over-admit in-process. Real Dynamo still
+# serializes the same item on its side.
+_remote_locks_guard = threading.Lock()
+_remote_locks: dict[str, threading.Lock] = {}
+
+
+def _remote_item_lock(pk: str, sk: str) -> threading.Lock:
+    key = _local_composite(pk, sk)
+    with _remote_locks_guard:
+        lock = _remote_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _remote_locks[key] = lock
+        return lock
 
 _ATTR_NOT_EXISTS = re.compile(r"attribute_not_exists\(\s*([^)]+?)\s*\)\s*$", re.I)
 _LE = re.compile(r"(\S+)\s*<=\s*(\S+)\s*$")
@@ -218,7 +233,8 @@ def update_item(
 
     table = _get_table()
     try:
-        result = table.update_item(**kwargs)
+        with _remote_item_lock(pk, sk):
+            result = table.update_item(**kwargs)
     except Exception as exc:
         if _is_conditional_check_failed(exc):
             raise ConditionalCheckFailed("The conditional request failed") from exc

@@ -414,6 +414,13 @@ final class AppStore: ObservableObject {
         LocalTestingOrchestrator.shared.refreshOnDeviceModel()
     }
 
+    func configureAfterHarnessSamples() {
+        AriaContextStore.shared.configure()
+        AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
+        restoreOnboardingState()
+        restoreTrainingHabits()
+    }
+
     // MARK: - Chat Persistence & Momentum
 
     /// Versioned single-document session: transcript + XP/level + durable anchors.

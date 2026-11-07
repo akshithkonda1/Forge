@@ -1255,6 +1255,42 @@ final class OnboardingCoordinator {
         }
     }
 
+    /// Opens the shell immediately. Ingest / welcome may continue after the
+    /// handoff flag is cleared so a DEBUG simulator cannot sit on
+    /// AriaForgePrep past `PREP_WATCHDOG_S`.
+    private func finishPrepWithoutHold(in store: AppStore) async {
+        prepStage = .ready
+        prepProgress = 1
+        ariaOrbState = .idle
+        store.activeTab = .chat
+        store.finishForgePrep()
+        isPrepping = false
+
+        if let override = prepWorkOverride {
+            await override()
+            return
+        }
+
+        let healthConnected = prepHealthConnected || store.healthKitLive || healthKitState == .authorized
+        prepHealthConnected = healthConnected
+        let welcome = AriaOnboardingGuide.welcomeChatMessage(
+            profile: profile,
+            healthConnected: prepHealthConnected
+        )
+        store.seedAriaWelcomeFromOnboarding(
+            message: welcome,
+            suggestedActions: [
+                "How did I sleep?",
+                "What should I train?",
+                "How do I show up?",
+            ]
+        )
+        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy {
+            store.completeAriaFirstBond()
+            AriaOperatingMode.refresh()
+        }
+    }
+
     /// "Review birthday" — closes the block and swaps the composer to the
     /// birthday field so the Health-prefilled date can be corrected.
     func resetAfterAgeBlock() {

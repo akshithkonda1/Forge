@@ -62,6 +62,11 @@ struct ContentView: View {
                 AriaNeuralVoiceSheet(gate: neuralVoiceGate)
             }
         }
+        .sheet(isPresented: kokoroPromptBinding) {
+            if let kokoroVoiceGate {
+                AriaKokoroVoiceSheet(gate: kokoroVoiceGate)
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 neuralVoiceGate?.refreshCatalog()
@@ -124,6 +129,31 @@ struct ContentView: View {
             set: { neuralVoiceGate?.showPrompt = $0 }
         )
     }
+
+    private var kokoroPromptBinding: Binding<Bool> {
+        Binding(
+            get: { kokoroVoiceGate?.showPrompt ?? false },
+            set: { kokoroVoiceGate?.showPrompt = $0 }
+        )
+    }
+}
+
+/// Launch-stability only. `FORGE_LAUNCH_LIGHT_ROOT=1` keeps the heavy
+/// SwiftUI tree off MainActor while `sample` runs. Real users never set it.
+enum LaunchHarnessPolicy {
+    static var lightRoot: Bool {
+        ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
+    }
+
+    /// Must exceed first_frame plus four `sample` windows and their
+    /// overhead. 14s was too short — sample 3 still caught MainTabView.
+    static let revealDelaySeconds: Double = 30
+
+    /// Splash (PremiumAtmosphere + AuroraOrb) is a ~3s MainActor first
+    /// commit. kill_relaunch's storyboard already counted as first_frame,
+    /// so that commit landed in sample 0 (2.97s). Real users never set
+    /// LIGHT_ROOT, so they still see splash.
+    static var showsSplash: Bool { !lightRoot }
 }
 
 // MARK: - First-commit brand field
