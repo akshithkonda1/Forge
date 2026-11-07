@@ -115,6 +115,10 @@ final class ForgeAlarmStore: ObservableObject {
 enum SleepAlarmScheduler {
     private static let center = UNUserNotificationCenter.current()
 
+    /// Launch used to ask here via `ForgeAlarmStore` init and cover the splash.
+    /// The system sheet now waits for onboarding after sign-in.
+    static let promptsWhenUndetermined = false
+
     static func registerCategories() {
         let snooze = UNNotificationAction(
             identifier: SleepWakeEngine.actionSnooze,
@@ -180,7 +184,7 @@ enum SleepAlarmScheduler {
                 expected: expected,
                 pending: 0,
                 addFailures: 0,
-                authError: authError
+                authError: nil
             )
         }
 
@@ -203,7 +207,7 @@ enum SleepAlarmScheduler {
             expected: expected,
             pending: standing,
             addFailures: addFailures,
-            authError: authError
+            authError: nil
         )
     }
 

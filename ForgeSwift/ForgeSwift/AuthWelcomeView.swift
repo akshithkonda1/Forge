@@ -347,26 +347,36 @@ private struct AuthHookPageView: View {
     }
 
     private var iconVisual: some View {
-        ZStack {
-            PremiumPresenceBloom(size: 170, accent: page.accent, frost: page.frost, live: false)
-            Circle()
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                .frame(width: 112, height: 112)
-            Circle()
-                .fill(Color.white.opacity(0.04))
-                .frame(width: 96, height: 96)
-            Image(systemName: page.icon)
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(iconGradient)
+        VStack(spacing: ForgeLayout.blockGap) {
+            ForgeTessera(
+                lit: true,
+                energy: visualEnergy,
+                size: 72,
+                systemImage: page.icon
+            )
+            ForgeMosaicStrip(
+                lit: mosaicLit,
+                energy: visualEnergy,
+                size: 26
+            )
         }
         .frame(width: 190, height: 190)
         .accessibilityHidden(true)
     }
 
-    private var iconGradient: LinearGradient {
-        // Flat paper glyphs; the page accent stays on the single CTA.
-        LinearGradient.flat(Color.paper)
+    private var visualEnergy: Color {
+        page.id == "forge" ? Color.ember : page.accent
     }
+
+    private var mosaicLit: [Bool] {
+        switch page.id {
+        case "readiness": return [false, true, false, false, false]
+        case "life": return [true, false, true, true, true]
+        case "forge": return [true, true, true, true, true]
+        default: return [false, false, false, false, false]
+        }
+    }
+
 }
 
 private extension Array {
