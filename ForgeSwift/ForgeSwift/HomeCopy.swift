@@ -26,9 +26,9 @@ func readinessWhyCopy(store: AppStore) -> String {
         bits.append("Sleep looks supportive")
     }
     if r.recoveryScore < 55 {
-        bits.append("recovery markers are soft")
+        bits.append("overnight markers are soft")
     } else if r.recoveryScore >= 80 {
-        bits.append("recovery is solid")
+        bits.append("overnight markers look solid")
     }
     if r.stressLevel >= 65 {
         bits.append("stress is elevated")
@@ -38,12 +38,12 @@ func readinessWhyCopy(store: AppStore) -> String {
     }
     let cycle = MenstrualHealthStore.shared
     if cycle.settings.enabled, cycle.settings.shareWithAria, cycle.snapshot.recommendRecoveryBias {
-        bits.append("cycle phase suggests a recovery bias")
+        bits.append("cycle phase suggests an easier day")
     }
     if bits.isEmpty {
         return sleepMeasured
-            ? "Sleep, recovery, stress, and energy are in balance. This isn’t one sensor — it’s how today looks together."
-            : "Recovery, stress, and energy are in balance. No sleep recorded for last night."
+            ? "Sleep, overnight markers, stress, and energy are in balance. This isn’t one sensor — it’s how today looks together."
+            : "Overnight markers, stress, and energy are in balance. No sleep recorded for last night."
     }
     let joined = bits.joined(separator: "; ")
     return joined.prefix(1).uppercased() + joined.dropFirst() + "."

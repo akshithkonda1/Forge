@@ -2,6 +2,7 @@
 // Fails on main: skipPrepHold defaults to false even on the DEBUG simulator,
 // and a leftover interviewComplete flag still gates prep without a session.
 import XCTest
+import UserNotifications
 import ForgeCore
 @testable import ForgeSwift
 
@@ -24,21 +25,19 @@ final class OnboardingGateTests: XCTestCase {
         super.tearDown()
     }
 
-    #if DEBUG
     @MainActor
-    func testDebugSimulatorSkipsPrepHold() {
+    func testPrepHoldIsOnForEveryBuild() {
         let coordinator = OnboardingCoordinator()
-        XCTAssertEqual(
+        XCTAssertFalse(
             coordinator.skipPrepHold,
-            TestReadyLaunchPolicy.isRunningOnSimulator,
-            "DEBUG simulator must skip the 45s–180s hold; real devices keep it"
+            "Launch never skips the 45–55s hold. DEBUG Skip wait is explicit."
         )
     }
-    #endif
 
-    func testFloorAndCapStayFortyFiveAndOneEighty() {
+    func testFloorAndCapBeatTheWatchdog() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
-        XCTAssertEqual(AriaForgePrep.cap, 180)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
     }
 
     func testStaleInterviewFlagClearsWhenUnauthenticated() {

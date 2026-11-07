@@ -392,6 +392,8 @@ struct TWWSectionCard: View {
                 .font(HomeType.body)
                 .foregroundStyle(Color.textTertiary)
                 .forgeWrapping()
+                .accessibilityLabel("Days until you can test")
+                .accessibilityValue("\(max(0, windowLength - daysElapsed))")
 
             ForgeTextLink(title: "Ask ARIA about the two-week wait", accent: .ember) {
                 onAskARIA()

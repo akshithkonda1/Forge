@@ -10,6 +10,21 @@ _TABLE_NAME = os.getenv("APP_DATA_TABLE_NAME")
 # In-memory store used when no DynamoDB table is configured (local dev / tests).
 _local_store: dict[str, dict] = {}
 _local_lock = threading.Lock()
+# moto's UpdateItem is a get-merge-put. Serialize per item so ADD +
+# ConditionExpression cannot over-admit in-process. Real Dynamo still
+# serializes the same item on its side.
+_remote_locks_guard = threading.Lock()
+_remote_locks: dict[str, threading.Lock] = {}
+
+
+def _remote_item_lock(pk: str, sk: str) -> threading.Lock:
+    key = _local_composite(pk, sk)
+    with _remote_locks_guard:
+        lock = _remote_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _remote_locks[key] = lock
+        return lock
 
 _ATTR_NOT_EXISTS = re.compile(r"attribute_not_exists\(\s*([^)]+?)\s*\)\s*$", re.I)
 _LE = re.compile(r"(\S+)\s*<=\s*(\S+)\s*$")
@@ -96,14 +111,28 @@ def get_item(pk: str, sk: str) -> dict | None:
     return result.get("Item")
 
 
-def put_item(item: dict[str, Any]) -> None:
+def put_item(item: dict[str, Any], *, condition_expression: str | None = None) -> None:
     if not _TABLE_NAME:
         key = _local_composite(item["pk"], item["sk"])
         with _local_lock:
+            stored = _local_store.get(key)
+            current = dict(stored or {})
+            if condition_expression and not _local_condition_holds(
+                current, condition_expression, {}, {}
+            ):
+                raise ConditionalCheckFailed("The conditional request failed")
             _local_store[key] = dict(item)
         return
     table = _get_table()
-    table.put_item(Item=item)
+    kwargs: dict[str, Any] = {"Item": item}
+    if condition_expression:
+        kwargs["ConditionExpression"] = condition_expression
+    try:
+        table.put_item(**kwargs)
+    except Exception as exc:
+        if _is_conditional_check_failed(exc):
+            raise ConditionalCheckFailed("The conditional request failed") from exc
+        raise
 
 
 def update_item(
@@ -204,7 +233,8 @@ def update_item(
 
     table = _get_table()
     try:
-        result = table.update_item(**kwargs)
+        with _remote_item_lock(pk, sk):
+            result = table.update_item(**kwargs)
     except Exception as exc:
         if _is_conditional_check_failed(exc):
             raise ConditionalCheckFailed("The conditional request failed") from exc
@@ -235,11 +265,18 @@ def query_prefix(pk: str, sk_prefix: str) -> list[dict]:
 
     from boto3.dynamodb.conditions import Key  # type: ignore[import]
     table = _get_table()
-    result = table.query(
-        KeyConditionExpression=Key("pk").eq(pk) & Key("sk").begins_with(sk_prefix),
-        ScanIndexForward=True,
-    )
-    return result.get("Items", [])
+    kwargs: dict[str, Any] = {
+        "KeyConditionExpression": Key("pk").eq(pk) & Key("sk").begins_with(sk_prefix),
+        "ScanIndexForward": True,
+    }
+    items: list[dict] = []
+    while True:
+        result = table.query(**kwargs)
+        items.extend(result.get("Items", []))
+        last_key = result.get("LastEvaluatedKey")
+        if not last_key:
+            return items
+        kwargs["ExclusiveStartKey"] = last_key
 
 
 def query_prefix_desc(pk: str, sk_prefix: str, limit: int = 100) -> list[dict]:
@@ -256,12 +293,25 @@ def query_prefix_desc(pk: str, sk_prefix: str, limit: int = 100) -> list[dict]:
 
     from boto3.dynamodb.conditions import Key  # type: ignore[import]
     table = _get_table()
-    result = table.query(
-        KeyConditionExpression=Key("pk").eq(pk) & Key("sk").begins_with(sk_prefix),
-        ScanIndexForward=False,
-        Limit=limit,
-    )
-    return result.get("Items", [])
+    remaining = max(int(limit), 0)
+    if remaining == 0:
+        return []
+    kwargs: dict[str, Any] = {
+        "KeyConditionExpression": Key("pk").eq(pk) & Key("sk").begins_with(sk_prefix),
+        "ScanIndexForward": False,
+        "Limit": remaining,
+    }
+    items: list[dict] = []
+    while True:
+        result = table.query(**kwargs)
+        items.extend(result.get("Items", []))
+        if len(items) >= remaining:
+            return items[:remaining]
+        last_key = result.get("LastEvaluatedKey")
+        if not last_key:
+            return items
+        kwargs["ExclusiveStartKey"] = last_key
+        kwargs["Limit"] = remaining - len(items)
 
 
 def clear_local_store() -> None:

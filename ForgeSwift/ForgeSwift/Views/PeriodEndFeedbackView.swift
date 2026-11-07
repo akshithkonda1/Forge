@@ -86,7 +86,7 @@ struct PeriodEndFeedbackView: View {
     private var privacyBanner: some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(ForgeFont.sans(14, weight: .semibold, relativeTo: .subheadline))
                 .foregroundStyle(Color.vitality)
                 .accessibilityHidden(true)
             Text(CyclePrivacy.shortPromise)
@@ -97,6 +97,7 @@ struct PeriodEndFeedbackView: View {
         }
         .forgeContentCard(tint: .vitality, padding: ForgeLayout.compactCardPadding)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(CyclePrivacy.shortPromise)
     }
 
     // MARK: - Card 1: Your period
@@ -148,7 +149,7 @@ struct PeriodEndFeedbackView: View {
     private var painQuestion: some View {
         question(
             title: "PEAK PAIN",
-            subtitle: "0 = none · 10 = worst — optional, just helps rest coaching"
+            subtitle: "0 = none · 10 = worst — optional, just helps readiness coaching"
         ) {
             VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 painReadout

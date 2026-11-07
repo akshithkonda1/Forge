@@ -216,7 +216,7 @@ struct PeriodCoachingPreferences: Codable, Equatable {
         if preferMobility { bits.append("mobility") }
         if preferEmpathyTone || preferMoodSupport { bits.append("softer tone") }
         if avoidIntensityPush { bits.append("no intensity push") }
-        if averageLifeImpact >= 0.6 { bits.append("more recovery buffer") }
+        if averageLifeImpact >= 0.6 { bits.append("more rest buffer") }
         lastLearnedSummary = bits.isEmpty
             ? "Logged episode · adapting coaching"
             : "Next period: lean on " + bits.prefix(4).joined(separator: ", ")
@@ -245,7 +245,7 @@ struct PeriodCoachingPreferences: Codable, Equatable {
             "User has given \(sampleCount) period-end feedback(s). Adapt menstruation coaching to their learned preferences. This data is for personal coaching only — never for ads, sale, or third-party profiling."
         ]
         if recoveryBias >= 0.6 || avoidIntensityPush {
-            parts.append("Strongly favor recovery, auto-regulation, and optional sessions — do not push intensity on period days.")
+            parts.append("Strongly favor rest, auto-regulation, and optional sessions — do not push intensity on period days.")
         }
         if preferLighterTraining {
             parts.append("They respond well to lighter training suggestions (walk, technique, mobility).")
@@ -272,7 +272,7 @@ struct PeriodCoachingPreferences: Codable, Equatable {
             parts.append("Mood can dip during their period — check in gently; avoid toxic positivity.")
         }
         if averageLifeImpact >= 0.55 {
-            parts.append("Their period often limits daily life/training — default to optional sessions and recovery framing.")
+            parts.append("Their period often limits daily life/training — default to optional sessions and rest framing.")
         }
         if averageStress >= 0.55 {
             parts.append("Cycles often coincide with higher stress — keep plans simple and stress-aware.")

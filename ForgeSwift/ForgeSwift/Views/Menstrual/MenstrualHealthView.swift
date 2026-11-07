@@ -233,7 +233,7 @@ struct MenstrualHealthView: View {
                         Color.background.opacity(0.96).ignoresSafeArea()
                         VStack(spacing: ForgeLayout.blockGap) {
                             Image(systemName: "lock.shield.fill")
-                                .font(ForgeFont.sans(36, relativeTo: .largeTitle))
+                                .font(ForgeFont.sans(36, weight: .regular, relativeTo: .largeTitle))
                                 .foregroundStyle(Color.vitality)
                                 .accessibilityHidden(true)
                             Text("Cycle Health is locked")
@@ -473,7 +473,7 @@ struct MenstrualHealthView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             if showChevron {
                 Image(systemName: "chevron.right")
-                    .font(ForgeFont.sans(11, weight: .semibold, relativeTo: .caption2))
+                    .font(ForgeType.eyebrow)
                     .foregroundStyle(Color.textMuted)
                     .accessibilityHidden(true)
             }
@@ -512,7 +512,7 @@ struct MenstrualHealthView: View {
     private var fertileScoreSection: some View {
         if let score = cycleStore.snapshot.fertileScore {
             FertileScoreCard(score: score, phase: cycleStore.snapshot.phase) {
-                store.openChat(with: "My Fertile Score is \(score)/100 right now. What does that mean for training, rest, and lifestyle timing today?")
+                store.openChat(with: "My Fertile Score is \(score)/100 right now. What does that mean for training, readiness, and lifestyle timing today?")
             }
         }
     }
@@ -830,6 +830,7 @@ struct MenstrualHealthView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(summary)
+        .accessibilityValue(snap.dayInCycle.map { "Day \($0)" } ?? "Day not known yet")
     }
 
     private func timelineTrack(
@@ -939,7 +940,7 @@ struct MenstrualHealthView: View {
             ForgePageHeader(
                 title: pane == .me ? "Know your rhythm" : "Show up for them",
                 subtitle: pane == .me
-                    ? "Periods, fertile windows, and rest — personal math from your signals. Lifestyle guidance only."
+                    ? "Periods, fertile windows, and readiness — personal math from your signals. Lifestyle guidance only."
                     : "Partners, spouses, daughters — log what they share so ARIA can coach you with care.",
                 accent: accent
             )
@@ -984,6 +985,7 @@ struct MenstrualHealthView: View {
                 ForgeBulletRow(text: "Multi-signal confidence + feedback MAE", tint: periodColor)
                 ForgeBulletRow(text: "Phase-aware ARIA coaching", tint: periodColor)
                 ForgeBulletRow(text: CyclePrivacy.shortPromise, tint: periodColor)
+                ForgeBulletRow(text: CyclePrivacy.ariaShareLine, tint: periodColor)
                 if !isCyclePhysiologyProfile {
                     ForgeBulletRow(text: "Males can opt in at any time — Support stays available", tint: periodColor)
                 }
@@ -1356,6 +1358,7 @@ struct MenstrualHealthView: View {
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(orbitAccessibilityLabel(snap))
+            .accessibilityValue("\(percent) percent through the cycle")
 
             if snap.isCurrentlyBleeding {
                 ForgeVibeChip(label: "Bleeding logged today", energy: periodColor)
@@ -1497,8 +1500,14 @@ struct MenstrualHealthView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(dayCellAccessibilityLabel(key: key, dayNum: dayNum, isToday: isToday))
-        .accessibilityValue(dayCellAccessibilityValue(flow: flow, symptoms: log?.symptoms ?? []))
+        .accessibilityLabel("Calendar day \(shortDate(key))")
+        .accessibilityValue({
+            var parts: [String] = []
+            parts.append(flow.isBleeding ? "\(flow.label) flow" : "No flow logged")
+            if hasSymptoms { parts.append("symptoms logged") }
+            if isToday { parts.append("today") }
+            return parts.joined(separator: ", ")
+        }())
         .accessibilityHint("Opens the day editor")
     }
 
@@ -1600,6 +1609,9 @@ struct MenstrualHealthView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Fertile window")
+        .accessibilityValue(irregular ? "Days \(start) to \(end), variable" : "Days \(start) to \(end)")
     }
 
     private func predictionTile(icon: String, title: String, value: String, sub: String, color: Color) -> some View {
@@ -1626,6 +1638,8 @@ struct MenstrualHealthView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(value), \(sub)")
     }
 
     // MARK: Quick log
@@ -1795,7 +1809,7 @@ struct MenstrualHealthView: View {
                     HStack(spacing: FDS.Spacing.sm) {
                         ForgeCardMeta(text: "\(cycleStore.logs.count)", color: .textTertiary)
                         Image(systemName: historyExpanded ? "chevron.up" : "chevron.down")
-                            .font(ForgeFont.sans(11, weight: .semibold, relativeTo: .caption2))
+                            .font(ForgeType.eyebrow)
                             .foregroundColor(.textTertiary)
                             .accessibilityHidden(true)
                     }
@@ -1844,6 +1858,8 @@ struct MenstrualHealthView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(shortDate(log.dayKey)), \(subtitle)")
+        .accessibilityValue(bbtValue.map { "BBT \($0)" } ?? "No temperature")
         .accessibilityHint("Opens the day editor")
     }
 
@@ -1863,6 +1879,8 @@ struct MenstrualHealthView: View {
                 .forgeWrapping()
         }
         .forgeContentCard(tint: .aurora)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Insights")
     }
 
     private var ariaCoachCard: some View {
@@ -1890,14 +1908,14 @@ struct MenstrualHealthView: View {
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)
                         .forgeWrapping()
-                    Text("Phase-aware training & rest")
+                    Text("Phase-aware training & readiness")
                         .font(HomeType.body)
                         .foregroundColor(.textTertiary)
                         .forgeWrapping()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right")
-                    .font(ForgeFont.sans(11, weight: .semibold, relativeTo: .caption2))
+                    .font(ForgeType.eyebrow)
                     .foregroundColor(.textMuted)
                     .accessibilityHidden(true)
             }
@@ -1940,6 +1958,8 @@ struct MenstrualHealthView: View {
         }
         .tint(tint)
         .frame(minHeight: ForgeUX.minTap)
+        .accessibilityLabel(subtitle.map { "\(title). \($0)" } ?? title)
+        .accessibilityValue(isOn.wrappedValue ? "On" : "Off")
     }
 
     private var settingsCard: some View {
@@ -1970,7 +1990,7 @@ struct MenstrualHealthView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             settingToggle(
                 "ARIA reads cycle on this iPhone",
-                subtitle: "\(ForgePrivacyCopy.healthStaysOnDevice) Off by default. Supporters are invited separately, per person.",
+                subtitle: CyclePrivacy.ariaShareLine,
                 tint: .ember,
                 isOn: Binding(
                     get: { cycleStore.settings.shareWithAria },
@@ -2255,7 +2275,7 @@ struct MenstrualHealthView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(CyclePrivacy.title + ". " + CyclePrivacy.shortPromise)
+        .accessibilityLabel(CyclePrivacy.title + ". " + CyclePrivacy.shortPromise + " " + CyclePrivacy.ariaShareLine)
     }
 
     private var disclaimerFooter: some View {
@@ -2509,13 +2529,14 @@ struct MenstrualHealthView: View {
 
     /// Single-line field in the shared inner well, 44 pt tall.
     private func partnerTextField(_ placeholder: String, text: Binding<String>) -> some View {
-        TextField(placeholder, text: text)
+            TextField(placeholder, text: text)
             .textFieldStyle(.plain)
             .font(HomeType.body)
             .foregroundColor(.textPrimary)
             .frame(minHeight: ForgeUX.minTap)
             .padding(.horizontal, FDS.Spacing.md)
             .forgeWell(padding: 0)
+            .accessibilityLabel(placeholder)
     }
 
     private var partnerPhaseHero: some View {
@@ -2532,7 +2553,15 @@ struct MenstrualHealthView: View {
                         .foregroundStyle(heroColor)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(snap.phase.label), \(percent) percent through the cycle")
+                .accessibilityLabel("\(name), \(snap.phase.label)")
+                .accessibilityValue({
+                    var parts = ["\(percent) percent through the cycle"]
+                    if let day = snap.dayInCycle {
+                        parts.append("day \(day)")
+                    }
+                    parts.append("\(Int(snap.confidence * 100)) percent confidence")
+                    return parts.joined(separator: ", ")
+                }())
                 VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text(name)
                         .forgeSectionLabel(tint: heroColor)
@@ -2681,7 +2710,7 @@ struct MenstrualHealthView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             settingToggle(
                 "ARIA reads this on this iPhone",
-                subtitle: "Never uploaded to Forge. Claude/Grok do not get their chart.",
+                subtitle: CyclePrivacy.ariaShareLine + " Never uploaded to Forge. Claude/Grok do not get their chart.",
                 tint: .ember,
                 isOn: Binding(
                     get: { cycleStore.partnerSettings.shareWithAria },

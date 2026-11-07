@@ -390,10 +390,13 @@ class HealthKitManager: ObservableObject {
         // reads must stay offline. Write-sharing or a real sample is live.
         // Onboarding READ-only persist is the extra OR: that key is set only
         // after a completed onboarding request, never from finishAuthorizationRequest.
-        let readable = await hasReadableHealthEvidence()
         let onboardingConnected = UserDefaults.standard.bool(
             forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
         )
+        let cachedReadable = HealthKitLiveEvidence.dailyStatsHaveSamples(todayStats)
+        // Launch never calls this until after the first frame. A cache
+        // hit skips the store probe; otherwise read samples.
+        let readable = cachedReadable ? true : await hasReadableHealthEvidence()
         isAuthorized = HealthKitOnboardingAuthorization.isLive(
             canWrite: canWrite,
             hasReadableSamples: readable,
@@ -403,8 +406,28 @@ class HealthKitManager: ObservableObject {
             startBidirectionalSync()
         } else {
             stopBidirectionalSync()
+            Task { await self.upgradeLiveStatusFromHealthEvidence() }
         }
         return isAuthorized
+    }
+
+    /// Sample queries stay off the first-frame path. If they later prove
+    /// reads are live, flip authorization without another launch skip.
+    private func upgradeLiveStatusFromHealthEvidence() async {
+        guard isHealthDataAvailable(), !isAuthorized else { return }
+        let probed = await hasReadableHealthEvidence()
+        guard probed else { return }
+        let onboardingConnected = UserDefaults.standard.bool(
+            forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
+        )
+        isAuthorized = HealthKitOnboardingAuthorization.isLive(
+            canWrite: canWriteAnyRequestedType,
+            hasReadableSamples: true,
+            onboardingConnected: onboardingConnected
+        )
+        if isAuthorized {
+            startBidirectionalSync()
+        }
     }
 
     /// True when today's cached stats or a probe snapshot actually has samples.
@@ -591,11 +614,13 @@ class HealthKitManager: ObservableObject {
                 } catch {
                     authorizationErrorMessage = error.localizedDescription
                     isAuthorized = false
+                    ReliabilityLog.noteFailure(.healthKit, .healthAuthorization, error: error)
                     throw error
                 }
             }
             authorizationErrorMessage = error.localizedDescription
             isAuthorized = false
+            ReliabilityLog.noteFailure(.healthKit, .healthAuthorization, error: error)
             throw error
         }
     }
@@ -692,15 +717,26 @@ class HealthKitManager: ObservableObject {
         isObserving = true
 
         for type in Self.bidirectionalSampleTypes {
-            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, error in
                 Task { @MainActor in
-                    self?.scheduleLiveRefresh()
+                    await self?.handleObserverDelivery(error: error, completion: completion)
                 }
-                completion()
             }
             healthStore.execute(query)
             observerQueries.append(query)
-            healthStore.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
+            healthStore.enableBackgroundDelivery(for: type, frequency: .immediate) { success, deliveryError in
+                if let deliveryError {
+                    HealthKitObserverGate.recordBackgroundDeliveryFailure(
+                        typeIdentifier: type.identifier,
+                        error: deliveryError
+                    )
+                } else if !success {
+                    HealthKitObserverGate.recordBackgroundDeliveryFailure(
+                        typeIdentifier: type.identifier,
+                        error: nil
+                    )
+                }
+            }
         }
     }
 
@@ -740,25 +776,55 @@ class HealthKitManager: ObservableObject {
         return types
     }()
 
-    private func scheduleLiveRefresh() {
+    private func performLiveRefresh() async {
+        await refreshHydration()
+        await AriaHealthRiskBridge.evaluateFromHealthKit(
+            quietMode: UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1")
+        )
+        // Sleep is in `bidirectionalSampleTypes` at `.immediate`. The old
+        // handler ignored it (hydration + risk only). A delivered sample
+        // is the closest thing iPhone gets to live stage — not EEG.
+        if let segment = await ForgeHealthQueries.latestSleepSegment(store: healthStore) {
+            await SleepAlarmScheduler.considerDeliveredSleep(
+                stage: segment.stage,
+                sampleEnd: segment.end
+            )
+        }
+    }
+
+    /// Same path the `HKObserverQuery` handler uses. Tess/BH-15: a revert that
+    /// calls `completion()` before refresh must fail tests of this method and
+    /// of the call site in `startBidirectionalSync`.
+    func handleObserverDelivery(
+        error: Error?,
+        completion: @escaping () -> Void,
+        refresh: (() async throws -> Void)? = nil
+    ) async {
+        await HealthKitObserverGate.run(
+            observerError: error,
+            work: {
+                if let refresh {
+                    try await refresh()
+                } else {
+                    await self.performObserverRefresh()
+                }
+            },
+            completion: completion
+        )
+    }
+
+    /// Debounced refresh that the observer awaits before calling completion (BH-15).
+    /// Cancels then awaits the prior task: a slow refresh can hold observer
+    /// completion past the 350ms debounce (watch launch-stability).
+    private func performObserverRefresh() async {
         liveRefreshTask?.cancel()
-        liveRefreshTask = Task { @MainActor in
+        let task = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
-            await refreshHydration()
-            await AriaHealthRiskBridge.evaluateFromHealthKit(
-                quietMode: UserDefaults.standard.bool(forKey: "forge.quiet.mode.v1")
-            )
-            // Sleep is in `bidirectionalSampleTypes` at `.immediate`. The old
-            // handler ignored it (hydration + risk only). A delivered sample
-            // is the closest thing iPhone gets to live stage — not EEG.
-            if let segment = await ForgeHealthQueries.latestSleepSegment(store: healthStore) {
-                await SleepAlarmScheduler.considerDeliveredSleep(
-                    stage: segment.stage,
-                    sampleEnd: segment.end
-                )
-            }
+            await self.performLiveRefresh()
         }
+        liveRefreshTask = task
+        _ = await task.result
     }
 
     

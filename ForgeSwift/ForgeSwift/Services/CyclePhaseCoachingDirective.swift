@@ -9,18 +9,18 @@ enum CoachingDomain {
 /// the model interpreting raw cycle tags.
 enum CyclePhaseCoachingDirective {
 
-    static let lifestyleDisclaimer =
-        "Lifestyle coaching, not medical advice. Readiness is the primary guide — never treat a phase label as a diagnosis or a guarantee."
+    /// Calendar-estimate confidence at or below this (e.g. `population_fallback` ~0.45)
+    /// must not push max efforts. Readiness stays the primary guide.
+    static let lowConfidenceCeiling = 0.55
 
     static func directive(
         for phase: MenstrualPhase,
         domain: CoachingDomain,
-        confidence: Double = 0.7,
-        lutealDays: Int = CycleBiology.defaultLutealDays,
+        confidence: Double = 0.45,
         ovulationMethod: String? = nil
     ) -> String {
         switch domain {
-        case .workout:   return workoutDirective(for: phase, confidence: confidence, lutealDays: lutealDays, ovulationMethod: ovulationMethod)
+        case .workout:   return workoutDirective(for: phase, confidence: confidence, ovulationMethod: ovulationMethod)
         case .nutrition: return nutritionDirective(for: phase)
         case .sleep:     return sleepDirective(for: phase)
         case .stress:    return stressDirective(for: phase)
@@ -28,44 +28,53 @@ enum CyclePhaseCoachingDirective {
         }
     }
 
-    /// Calendar-only or population estimates should not push max efforts.
-    static func isLowConfidenceEstimate(confidence: Double, ovulationMethod: String?) -> Bool {
-        if confidence < 0.55 { return true }
-        if ovulationMethod == "population_fallback" { return true }
-        return false
-    }
-
-    static func lutealSplit(lutealDays: Int) -> (earlyEnd: Int, lateStart: Int, luteal: Int) {
-        let luteal = CycleBiology.clampLutealDays(lutealDays)
-        let lateStart = max(2, (luteal / 2) + 1)
-        return (lateStart - 1, lateStart, luteal)
+    /// Early luteal is the first half of the person's effective luteal length;
+    /// late luteal is the remainder. A 14-day luteal keeps the historic 1–7 / 8–14 split.
+    static func lutealHalves(lutealDays: Int) -> (earlyEnd: Int, lateStart: Int, lateEnd: Int) {
+        let days = CycleBiology.clampLutealDays(lutealDays)
+        let earlyEnd = max(1, days / 2)
+        let lateStart = min(days, earlyEnd + 1)
+        return (earlyEnd, lateStart, days)
     }
 
     // MARK: - Workout
 
+    private static func isLowConfidenceCalendarEstimate(
+        confidence: Double,
+        ovulationMethod: String?
+    ) -> Bool {
+        confidence < lowConfidenceCeiling || ovulationMethod == "population_fallback"
+    }
+
+    private static func workoutRail(lowConfidence: Bool) -> String {
+        let disclaimer = "Lifestyle coaching, not medical advice. Never diagnose. Readiness is the primary guide — a phase label is a tendency, not a green light."
+        if lowConfidence {
+            return "This phase is a low-confidence calendar estimate. Do not push max efforts or treat the label as a strong signal. \(disclaimer)"
+        }
+        return disclaimer
+    }
+
     private static func workoutDirective(
         for phase: MenstrualPhase,
         confidence: Double,
-        lutealDays: Int,
         ovulationMethod: String?
     ) -> String {
-        let low = isLowConfidenceEstimate(confidence: confidence, ovulationMethod: ovulationMethod)
-        let readiness = lifestyleDisclaimer
-        if low, phase != .unknown {
-            return "Cycle phase is a low-confidence estimate (\(ovulationMethod ?? "calendar"), \(Int((confidence * 100).rounded()))%). Keep readiness as the primary guide. Favor technique, moderate work, and how the user feels today — do not push max efforts, one-rep attempts, or race efforts from a calendar guess. \(readiness)"
-        }
+        let lowConfidence = isLowConfidenceCalendarEstimate(
+            confidence: confidence,
+            ovulationMethod: ovulationMethod
+        )
+        let rail = workoutRail(lowConfidence: lowConfidence)
         switch phase {
         case .menstruation:
-            return "The user appears to be menstruating. Many people notice cramping and that hard sessions feel harder. Favor lower intensity — walking, yoga, easy swimming — and treat rest as valid, not weakness. Skip max-effort sessions unless readiness is clearly high. \(readiness)"
+            return "The user appears to be menstruating. Many people notice cramping and that hard efforts feel heavier. Suggest lower-intensity options they already like — walking, yoga, easy swimming — and treat rest as a valid choice if that is what they need. Skip max-effort sessions unless readiness is clearly high. \(rail)"
         case .follicular:
-            return "The user appears to be in the follicular phase. Many people notice training can feel more available — strength work, intervals, and learning new patterns. Some find progressive overload easier now. Encourage ambition only when readiness agrees; do not treat this as a guaranteed performance window. \(readiness)"
+            return "The user appears to be in the follicular phase. Many people notice movement clicking more easily and that they can handle a bit more volume. Some find strength work, intervals, and new patterns feel more available — scale to readiness, not the label. Do not treat the label as permission to chase PRs. \(rail)"
         case .fertileWindow:
-            return "The user appears to be in a fertile-window estimate approaching ovulation. Some people notice power and coordination feel more available — useful for skill work or explosive sessions if readiness is high. A few notice joints feel looser; prioritize form over load. This is a tendency, not a fact about their hormones today. \(readiness)"
+            return "The user appears to be in their fertile window approaching ovulation. Some people notice power and coordination feel more available. Favor a thorough warm-up and clean form on heavier lifts — some find joints feel a bit looser around this window. Keep intensity honest to readiness. \(rail)"
         case .ovulation:
-            return "The user appears to be around an estimated ovulation day. Some people notice motivation or power feel higher. Keep form and warm-up honest; do not call this the best day for one-rep maxes or frame it as aggression. If readiness is soft, stay moderate. \(readiness)"
+            return "The user appears to be ovulating. Some people notice power and motivation feel higher. If readiness is clearly high they can train with intent — still warm up thoroughly and prioritize form. Do not prescribe max singles or race-effort days from this label. \(rail)"
         case .luteal:
-            let split = lutealSplit(lutealDays: lutealDays)
-            return "The user appears to be in the luteal phase. Many people notice the same effort can feel harder as the phase progresses, and some notice a slight rise in resting temperature. Early luteal (about the first \(split.earlyEnd) days after estimated ovulation): many can keep strength and moderate cardio. Late luteal (days \(split.lateStart)–\(split.luteal) of the luteal stretch): some find energy and motivation dip — ease intensity, prioritize sleep, and avoid stacking a peak effort on a guess. \(readiness)"
+            return "The user appears to be in the luteal phase. Many people notice the same effort feels harder and that heat tolerance dips, especially later in the phase. Early luteal: some can maintain strength and moderate cardio. Late luteal: some prefer lower intensity, more sleep, and a lighter calendar. Match the session to readiness rather than forcing a plan. \(rail)"
         case .unknown:
             return ""
         }

@@ -130,9 +130,19 @@ extension HealthKitManager {
     }
 
     /// Full multi-signal menstrual bundle for the high-accuracy cycle engine.
-    func fetchMenstrualHealthBundle(days: Int = 400, flowAnchor: Data? = nil) async -> MenstrualHealthKitBundle {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            return MenstrualHealthKitBundle(flowSamples: [], bbtSamples: [], ovulationTests: [], mucusSamples: [])
+    ///
+    /// Intermenstrual bleeding (spotting) is intentionally omitted from
+    /// `flowSamples` so a read-back can never open a period. Deletions come
+    /// from an `HKAnchoredObjectQuery` on menstrual flow.
+    func fetchMenstrualHealthBundle(days: Int = 400, flowAnchor: HKQueryAnchor? = nil) async -> MenstrualHealthKitBundle {
+        guard HKHealthStore.isHealthDataAvailable(), isAuthorized else {
+            return MenstrualHealthKitBundle(
+                flowSamples: [],
+                bbtSamples: [],
+                ovulationTests: [],
+                mucusSamples: [],
+                sampleQuerySucceeded: false
+            )
         }
         let calendar = Calendar.current
         let end = Date()
@@ -143,29 +153,18 @@ extension HealthKitManager {
         async let mucusSamples = fetchCategorySamples(.cervicalMucusQuality, predicate: predicate, limit: HKObjectQueryNoLimit)
         async let ovuSamples = fetchCategorySamples(.ovulationTestResult, predicate: predicate, limit: HKObjectQueryNoLimit)
         async let bbtSamples = fetchQuantitySamples(.basalBodyTemperature, unit: .degreeCelsius(), predicate: predicate, limit: HKObjectQueryNoLimit)
-        async let flowDelta = fetchMenstrualFlowAnchorDelta(anchorData: flowAnchor)
+        async let flowDeletions = fetchMenstrualFlowDeletions(anchor: flowAnchor)
 
         let flow = await flowSamples
         let mucus = await mucusSamples
         let ovu = await ovuSamples
         let bbt = await bbtSamples
-        let delta = await flowDelta
+        let deletions = await flowDeletions
 
-        let flowMapped: [(date: Date, flow: MenstrualFlowLevel, updatedAt: Date)] = flow.compactMap { sample in
-            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value) else { return nil }
-            let level: MenstrualFlowLevel
-            switch value {
-            case .none: level = .none
-            case .light: level = .light
-            case .medium: level = .medium
-            case .heavy: level = .heavy
-            case .unspecified: level = .unspecified
-            @unknown default: level = .unspecified
-            }
-            // Skip pure none samples unless marked cycle start.
-            // Light is light — never remapped to spotting.
-            if level == .none { return nil }
-            return (sample.startDate, level, sample.endDate)
+        let flowMapped: [(date: Date, flow: MenstrualFlowLevel)] = flow.compactMap { sample in
+            guard let value = HKCategoryValueVaginalBleeding(rawValue: sample.value),
+                  let level = CycleHealthKitPolicy.importedMenstrualFlow(value) else { return nil }
+            return (sample.startDate, level)
         }
 
         let mucusMapped: [(date: Date, quality: CervicalMucusQuality)] = mucus.compactMap { sample in
@@ -219,47 +218,38 @@ extension HealthKitManager {
             bbtSamples: bbtMapped,
             ovulationTests: ovuMapped,
             mucusSamples: mucusMapped,
-            deletedFlowDayKeys: deletedKeys,
-            newFlowAnchor: delta.anchor
+            deletedFlowDayKeys: deletions.dayKeys,
+            sampleQuerySucceeded: true,
+            newFlowAnchor: deletions.newAnchor
         )
     }
 
-    private static let flowUUIDMapKey = "forge.menstrual.hk.flow.uuidMap.v1"
-
-    private static func loadFlowUUIDMap() -> [String: String] {
-        (UserDefaults.standard.dictionary(forKey: flowUUIDMapKey) as? [String: String]) ?? [:]
-    }
-
-    private static func saveFlowUUIDMap(_ map: [String: String]) {
-        UserDefaults.standard.set(map, forKey: flowUUIDMapKey)
-    }
-
-    private func fetchMenstrualFlowAnchorDelta(anchorData: Data?) async -> (deleted: [HKDeletedObject], anchor: Data?) {
-        guard isAuthorized || HKHealthStore.isHealthDataAvailable() else {
-            return ([], anchorData)
-        }
-        let stored = anchorData.flatMap { Self.decodeFlowAnchor($0) }
+    /// One-shot anchored query: Health deletions of menstrual flow since `anchor`.
+    /// Day keys prefer `forge.cycle.flow.<day>`; samples without that identifier
+    /// are recovered by the merge reconciliation (Health-sourced days missing
+    /// from the live sample set).
+    func fetchMenstrualFlowDeletions(
+        anchor: HKQueryAnchor?
+    ) async -> (dayKeys: Set<String>, newAnchor: HKQueryAnchor?) {
+        let type = HKCategoryType(.menstrualFlow)
         return await withCheckedContinuation { continuation in
-            let type = HKCategoryType(.menstrualFlow)
             let query = HKAnchoredObjectQuery(
                 type: type,
                 predicate: nil,
-                anchor: stored,
+                anchor: anchor,
                 limit: HKObjectQueryNoLimit
             ) { _, _, deleted, newAnchor, _ in
-                let encoded = newAnchor.flatMap { Self.encodeFlowAnchor($0) } ?? anchorData
-                continuation.resume(returning: (deleted ?? [], encoded))
+                var keys = Set<String>()
+                for object in deleted ?? [] {
+                    if let syncId = object.metadata?[HKMetadataKeySyncIdentifier] as? String,
+                       let key = CycleHealthKitPolicy.dayKey(fromFlowSyncIdentifier: syncId) {
+                        keys.insert(key)
+                    }
+                }
+                continuation.resume(returning: (keys, newAnchor))
             }
             healthStore.execute(query)
         }
-    }
-
-    private static func encodeFlowAnchor(_ anchor: HKQueryAnchor) -> Data? {
-        try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
-    }
-
-    private static func decodeFlowAnchor(_ data: Data) -> HKQueryAnchor? {
-        try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
     }
 
     func fetchUserProfile() async -> UserHealthProfile? {

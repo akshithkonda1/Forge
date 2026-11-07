@@ -13,7 +13,7 @@ import Foundation
 enum MenstrualCycleEngine {
 
     static let disclaimer = """
-    Cycle insights are lifestyle estimates for training, rest, and personal timing. \
+    Cycle insights are lifestyle estimates for training, readiness, and personal timing. \
     They are not medical diagnosis or a fertility treatment. Forge’s tracker is not itself \
     a contraceptive method — ARIA may discuss sexual-health and contraception materials as \
     lifestyle education; use clinician-approved methods for pregnancy prevention. \
@@ -200,7 +200,7 @@ enum MenstrualCycleEngine {
                 guard let ns = nextStart else { return nil }
                 return CycleDayKey.addDays(ns, ovuDay - 1)
             }
-            return CycleDayKey.addDays(lastStart, (ovulation?.dayInCycle ?? 14) - 1)
+            return CycleDayKey.addDays(lastStart, ovuDay - 1)
         }()
 
         // Conditions like PCOS and perimenopause inherently produce irregular cycles —
@@ -258,7 +258,7 @@ enum MenstrualCycleEngine {
         if let hrv = recentHRV, let base = baselineHRV, base > 0, phase == .luteal {
             let dip = Double(base - hrv) / Double(base)
             if dip >= 0.12 {
-                insights.append("HRV is ~\(Int(dip * 100))% under your baseline — common in late luteal; don't over-read it as pure low readiness.")
+                insights.append("HRV is ~\(Int(dip * 100))% under your baseline — common in late luteal; don't over-read it as a simple readiness slump.")
             }
         }
         if let rhr = restingHR, phase == .luteal, rhr >= 65 {
@@ -514,13 +514,14 @@ enum MenstrualCycleEngine {
         let maxOvulationDay = max(21, Int(cycleLength.rounded()) + 7)
         func clampDay(_ day: Int) -> Int { max(6, min(maxOvulationDay, day)) }
 
-        // 1) LH / OPK — first positive day of the latest consecutive run.
-        // A 2–3 day positive streak must not keep sliding ovulation later.
-        if let lh = firstPositiveOfLatestLHRun(in: cycleLogs),
-           let offset = CycleDayKey.daysBetween(start, lh.dayKey) {
-            // `offset` is 0 on the period-start day, so cycle day = offset + 1.
-            // Ovulation is typically the day after surge onset → (offset + 1) + 1 = offset + 2.
-            return OvulationEstimate(dayInCycle: clampDay(offset + 2), method: "lh_surge", confidence: 0.9)
+        // 1) LH / OPK — first positive of the latest consecutive run, not the last
+        // positive. A 2–3 day surge must not slide ovulation later.
+        if let lh = firstPositiveOfLatestLHRun(in: cycleLogs, periodStart: start, asOfDayKey: asOfDayKey),
+           let day = CycleDayKey.daysBetween(start, lh.dayKey) {
+            // `day` is the 0-based offset from period start (`daysBetween`).
+            // Day-in-cycle is `day + 1`; ovulation is ~24h after the surge, so
+            // `day + 2` == surge day-in-cycle + 1.
+            return OvulationEstimate(dayInCycle: clampDay(day + 2), method: "lh_surge", confidence: 0.9)
         }
 
         // 2) BBT 3-over-6 shift
@@ -541,15 +542,22 @@ enum MenstrualCycleEngine {
         return OvulationEstimate(dayInCycle: calc, method: "calendar_minus_luteal", confidence: 0.45)
     }
 
-    /// Latest consecutive run of near-ovulation OPKs, then the first day of that run.
-    private static func firstPositiveOfLatestLHRun(in cycleLogs: [CycleDayLog]) -> CycleDayLog? {
-        let positives = cycleLogs
+    /// First positive OPK day in the latest consecutive run of positives.
+    /// Isolated earlier positives are ignored once a newer run starts.
+    static func firstPositiveOfLatestLHRun(
+        in logs: [CycleDayLog],
+        periodStart: String,
+        asOfDayKey: String
+    ) -> CycleDayLog? {
+        let positives = logs
+            .filter { $0.dayKey >= periodStart && $0.dayKey <= asOfDayKey }
             .filter { $0.ovulationTest?.indicatesNearOvulation == true }
             .sorted { $0.dayKey < $1.dayKey }
-        guard var runStart = positives.last else { return nil }
+        guard let last = positives.last else { return nil }
+        var runStart = last
         for prior in positives.dropLast().reversed() {
             let gap = CycleDayKey.daysBetween(prior.dayKey, runStart.dayKey) ?? 99
-            if gap <= 1 {
+            if gap == 1 {
                 runStart = prior
             } else {
                 break
@@ -558,10 +566,10 @@ enum MenstrualCycleEngine {
         return runStart
     }
 
-    /// Classic fertility-awareness: 3 temps higher than the prior 6 coverline,
-    /// on consecutive calendar days (at most a 1-day gap). Series index is not enough —
-    /// a 3-over-6 on sparse logs would invent a shift.
-    private static func detectBBTShift(cycleLogs: [CycleDayLog], start: String) -> Int? {
+    /// Classic fertility-awareness: 3 consecutive temps higher than prior 6 coverline.
+    /// Readings must sit on consecutive calendar days (at most one missing day
+    /// between adjacent samples). A multi-day hole is not a biphasic shift.
+    static func detectBBTShift(cycleLogs: [CycleDayLog], start: String) -> Int? {
         let series: [(day: Int, t: Double)] = cycleLogs.compactMap { log in
             guard let t = log.bbtCelsius, t > 35.0, t < 38.5,
                   let d = CycleDayKey.daysBetween(start, log.dayKey) else { return nil }
@@ -571,15 +579,11 @@ enum MenstrualCycleEngine {
         guard series.count >= 9 else { return nil }
 
         for i in 6..<(series.count - 2) {
-            let cover = Array(series[(i - 6)..<i])
-            let next3 = Array(series[i..<(i + 3)])
-            guard isCalendarConsecutive(cover.map(\.day), maxGap: 1),
-                  isCalendarConsecutive(next3.map(\.day), maxGap: 1),
-                  let lastCover = cover.last,
-                  next3[0].day - lastCover.day >= 1,
-                  next3[0].day - lastCover.day <= 2
-            else { continue }
-            let coverMax = cover.map(\.t).max() ?? 0
+            let window = Array(series[(i - 6)..<(i + 3)])
+            guard areCalendarConsecutive(window.map(\.day), maxGap: 1) else { continue }
+            let cover = window.prefix(6).map(\.t)
+            let coverMax = cover.max() ?? 0
+            let next3 = window.suffix(3).map(\.t)
             // Shift if all 3 exceed coverline max by ≥0.1°C (slightly relaxed for wrist-adjacent noise)
             if next3.allSatisfy({ $0.t >= coverMax + 0.10 }) {
                 // Ovulation typically day before sustained rise
@@ -589,9 +593,9 @@ enum MenstrualCycleEngine {
         return nil
     }
 
-    /// `maxGap` is allowed missing calendar days between logged points (1 = skip a single day).
-    private static func isCalendarConsecutive(_ days: [Int], maxGap: Int) -> Bool {
-        guard days.count >= 2 else { return days.count == 1 }
+    /// Adjacent cycle-day numbers differ by 1 or 2 (a single skipped calendar day).
+    static func areCalendarConsecutive(_ days: [Int], maxGap: Int) -> Bool {
+        guard days.count >= 2 else { return true }
         for i in 1..<days.count {
             let step = days[i] - days[i - 1]
             if step < 1 || step > maxGap + 1 { return false }
@@ -645,10 +649,10 @@ enum MenstrualCycleEngine {
             if day > (fertileEnd ?? ovu + 1) { return .luteal }
         }
 
-        // Unreachable when a period start exists — `estimateOvulation` always
-        // returns a value then. Conservative default if that contract ever changes:
-        // do not invent a fertile window from a fixed 28-day cookie-cutter.
-        return .follicular
+        // `estimateOvulation` always returns a day once a period start exists, so a
+        // period-anchored cycle never reaches here. Stay unknown rather than stamp
+        // a fixed 28-day cookie-cutter (day ≤ 11 follicular / ≤ 16 fertile).
+        return .unknown
     }
 
     // MARK: Cycle stage
@@ -929,7 +933,7 @@ enum MenstrualCycleEngine {
         case .perimenopause:
             lines.append("Perimenopause mode: fertile-window and ovulation labels are withheld because they are not reliable here — period timing stays a range, not a date.")
         case .endometriosis:
-            lines.append("Endometriosis mode: pain and pelvic symptoms are weighted into rest guidance. Pain that disrupts daily life is worth raising with a clinician.")
+            lines.append("Endometriosis mode: pain and pelvic symptoms are weighted into readiness guidance. Pain that disrupts daily life is worth raising with a clinician.")
         case .thyroid:
             lines.append("Thyroid mode: BBT baselines shift with thyroid status and medication timing — take temperature before any morning dose.")
         case .other, .none:

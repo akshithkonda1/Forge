@@ -252,7 +252,7 @@ enum CycleCondition: String, Codable, CaseIterable, Identifiable {
         case .pcos:
             return "Long and variable cycles count as real history, not errors. The irregularity flag stays quiet unless variance is extreme — patterns emerge over many cycles, not one."
         case .endometriosis:
-            return "Pain and pelvic symptoms feed rest guidance. Cycle timing still personalizes from your logs; pain that disrupts daily life is worth raising with a clinician."
+            return "Pain and pelvic symptoms feed readiness guidance. Cycle timing still personalizes from your logs; pain that disrupts daily life is worth raising with a clinician."
         case .perimenopause:
             return "Fertile-window and ovulation labels are withheld because they aren’t reliable here. Period timing stays a range, not a fixed date."
         case .thyroid:

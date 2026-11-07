@@ -3,9 +3,11 @@ import XCTest
 
 final class AriaForgePrepTests: XCTestCase {
 
-    func testFloorIsFortyFiveSecondsAndCapIsThreeMinutes() {
+    func testFloorIsFortyFiveSecondsAndCapBeatsTheWatchdog() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
-        XCTAssertEqual(AriaForgePrep.cap, 180)
+        XCTAssertEqual(AriaForgePrep.cap, 55)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertLessThan(AriaForgePrep.cap, AriaForgePrep.watchdog)
     }
 
     func testEmptyLoadStaysAtTheFloor() {
@@ -30,10 +32,9 @@ final class AriaForgePrepTests: XCTestCase {
         let empty = AriaForgePrep.duration(for: .empty)
         let lightDuration = AriaForgePrep.duration(for: light)
         let heavyDuration = AriaForgePrep.duration(for: heavy)
+        XCTAssertEqual(empty, AriaForgePrep.floor)
         XCTAssertGreaterThan(lightDuration, empty)
-        XCTAssertGreaterThan(heavyDuration, lightDuration)
-        XCTAssertLessThanOrEqual(heavyDuration, AriaForgePrep.cap)
-        XCTAssertGreaterThanOrEqual(empty, AriaForgePrep.floor)
+        XCTAssertLessThanOrEqual(lightDuration, AriaForgePrep.cap)
         XCTAssertEqual(heavyDuration, AriaForgePrep.cap)
     }
 
@@ -98,20 +99,40 @@ final class AriaForgePrepTests: XCTestCase {
     }
 
     func testShouldFinishWaitsForWorkUntilTheCap() {
+        // leftoverWatchdog (50) opens the shell before PREP_WATCHDOG_S=60.
         XCTAssertFalse(
             AriaForgePrep.shouldFinish(
-                elapsed: 90,
-                duration: 90,
+                elapsed: AriaForgePrep.cap - 1,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false
             )
         )
         XCTAssertTrue(
             AriaForgePrep.shouldFinish(
-                elapsed: 180,
-                duration: 90,
+                elapsed: AriaForgePrep.cap,
+                duration: AriaForgePrep.cap,
                 workFinished: false,
                 skipHold: false
+            )
+        )
+        // Visual cap still applies when leftoverWatchdog is raised.
+        XCTAssertFalse(
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.cap - 1,
+                duration: AriaForgePrep.cap,
+                workFinished: false,
+                skipHold: false,
+                leftoverWatchdog: AriaForgePrep.cap
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.cap,
+                duration: AriaForgePrep.cap,
+                workFinished: false,
+                skipHold: false,
+                leftoverWatchdog: AriaForgePrep.cap
             )
         )
     }
@@ -201,5 +222,40 @@ final class AriaForgePrepTests: XCTestCase {
 
         AriaForgePrepHandoff.clearInterviewComplete()
         XCTAssertFalse(AriaForgePrepHandoff.needsPrep(isOnboarded: false))
+        XCTAssertNotNil(
+            UserDefaults.standard.object(forKey: key),
+            "Clear must write false so the launch gate does not fall back to the harness YES"
+        )
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: key))
+    }
+
+    func testLeftoverWatchdogClearsHandoffBeforeLaunchPrepWatchdog() {
+        XCTAssertGreaterThan(AriaForgePrep.leftoverWatchdog, AriaForgePrep.floor)
+        XCTAssertLessThan(AriaForgePrep.leftoverWatchdog, 60)
+        XCTAssertFalse(
+            AriaForgePrep.shouldFinish(
+                elapsed: 49,
+                duration: 45,
+                workFinished: false,
+                skipHold: false
+            )
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.leftoverWatchdog,
+                duration: 45,
+                workFinished: false,
+                skipHold: false
+            ),
+            "Hung Health / notification work must still leave AriaForgePrep"
+        )
+        XCTAssertTrue(
+            AriaForgePrep.shouldFinish(
+                elapsed: AriaForgePrep.leftoverWatchdog,
+                duration: 45,
+                workFinished: false,
+                skipHold: true
+            )
+        )
     }
 }

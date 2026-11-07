@@ -20,7 +20,8 @@ struct StandByNestProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (HomeWidgetEntry) -> Void) {
-        completion(HomeWidgetEntry(date: Date(), snapshot: HomeWidgetSnapshotStore.load() ?? .preview))
+        let now = Date()
+        completion(HomeWidgetEntry(date: now, snapshot: (HomeWidgetSnapshotStore.load() ?? .preview).asOf(now)))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<HomeWidgetEntry>) -> Void) {
@@ -29,9 +30,11 @@ struct StandByNestProvider: TimelineProvider {
         let calendar = Calendar.current
         // Per-minute entries so the face clock (`Text(date, format:)`) advances.
         // Snapshot writes already reload this kind; ~60 minutes then `.atEnd`.
+        // `asOf` each entry date so midnight rolls over instead of keeping
+        // yesterday's readiness and sleep on the face.
         let entries = (0..<60).compactMap { offset -> HomeWidgetEntry? in
             calendar.date(byAdding: .minute, value: offset, to: now)
-                .map { HomeWidgetEntry(date: $0, snapshot: snap) }
+                .map { HomeWidgetEntry(date: $0, snapshot: snap.asOf($0)) }
         }
         completion(Timeline(entries: entries, policy: .atEnd))
     }

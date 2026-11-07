@@ -77,7 +77,7 @@ final class MenstrualHealthStore: ObservableObject {
     let forecastKey = "forge.menstrual.forecast.archive.v1"
     let advertisedKey = "forge.menstrual.advertised.next.v1"
     let quietSyncKey = "forge.menstrual.quiet.sync.at"
-    static let flowAnchorKey = "forge.menstrual.hk.flow.anchor.v1"
+    let flowAnchorKey = "forge.menstrual.hk.flow.anchor.v1"
     let periodEndFeedbackKey = "forge.menstrual.period.end.feedback.v1"
     let coachingPrefsKey = "forge.menstrual.coaching.prefs.v1"
     let cycleRelevantKey = "forge.menstrual.surface.relevant.v1"
@@ -182,6 +182,10 @@ struct MenstrualHealthKitBundle {
     var bbtSamples: [(date: Date, celsius: Double)]
     var ovulationTests: [(date: Date, result: OvulationTestResult)]
     var mucusSamples: [(date: Date, quality: CervicalMucusQuality)]
-    var deletedFlowDayKeys: [String] = []
-    var newFlowAnchor: Data? = nil
+    /// Day keys whose menstrual-flow samples Health reported deleted since the last anchor.
+    var deletedFlowDayKeys: Set<String> = []
+    /// When false, merge must not infer deletions from a missing sample
+    /// (Health unavailable, unauthorized, or the query failed).
+    var sampleQuerySucceeded: Bool = true
+    var newFlowAnchor: HKQueryAnchor? = nil
 }

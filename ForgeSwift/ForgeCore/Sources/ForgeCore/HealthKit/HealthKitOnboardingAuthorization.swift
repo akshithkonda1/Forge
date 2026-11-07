@@ -88,6 +88,18 @@ public enum HealthKitOnboardingAuthorization: Sendable {
         canWrite || hasReadableSamples || onboardingConnected
     }
 
+    /// Cheap-signal helper: write grant, onboarding READ persist, or a
+    /// cached sample. Launch no longer uses this to skip the live probe —
+    /// `checkAuthorizationStatus` always takes the ternary path after the
+    /// first frame.
+    public static func shouldProbeStoreForLiveStatus(
+        canWrite: Bool,
+        onboardingConnected: Bool,
+        cachedReadableSamples: Bool
+    ) -> Bool {
+        canWrite || onboardingConnected || cachedReadableSamples
+    }
+
     /// Sleep fields for widgets. Only last night (same start-of-day as
     /// `HomeTrendSeries.lastNight` / `nightKey`) is published; older nights
     /// return nil so Home/Watch show empty copy.

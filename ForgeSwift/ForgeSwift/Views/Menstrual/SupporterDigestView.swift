@@ -69,6 +69,7 @@ struct SupporterDigestView: View {
         }
         .forgeContentCard(tint: tint, padding: ForgeLayout.compactCardPadding)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(text)
     }
 
     private var previewBanner: some View {
@@ -142,6 +143,13 @@ struct SupporterDigestView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeContentCard()
         .accessibilityElement(children: .contain)
+        .accessibilityLabel("Today at a glance for \(personName.isEmpty ? "them" : personName)")
+        .accessibilityValue({
+            var parts = [digest.phase.label]
+            if let day = digest.periodDay { parts.append("day \(day)") }
+            parts.append(digest.energy.label)
+            return parts.joined(separator: ", ")
+        }())
     }
 
     private var glanceHeader: some View {
@@ -206,6 +214,8 @@ struct SupporterDigestView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Support card")
+        .accessibilityValue(card)
     }
 
     private func nextPeriodRow(_ text: String) -> some View {
@@ -221,6 +231,7 @@ struct SupporterDigestView: View {
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(text)
     }
 
     // MARK: - Guidance cards
@@ -297,6 +308,9 @@ struct SupporterDigestView: View {
                 .forgeWrapping()
         }
         .forgeContentCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(PartnerSupportLens.Section.whatYouCannotSee.title)
+        .accessibilityValue(lens.withheldExplanation)
     }
 
     // ------------------------------------------------------------

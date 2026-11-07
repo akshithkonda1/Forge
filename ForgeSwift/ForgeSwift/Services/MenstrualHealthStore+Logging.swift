@@ -286,8 +286,11 @@ extension MenstrualHealthStore {
         recompute()
         pushAriaTags()
         Task {
-            await HealthKitManager.shared.deleteMenstrualFlow(dayKey: dayKey)
-            await HealthKitManager.shared.deleteIntermenstrualBleeding(dayKey: dayKey)
+            await CycleHealthKitPolicy.perform(
+                [.deleteMenstrualFlow, .deleteIntermenstrualBleeding],
+                dayKey: dayKey,
+                client: HealthKitManager.shared
+            )
         }
     }
 

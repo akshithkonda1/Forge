@@ -173,12 +173,10 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
                 lines.append("Next period window: \(next.earliestDayKey)…\(next.latestDayKey)")
             }
             let domain = CyclePhaseCoachingDirective.classifyDomain(from: input)
-            let luteal = c.learnedLutealDays.map { Int($0.rounded()) } ?? CycleBiology.defaultLutealDays
             let phaseDirective = CyclePhaseCoachingDirective.directive(
                 for: c.phase,
                 domain: domain,
                 confidence: c.confidence,
-                lutealDays: luteal,
                 ovulationMethod: c.ovulationMethod
             )
             if !phaseDirective.isEmpty {

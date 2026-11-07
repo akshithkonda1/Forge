@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import unittest
 
 import _bootstrap  # noqa: F401
@@ -117,7 +118,7 @@ class SwarmReadEvaluateWriteTests(unittest.TestCase):
         b = aria_swarm.run_swarm(context=_ctx(sleep_minutes=420, recovery=70))
         self.assertEqual(a, b)
 
-    def test_persist_writes_actionable_picture(self):
+    def test_persist_skips_health_derived_picture(self):
         dynamodb.clear_local_store()
         engine = CoachContextEngine()
         uid = "swarm-user"
@@ -126,10 +127,12 @@ class SwarmReadEvaluateWriteTests(unittest.TestCase):
             persist_to=engine,
             user_id=uid,
         )
-        self.assertTrue(picture["wrote"])
+        self.assertFalse(picture["wrote"])
         stored = engine.get_or_create_context(uid)
-        self.assertTrue(stored.last_insights)
-        self.assertEqual(stored.last_insights[0], picture["picture"]["headline"])
+        blob = json.dumps(stored.last_insights).lower()
+        self.assertNotIn("sleep", blob)
+        self.assertNotIn("readiness", blob)
+        self.assertNotIn("wearable", blob)
 
     def test_never_calls_a_model(self):
         from pathlib import Path

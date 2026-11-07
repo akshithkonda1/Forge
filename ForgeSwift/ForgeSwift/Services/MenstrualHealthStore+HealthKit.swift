@@ -13,11 +13,11 @@ extension MenstrualHealthStore {
         isSyncing = true
         defer { isSyncing = false }
 
-        let storedAnchor = defaults.data(forKey: Self.flowAnchorKey)
         let bundle = await HealthKitManager.shared.fetchMenstrualHealthBundle(
             days: days,
-            flowAnchor: storedAnchor
+            flowAnchor: loadFlowAnchor()
         )
+        persistFlowAnchor(bundle.newFlowAnchor)
         mergeHealthKit(bundle)
         if let anchor = bundle.newFlowAnchor {
             defaults.set(anchor, forKey: Self.flowAnchorKey)
@@ -43,25 +43,24 @@ extension MenstrualHealthStore {
     }
 
     private func mergeHealthKit(_ bundle: MenstrualHealthKitBundle) {
-        let currentHealthDays = Set(bundle.flowSamples.map { CycleDayKey.key(for: $0.date) })
-        let windowStart = CycleDayKey.addDays(CycleDayKey.key(), -400)
-        let staleHealthDays = Set(logs.compactMap { log -> String? in
-            guard log.source == "healthkit", log.flow.isBleeding else { return nil }
-            if let windowStart, log.dayKey < windowStart { return nil }
-            return currentHealthDays.contains(log.dayKey) ? nil : log.dayKey
-        })
-        logs = CycleHealthKitSync.merge(
-            logs: logs,
-            flowSamples: bundle.flowSamples.map {
-                CycleHealthKitSync.FlowSample(date: $0.date, flow: $0.flow, updatedAt: $0.updatedAt)
-            },
-            bbtSamples: bundle.bbtSamples,
-            ovulationTests: bundle.ovulationTests,
-            mucusSamples: bundle.mucusSamples,
-            deletedFlowDayKeys: Set(bundle.deletedFlowDayKeys).union(staleHealthDays),
+        logs = CycleHealthKitPolicy.merge(
+            existing: logs,
+            bundle: bundle,
             maxRetainedLogs: Self.maxRetainedLogs
         )
         persistLogs()
+    }
+
+    private func loadFlowAnchor() -> HKQueryAnchor? {
+        guard let data = defaults.data(forKey: flowAnchorKey) else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
+    }
+
+    private func persistFlowAnchor(_ anchor: HKQueryAnchor?) {
+        guard let anchor,
+              let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
+        else { return }
+        defaults.set(data, forKey: flowAnchorKey)
     }
 
     func writeFlowToHealthKitIfNeeded(_ log: CycleDayLog) async {
@@ -70,35 +69,21 @@ extension MenstrualHealthStore {
 
     /// Apple Cycle Tracking is the on-device ledger. Forge writes, then later
     /// reads the same samples to template a clinician report. Nothing is posted
-    /// to a Forge database. Raw cycle archives stay encrypted on-device (Cycle Vault);
-    /// the encryption key stays in the URL fragment and S3 only receives ciphertext
-    /// via a pre-signed KMS-encrypted upload.
-    ///
-    /// Cycle context is shared with ARIA only when the user turns on “ARIA reads
-    /// cycle on this iPhone” (and with supporters only per person, opt-in), via
-    /// AriaContextStore.
+    /// to a Forge database. Raw cycle data is encrypted on-device; the key stays
+    /// in the URL fragment, and optional clinician-report links send ciphertext
+    /// only to S3 via a pre-signed KMS-encrypted upload. Cycle context is shared
+    /// with ARIA only when the user turns on “share with ARIA”, and with
+    /// supporters only per person (opt-in), through `AriaContextStore`.
     func writeCycleDayToAppleHealth(_ log: CycleDayLog) async {
         guard log.source == "manual" || log.source == "merged" else { return }
         let hk = HealthKitManager.shared
-        if log.flow == .none {
-            await hk.deleteMenstrualFlow(dayKey: log.dayKey)
-            await hk.deleteIntermenstrualBleeding(dayKey: log.dayKey)
-        } else if log.flow == .spotting {
-            // Spotting is not menstrual flow. Writing it as `.light` used to
-            // come back as a real period start. Prefer HK intermenstrual bleeding;
-            // if that type is unavailable, keep spotting local only.
-            await hk.deleteMenstrualFlow(dayKey: log.dayKey)
-            await hk.saveIntermenstrualBleeding(dayKey: log.dayKey)
-        } else if CycleHealthKitSync.writesAsMenstrualFlow(log.flow) {
-            let isEpisodeStart = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
-                .contains { $0.startDayKey == log.dayKey }
-            await hk.deleteIntermenstrualBleeding(dayKey: log.dayKey)
-            await hk.saveMenstrualFlow(
-                dayKey: log.dayKey,
-                flow: log.flow,
-                isCycleStart: isEpisodeStart
-            )
-        }
+        let isEpisodeStart = MenstrualCycleEngine.buildPeriodEpisodes(from: logs)
+            .contains { $0.startDayKey == log.dayKey }
+        let actions = CycleHealthKitPolicy.outboundActions(
+            flow: log.flow,
+            isCycleStart: isEpisodeStart
+        )
+        await CycleHealthKitPolicy.perform(actions, dayKey: log.dayKey, client: hk)
         if let bbt = log.bbtCelsius {
             await hk.saveBasalBodyTemperature(dayKey: log.dayKey, celsius: bbt)
         }
@@ -111,4 +96,19 @@ extension MenstrualHealthStore {
     }
 
     // MARK: ARIA bridge
+}
+
+/// Same-day Health flow samples: the heaviest flow wins; equal weight prefers
+/// the newest sample date (`updatedAt` / HealthKit `endDate`).
+enum HealthKitSameDayFlow {
+    static func resolve(
+        _ samples: [(flow: MenstrualFlowLevel, date: Date)]
+    ) -> (flow: MenstrualFlowLevel, date: Date)? {
+        samples.max { lhs, rhs in
+            if lhs.flow.sortWeight != rhs.flow.sortWeight {
+                return lhs.flow.sortWeight < rhs.flow.sortWeight
+            }
+            return lhs.date < rhs.date
+        }
+    }
 }
