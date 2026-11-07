@@ -201,6 +201,8 @@ struct CycleSharingView: View {
                 .foregroundStyle(Color.textPrimary)
                 .frame(minHeight: ForgeUX.minTap)
                 .forgeWell()
+                .accessibilityLabel("First name")
+                .accessibilityValue(displayName.isEmpty ? "Blank" : displayName)
             // A first name is enough, and an iMessage bubble is read on lock
             // screens by people who were not the intended audience.
             Text("A first name is plenty. This shows in the message they receive.")
@@ -304,6 +306,8 @@ struct CycleSharingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Ready for iMessage")
+        .accessibilityValue("Open Messages, tap the app drawer, choose Forge, and send. SMS is not valid access.")
     }
 
     private var stopSharingButton: some View {
@@ -387,6 +391,7 @@ struct CycleSharingView: View {
             }
         }
         .frame(minHeight: ForgeUX.minTap)
+        .accessibilityElement(children: .contain)
     }
 
     /// Pause is the quiet alternative to revoking.
@@ -408,6 +413,8 @@ struct CycleSharingView: View {
             }
             .tint(Color.indigo)
             .frame(minHeight: ForgeUX.minTap)
+            .accessibilityLabel("Pause updates")
+            .accessibilityValue(sharing.isPaused ? "On" : "Off")
 
             Text(sharing.isPaused
                  // States exactly what the other side sees, so nobody has to
@@ -444,6 +451,7 @@ struct CycleSharingView: View {
             .forgeContentCard(tint: .indigo)
         }
         .buttonStyle(ForgePressStyle())
+        .accessibilityHint("Opens a preview of the supporter digest")
     }
 
     private func errorBanner(_ error: String) -> some View {
@@ -539,6 +547,8 @@ private struct SharingOptionRow: View {
                 .contentShape(shape)
         }
         .buttonStyle(ForgePressStyle())
+        .accessibilityLabel(title)
+        .accessibilityValue(selected ? "Selected. \(detail)" : detail)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 

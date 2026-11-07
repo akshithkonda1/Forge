@@ -28,6 +28,15 @@ enum CyclePhaseCoachingDirective {
         }
     }
 
+    /// Early luteal is the first half of the person's effective luteal length;
+    /// late luteal is the remainder. A 14-day luteal keeps the historic 1–7 / 8–14 split.
+    static func lutealHalves(lutealDays: Int) -> (earlyEnd: Int, lateStart: Int, lateEnd: Int) {
+        let days = CycleBiology.clampLutealDays(lutealDays)
+        let earlyEnd = max(1, days / 2)
+        let lateStart = min(days, earlyEnd + 1)
+        return (earlyEnd, lateStart, days)
+    }
+
     // MARK: - Workout
 
     private static func isLowConfidenceCalendarEstimate(

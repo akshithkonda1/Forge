@@ -66,7 +66,11 @@ extension MenstrualHealthStore {
 
     /// Apple Cycle Tracking is the source of truth. Forge writes, then later
     /// reads the same samples to template a clinician report. Nothing is posted
-    /// to a Forge database.
+    /// to a Forge database. Raw cycle data is encrypted on-device; the key stays
+    /// in the URL fragment, and optional clinician-report links send ciphertext
+    /// only to S3 via a pre-signed KMS-encrypted upload. Cycle context is shared
+    /// with ARIA only when the user turns on “share with ARIA”, and with
+    /// supporters only per person (opt-in), through `AriaContextStore`.
     func writeCycleDayToAppleHealth(_ log: CycleDayLog) async {
         guard log.source == "manual" || log.source == "merged" else { return }
         let hk = HealthKitManager.shared
@@ -89,4 +93,19 @@ extension MenstrualHealthStore {
     }
 
     // MARK: ARIA bridge
+}
+
+/// Same-day Health flow samples: the heaviest flow wins; equal weight prefers
+/// the newest sample date (`updatedAt` / HealthKit `endDate`).
+enum HealthKitSameDayFlow {
+    static func resolve(
+        _ samples: [(flow: MenstrualFlowLevel, date: Date)]
+    ) -> (flow: MenstrualFlowLevel, date: Date)? {
+        samples.max { lhs, rhs in
+            if lhs.flow.sortWeight != rhs.flow.sortWeight {
+                return lhs.flow.sortWeight < rhs.flow.sortWeight
+            }
+            return lhs.date < rhs.date
+        }
+    }
 }

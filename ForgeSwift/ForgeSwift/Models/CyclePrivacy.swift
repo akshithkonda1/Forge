@@ -10,6 +10,10 @@ enum CyclePrivacy {
     static let shortPromise = ForgePrivacyCopy.healthStaysOnDevice
 
     /// Full user-facing policy (lifestyle product language).
+    /// Toggle / settings line: sharing is opt-in, on this iPhone.
+    static let ariaShareLine =
+        "Off until you turn it on. Cycle context stays on this iPhone — ARIA reads it here only."
+
     static let policy = """
     \(ForgePrivacyCopy.healthStaysOnDevice)
 
@@ -17,9 +21,13 @@ enum CyclePrivacy {
 
     • Logs live on this iPhone (Cycle Vault + Apple Cycle Tracking). Wearables \
     write to Apple Health; ARIA reads that ledger here — it does not scrape Oura, Garmin, or vendor clouds.
+    • Cycle context is shared with ARIA only when you turn on “share with ARIA”. \
+    Supporters see a digest only if you invite them, one person at a time.
     • ARIA forms its opinion on this device. Claude and Grok never receive your cycle samples, \
     BBT, OPKs, or day-level logs. If a language model runs off-device, it sees what you type, not the warehouse.
-    • Forge does not keep a reproductive database. Account storage is the user record, not your chart.
+    • Forge does not keep a reproductive database. Account storage is the user record, not your chart. \
+    Optional clinician-report links upload ciphertext only (encrypted on this iPhone; the key stays \
+    in the URL fragment; S3 receives ciphertext via a pre-signed KMS-encrypted upload).
     • We do not sell cycle data. We do not use it for advertising. We do not license it \
     to third parties for their own products or training sets.
     • Support-person data requires consent / caregiver care. Invites are iPhone + iMessage only.
@@ -30,6 +38,7 @@ enum CyclePrivacy {
     /// Compact bullets for privacy cards.
     static let bullets: [(icon: String, text: String)] = [
         ("lock.shield.fill", "Cycle Vault + Apple Health on this iPhone — not a Forge database"),
+        ("bubble.left.fill", "ARIA sees cycle context only when you turn on “share with ARIA”; supporters only if you invite them"),
         ("applewatch", "ARIA reads wearables from Apple Health. Nothing scraped from vendor accounts"),
         ("message.fill", "Support invites: iPhone + iMessage only. SMS is not valid access"),
         ("xmark.seal.fill", "Never sold, never used for ads, never resold to third parties"),
