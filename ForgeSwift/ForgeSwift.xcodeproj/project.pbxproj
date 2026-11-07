@@ -43,8 +43,6 @@
 		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
 		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
 		C7C1E2020000000000000001 /* CycleHealthKitSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E2010000000000000001 /* CycleHealthKitSync.swift */; };
-		C7C1E2040000000000000001 /* CycleHealthKitSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E2030000000000000001 /* CycleHealthKitSyncTests.swift */; };
-		C7C1E2060000000000000001 /* CycleCoachingCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1E2050000000000000001 /* CycleCoachingCopyTests.swift */; };
 		1WC0072F9FF867004091AA /* BiologicalSexStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */; };
 		1WC0092F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
 		1WC00B2F9FF867004091AA /* CycleLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00A2F9FF867004091AA /* CycleLiveActivityAttributes.swift */; };
@@ -182,10 +180,11 @@
 		1TEST07400000000000000A /* LaunchBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07300000000000000A /* LaunchBootstrapTests.swift */; };
 		1TEST07A00000000000000A /* LaunchStabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07900000000000000A /* LaunchStabilityGateTests.swift */; };
 		1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07500000000000000A /* OnboardingGateTests.swift */; };
-		B1348B71F8CA1E63CF8BC1B5 /* LaunchStabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D85CC079DF328E2C58ADCEB /* LaunchStabilityGateTests.swift */; };
 		1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */; };
-		1TEST07A00000000000000A /* ForgeAuthClientInitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07900000000000000A /* ForgeAuthClientInitTests.swift */; };
-		1TEST07C00000000000000A /* LaunchStabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST07B00000000000000A /* LaunchStabilityGateTests.swift */; };
+		1TEST0DC00000000000000A /* ForgeAuthClientInitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST0DB00000000000000A /* ForgeAuthClientInitTests.swift */; };
+		F078C27D73A1DEA1123D9173 /* CycleHealthKitSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 870756CD4179D1861DA97F65 /* CycleHealthKitSyncTests.swift */; };
+		761F209BE44786B69AA6FF96 /* CycleCoachingCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A264446AB49F50776C1BCD7 /* CycleCoachingCopyTests.swift */; };
+		7BF320B27695E776FE58B845 /* YouPageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCEB97FD21037F09FC9D9075 /* YouPageTests.swift */; };
 		C82BC7E19F20D94DAE955D97 /* OnboardingInterviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D268E8FF0C6A26FB005236 /* OnboardingInterviewModels.swift */; };
 		1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57112F915D9800F365E3 /* VoiceCoachManager.swift */; };
 		1E9C57142F915DB900F365E3 /* VoiceCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9C57132F915DB900F365E3 /* VoiceCoachViews.swift */; };
@@ -594,10 +593,11 @@
 		1TEST07300000000000000A /* LaunchBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchBootstrapTests.swift; sourceTree = "<group>"; };
 		1TEST07900000000000000A /* LaunchStabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchStabilityGateTests.swift; sourceTree = "<group>"; };
 		1TEST07500000000000000A /* OnboardingGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGateTests.swift; sourceTree = "<group>"; };
-		6D85CC079DF328E2C58ADCEB /* LaunchStabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchStabilityGateTests.swift; sourceTree = "<group>"; };
 		1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDataNonFiniteTests.swift; sourceTree = "<group>"; };
-		1TEST07900000000000000A /* ForgeAuthClientInitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClientInitTests.swift; sourceTree = "<group>"; };
-		1TEST07B00000000000000A /* LaunchStabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchStabilityGateTests.swift; sourceTree = "<group>"; };
+		1TEST0DB00000000000000A /* ForgeAuthClientInitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClientInitTests.swift; sourceTree = "<group>"; };
+		870756CD4179D1861DA97F65 /* CycleHealthKitSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthKitSyncTests.swift; sourceTree = "<group>"; };
+		1A264446AB49F50776C1BCD7 /* CycleCoachingCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleCoachingCopyTests.swift; sourceTree = "<group>"; };
+		DCEB97FD21037F09FC9D9075 /* YouPageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouPageTests.swift; sourceTree = "<group>"; };
 		1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseLibraryFilterTests.swift; sourceTree = "<group>"; };
 		1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthLaunchTests.swift; sourceTree = "<group>"; };
 		1TEST01D00000000000000A /* FakeCyclePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeCyclePackTests.swift; sourceTree = "<group>"; };
@@ -882,8 +882,6 @@
 		AA000200000000000000F3A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA000200000000000000F4A0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1TEST01100000000000000A /* MenstrualCycleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenstrualCycleEngineTests.swift; sourceTree = "<group>"; };
-		C7C1E2030000000000000001 /* CycleHealthKitSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleHealthKitSyncTests.swift; sourceTree = "<group>"; };
-		C7C1E2050000000000000001 /* CycleCoachingCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleCoachingCopyTests.swift; sourceTree = "<group>"; };
 		1TEST01300000000000000A /* PartnerCycleDigestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleDigestTests.swift; sourceTree = "<group>"; };
 		1TEST00700000000000000A /* ForgeSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForgeSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		34EBFCC451EC42798BEAF8AB /* ContextInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextInspectorSheet.swift; sourceTree = "<group>"; };
@@ -1452,10 +1450,11 @@
 				1TEST07300000000000000A /* LaunchBootstrapTests.swift */,
 				1TEST07900000000000000A /* LaunchStabilityGateTests.swift */,
 				1TEST07500000000000000A /* OnboardingGateTests.swift */,
-				6D85CC079DF328E2C58ADCEB /* LaunchStabilityGateTests.swift */,
 				1TEST07700000000000000A /* SleepDataNonFiniteTests.swift */,
-				1TEST07900000000000000A /* ForgeAuthClientInitTests.swift */,
-				1TEST07B00000000000000A /* LaunchStabilityGateTests.swift */,
+				1TEST0DB00000000000000A /* ForgeAuthClientInitTests.swift */,
+				870756CD4179D1861DA97F65 /* CycleHealthKitSyncTests.swift */,
+				1A264446AB49F50776C1BCD7 /* CycleCoachingCopyTests.swift */,
+				DCEB97FD21037F09FC9D9075 /* YouPageTests.swift */,
 				1TEST01900000000000000A /* ExerciseLibraryFilterTests.swift */,
 				1TEST01B00000000000000A /* CycleHealthLaunchTests.swift */,
 				1TEST01D00000000000000A /* FakeCyclePackTests.swift */,
@@ -2135,10 +2134,11 @@
 				1TEST07400000000000000A /* LaunchBootstrapTests.swift in Sources */,
 				1TEST07A00000000000000A /* LaunchStabilityGateTests.swift in Sources */,
 				1TEST07600000000000000A /* OnboardingGateTests.swift in Sources */,
-				B1348B71F8CA1E63CF8BC1B5 /* LaunchStabilityGateTests.swift in Sources */,
 				1TEST07800000000000000A /* SleepDataNonFiniteTests.swift in Sources */,
-				1TEST07A00000000000000A /* ForgeAuthClientInitTests.swift in Sources */,
-				1TEST07C00000000000000A /* LaunchStabilityGateTests.swift in Sources */,
+				1TEST0DC00000000000000A /* ForgeAuthClientInitTests.swift in Sources */,
+				F078C27D73A1DEA1123D9173 /* CycleHealthKitSyncTests.swift in Sources */,
+				761F209BE44786B69AA6FF96 /* CycleCoachingCopyTests.swift in Sources */,
+				7BF320B27695E776FE58B845 /* YouPageTests.swift in Sources */,
 				1TEST01A00000000000000A /* ExerciseLibraryFilterTests.swift in Sources */,
 				1TEST01C00000000000000A /* CycleHealthLaunchTests.swift in Sources */,
 				1TEST01E00000000000000A /* FakeCyclePackTests.swift in Sources */,
