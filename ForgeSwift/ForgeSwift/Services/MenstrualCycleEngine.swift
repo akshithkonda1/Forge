@@ -583,11 +583,11 @@ enum MenstrualCycleEngine {
             guard areCalendarConsecutive(window.map(\.day), maxGap: 1) else { continue }
             let cover = window.prefix(6).map(\.t)
             let coverMax = cover.max() ?? 0
-            let next3 = window.suffix(3).map(\.t)
+            let rise = window.suffix(3)
             // Shift if all 3 exceed coverline max by ≥0.1°C (slightly relaxed for wrist-adjacent noise)
-            if next3.allSatisfy({ $0.t >= coverMax + 0.10 }) {
+            if rise.allSatisfy({ $0.t >= coverMax + 0.10 }), let firstRise = rise.first {
                 // Ovulation typically day before sustained rise
-                return max(1, next3[0].day - 1)
+                return max(1, firstRise.day - 1)
             }
         }
         return nil
