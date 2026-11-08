@@ -705,7 +705,7 @@ extension AriaForgePrep {
             await store.syncChatHistoryFromCloud()
             let sources = await HealthKitManager.shared.knownHealthSources()
             await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
-            await store.resyncNotifications(promptIfNeeded: false)
+            await store.resyncNotifications(promptIfUndetermined: false)
         }
     }
 
