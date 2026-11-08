@@ -1,4 +1,5 @@
 import Compression
+import ForgeCore
 import Foundation
 import os
 
