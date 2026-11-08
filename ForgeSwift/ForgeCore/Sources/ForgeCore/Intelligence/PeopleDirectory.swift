@@ -157,24 +157,70 @@ public enum PeopleDirectory {
 public enum PeopleDirectoryStore {
     public static let storageKey = "forge.people.directory.v1"
 
-    public static func load(defaults: UserDefaults = .standard) -> PeopleDirectory.Directory {
+    public static func load(
+        defaults: UserDefaults = .standard,
+        store: SecureStore? = nil
+    ) -> PeopleDirectory.Directory {
+        let resolved = store ?? defaultStore(for: defaults)
+        if let resolved,
+           let data = try? resolved.data(forKey: storageKey),
+           let directory = try? JSONDecoder().decode(PeopleDirectory.Directory.self, from: data) {
+            defaults.removeObject(forKey: storageKey)
+            return directory
+        }
         guard let data = defaults.data(forKey: storageKey),
               let directory = try? JSONDecoder().decode(PeopleDirectory.Directory.self, from: data) else {
             return PeopleDirectory.Directory()
         }
+        if let resolved {
+            do {
+                try resolved.set(data, forKey: storageKey)
+                defaults.removeObject(forKey: storageKey)
+            } catch {
+                // Keep the plaintext copy until a later launch can migrate.
+            }
+        }
         return directory
     }
 
-    public static func save(_ directory: PeopleDirectory.Directory, defaults: UserDefaults = .standard) {
+    public static func save(
+        _ directory: PeopleDirectory.Directory,
+        defaults: UserDefaults = .standard,
+        store: SecureStore? = nil
+    ) {
         guard let data = try? JSONEncoder().encode(directory) else { return }
+        if let resolved = store ?? defaultStore(for: defaults) {
+            do {
+                try resolved.set(data, forKey: storageKey)
+                defaults.removeObject(forKey: storageKey)
+            } catch {
+                // Leave the last good secure copy. Do not write names back
+                // to the plist — that would undo the migration.
+            }
+            return
+        }
         defaults.set(data, forKey: storageKey)
     }
 
     /// Forget the graph. iOS Contacts permission is revoked in Settings, not here.
-    public static func forget(defaults: UserDefaults = .standard) {
-        var directory = load(defaults: defaults)
-        directory.optedIn = false
-        directory.people = []
-        save(directory, defaults: defaults)
+    public static func forget(defaults: UserDefaults = .standard, store: SecureStore? = nil) {
+        defaults.removeObject(forKey: storageKey)
+        if let resolved = store ?? defaultStore(for: defaults) {
+            try? resolved.remove(storageKey)
+        }
+    }
+
+    /// Production uses Keychain. Tests pass a suite `UserDefaults` and stay
+    /// on that suite so they do not need the data-protection entitlement.
+    private static func defaultStore(for defaults: UserDefaults) -> SecureStore? {
+        guard defaults === UserDefaults.standard else { return nil }
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return nil
+        }
+        #if canImport(Security)
+        return KeychainStore(service: "com.forge.ForgeSwift.people")
+        #else
+        return nil
+        #endif
     }
 }

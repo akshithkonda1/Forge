@@ -259,22 +259,17 @@ def run_sample(pid, window, path, timeout):
     raise RuntimeError(f"sample failed after retries: {last}")
 
 
-def main_thread_busy_s(pid, window, tag, timeout):
-    path = f"{OUT}/sample-{tag}.txt"
-    last_err = "main thread not found in sample output"
-    text = ""
-    for attempt in range(1, int(T["SAMPLE_RETRIES"]) + 1):
-        text = run_sample(pid, window, f"{path}.{attempt}", timeout)
-        # Main thread block runs until the next top-level "Thread_" line.
-        m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
-        if m:
-            break
-        last_err = "main thread not found in sample output"
-        print(f"    sample parse attempt {attempt} failed ({last_err})", flush=True)
-        if not pid_alive(pid):
-            raise RuntimeError(last_err)
-    else:
-        raise RuntimeError(last_err)
+def parse_main_thread_busy(text, window):
+    """Busy seconds on the main thread for one `sample` window.
+
+    Idle is a leaf mach_msg trap under the run loop wait, or under the
+    dyld notify that `sample` itself causes when it attaches. App hangs
+    (semaphore / HealthKit / SwiftUI commit) stay busy. Thresholds are
+    not applied here.
+    """
+    m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
+    if not m:
+        raise RuntimeError("main thread not found in sample output")
     total = int(m.group(2))
     rest = text[m.end():]
     nxt = re.search(r"^\s*\d+ Thread_\d+", rest, re.M)

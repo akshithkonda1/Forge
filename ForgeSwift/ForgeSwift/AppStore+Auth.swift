@@ -168,7 +168,8 @@ extension AppStore {
         biologicalSex: BiologicalSex? = nil,
         trainingTheme: AriaTrainingTheme? = nil,
         interestTags: [String]? = nil,
-        coachingPersonality: ForgeCoachingPersonality.Choice? = nil
+        coachingPersonality: ForgeCoachingPersonality.Choice? = nil,
+        measurementSystem: MeasurementSystem? = nil
     ) {
         if let name = name { userProfile.name = name }
         if let style = coachingStyle { userProfile.coachingStyle = style }
@@ -203,6 +204,7 @@ extension AppStore {
                 userProfile.coachingStyle = preset.legacyCoachingStyle
             }
         }
+        if let measurementSystem { userProfile.measurementSystem = measurementSystem }
         if let trainingTheme {
             setTrainingTheme(trainingTheme, source: "profile")
             return

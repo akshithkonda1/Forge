@@ -62,8 +62,10 @@ enum MedicationPharmacy {
     static let showAllLimit = 1_000
     private static let extrasKey = "forge.pharmacy.openfda.v3"
     private static let extrasAtKey = "forge.pharmacy.openfda.at.v3"
-    private static let savedKey = "forge.pharmacy.saved.v1"
+    static let savedCap = PharmacyVault.cap
     private static let refreshInterval: TimeInterval = 24 * 60 * 60
+    private static let vaultLock = OSAllocatedUnfairLock()
+    private static var vaultInstance = PharmacyVault.makeDefault()
     private static let catalogResource = "fda_pharmacy_catalog"
     private static let reservedWords: Set<String> = ["AND", "OR", "OF", "FOR", "WITH", "THE", "IN", "TO"]
     private static let keepUpper: Set<String> = ["XR", "XL", "ER", "CR", "SR", "IR", "DR", "LA", "ODT", "EC", "HCL", "HBR"]
@@ -135,55 +137,121 @@ enum MedicationPharmacy {
         return counts(rows.map(\.disease))
     }
 
-    static func savedNames() -> [String] {
-        UserDefaults.standard.stringArray(forKey: savedKey) ?? []
+    static var vault: PharmacyVault {
+        vaultLock.withLock { vaultInstance }
     }
 
-    static func toggleSaved(name: String) {
-        var names = savedNames()
-        if let i = names.firstIndex(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
-            names.remove(at: i)
-        } else {
-            names.insert(name, at: 0)
-        }
-        UserDefaults.standard.set(Array(names.prefix(40)), forKey: savedKey)
+    static func useVaultForTests(_ vault: PharmacyVault) {
+        vaultLock.withLock { vaultInstance = vault }
+    }
+
+    static func savedItems() -> [SavedMedication] { vault.load().items }
+
+    static func savedNames() -> [String] { vault.savedNames() }
+
+    static var shareWithAria: Bool {
+        get { vault.load().shareWithAria }
+        set { vault.setShareWithAria(newValue) }
+    }
+
+    static var lastRefreshFailed: Bool { vault.load().lastRefreshFailed }
+
+    static var lastDidHitCap: Bool {
+        vaultLock.withLock { _lastDidHitCap }
+    }
+
+    private static var _lastDidHitCap = false
+
+    @discardableResult
+    static func toggleSaved(name: String) -> PharmacySaveResult {
+        toggleSaved(id: catalogID(forName: name), name: name)
+    }
+
+    @discardableResult
+    static func toggleSaved(id: String, name: String) -> PharmacySaveResult {
+        let result = vault.toggle(id: id, name: name)
+        vaultLock.withLock { _lastDidHitCap = result == .atCap }
+        return result
+    }
+
+    @discardableResult
+    static func toggleSaved(_ medication: FDAMedication) -> PharmacySaveResult {
+        toggleSaved(id: medication.id, name: medication.name)
     }
 
     /// Instant admit — add without toggling off if it's already on the list.
-    static func ensureSaved(name: String) {
-        var names = savedNames()
-        if names.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) { return }
-        names.insert(name, at: 0)
-        UserDefaults.standard.set(Array(names.prefix(40)), forKey: savedKey)
+    @discardableResult
+    static func ensureSaved(name: String) -> PharmacySaveResult {
+        ensureSaved(id: catalogID(forName: name), name: name)
+    }
+
+    @discardableResult
+    static func ensureSaved(id: String, name: String) -> PharmacySaveResult {
+        let result = vault.ensure(id: id, name: name)
+        vaultLock.withLock { _lastDidHitCap = result == .atCap }
+        return result
+    }
+
+    static func isSaved(_ medication: FDAMedication) -> Bool {
+        vault.contains(id: medication.id, name: medication.name)
+    }
+
+    static func wipeSaved() {
+        vault.wipe()
+        vaultLock.withLock { _lastDidHitCap = false }
+    }
+
+    static func catalogID(forName name: String) -> String {
+        let q = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return q }
+        if isReady, let hit = search(q, sort: .relevance, limit: 1).items.first {
+            return hit.id
+        }
+        return q.lowercased()
     }
 
     static func lastRefreshLabel() -> String {
-        guard let at = UserDefaults.standard.object(forKey: extrasAtKey) as? Date else {
-            return "FDA · CDC · CMS NDC · sorted by archetype and disease"
+        if lastRefreshFailed {
+            return "Using the bundled list — couldn’t refresh from openFDA"
         }
-        return "Updated " + at.formatted(date: .abbreviated, time: .shortened)
+        if let at = vault.load().lastRefreshAt ?? (UserDefaults.standard.object(forKey: extrasAtKey) as? Date) {
+            return "Updated " + at.formatted(date: .abbreviated, time: .shortened)
+        }
+        return "FDA · CDC · CMS NDC · bundled list"
     }
 
     static func refreshFromOpenFDAIfDue() async {
         if let at = UserDefaults.standard.object(forKey: extrasAtKey) as? Date,
            Date().timeIntervalSince(at) < refreshInterval {
+            vault.setRefreshOutcome(failed: false, at: at)
             return
         }
         var extras: [FDAMedication] = []
         var seen = Set<String>()
+        var sawFailure = false
         for endpoint in ["drugsfda", "ndc"] {
             for skip in stride(from: 0, to: 5_000, by: 1_000) {
-                guard let page = await fetchOpenFDAPage(endpoint: endpoint, skip: skip) else { break }
+                guard let page = await fetchOpenFDAPage(endpoint: endpoint, skip: skip) else {
+                    sawFailure = true
+                    break
+                }
                 if page.isEmpty { break }
                 for row in page where seen.insert(row.id).inserted {
                     extras.append(classify(row))
                 }
             }
         }
-        guard extras.count >= 20 else { return }
-        if let encoded = try? JSONEncoder().encode(Array(extras.prefix(8_000))) {
+        guard extras.count >= 20 else {
+            vault.setRefreshOutcome(failed: true)
+            return
+        }
+        do {
+            let encoded = try JSONEncoder().encode(Array(extras.prefix(8_000)))
             UserDefaults.standard.set(encoded, forKey: extrasKey)
             UserDefaults.standard.set(Date(), forKey: extrasAtKey)
+            vault.setRefreshOutcome(failed: sawFailure)
+        } catch {
+            vault.setRefreshOutcome(failed: true)
         }
         lock.withLock {
             cached = nil

@@ -220,7 +220,7 @@ struct LifeContextSettingsSection: View {
                 .forgeWrapping()
                 .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .font(ForgeType.caption)
                 .foregroundStyle(Color.textMuted)
                 .accessibilityHidden(true)
         }
@@ -493,7 +493,7 @@ struct LifeContextKnowledgeView: View {
                     confirmDelete = fact
                 } label: {
                     Image(systemName: "trash")
-                        .font(.system(size: 14))
+                        .font(HomeType.label)
                         .foregroundStyle(Color.textSecondary)
                         .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
                         .contentShape(Rectangle())

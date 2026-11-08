@@ -121,6 +121,22 @@ final class PeopleDirectoryTests: XCTestCase {
         XCTAssertTrue(loaded.coachingPeople.isEmpty)
     }
 
+    func testMigratesPlaintextDefaultsIntoSecureStore() {
+        let person = PeopleDirectory.admit(rawName: "Sam", relation: .partner)!
+        let directory = PeopleDirectory.Directory(optedIn: true, contactsAccess: .granted, people: [person])
+        PeopleDirectoryStore.save(directory, defaults: defaults)
+        XCTAssertNotNil(defaults.data(forKey: PeopleDirectoryStore.storageKey))
+
+        let store = InMemorySecureStore()
+        let loaded = PeopleDirectoryStore.load(defaults: defaults, store: store)
+        XCTAssertEqual(loaded.coachingPeople.map(\.firstName), ["Sam"])
+        XCTAssertNil(defaults.data(forKey: PeopleDirectoryStore.storageKey))
+        XCTAssertNotNil(try store.data(forKey: PeopleDirectoryStore.storageKey))
+
+        PeopleDirectoryStore.forget(defaults: defaults, store: store)
+        XCTAssertTrue(PeopleDirectoryStore.load(defaults: defaults, store: store).people.isEmpty)
+    }
+
     func testPeopleQuestionDoesNotMatchATrainingAsk() {
         XCTAssertTrue(PeopleDirectory.isQuestion("who are my people"))
         XCTAssertFalse(PeopleDirectory.isQuestion("what should I train today"))

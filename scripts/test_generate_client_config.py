@@ -82,15 +82,23 @@ class CommittedPlistShipGateTests(unittest.TestCase):
         self.assertEqual(parsed["FORGEAPIBaseURL"], "")
 
     def test_committed_plist_ships_a_non_generated_launch_screen(self):
+        # A uniform generated launch field reads as a blank first frame to the
+        # launch-stability gate. The plist must ship either a launch image or a
+        # launch storyboard that exists in the repo.
         parsed = mod.parse_plist(PLIST.read_text(encoding="utf-8"))
         launch = parsed.get("UILaunchScreen")
-        self.assertIsInstance(launch, dict)
-        self.assertEqual(launch.get("UIImageName"), "LaunchScreen")
-        image = (
-            ROOT / "ForgeSwift" / "ForgeSwift" / "Assets.xcassets"
-            / "LaunchScreen.imageset" / "LaunchScreen.png"
-        )
-        self.assertTrue(image.is_file(), image)
+        storyboard = parsed.get("UILaunchStoryboardName")
+        if isinstance(launch, dict):
+            self.assertEqual(launch.get("UIImageName"), "LaunchScreen")
+            image = (
+                ROOT / "ForgeSwift" / "ForgeSwift" / "Assets.xcassets"
+                / "LaunchScreen.imageset" / "LaunchScreen.png"
+            )
+            self.assertTrue(image.is_file(), image)
+        else:
+            self.assertEqual(storyboard, "LaunchScreen")
+            board = ROOT / "ForgeSwift" / "ForgeSwift" / "LaunchScreen.storyboard"
+            self.assertTrue(board.is_file(), board)
 
 
 class ValidateDummyOfflineTests(unittest.TestCase):

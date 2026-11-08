@@ -119,6 +119,13 @@ extension AppStore {
         objectWillChange.send()
     }
 
+    func deleteLocalAccount() {
+        MedicationPharmacy.wipeSaved()
+        PeopleDirectoryStore.forget()
+        userProfile = emptyProfile
+        signOut()
+    }
+
     func signOut() {
         persistChatSession()
         HealthKitManager.shared.stopBidirectionalSync()

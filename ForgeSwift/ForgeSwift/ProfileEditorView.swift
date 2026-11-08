@@ -29,6 +29,8 @@ struct ProfileEditorView: View {
     private static let lbsPerKg = 2.20462
     private static let cmPerInch = 2.54
 
+    private var units: MeasurementSystem { store.userProfile.measurementSystem }
+
     private var currentAvatarFileName: String? {
         removePhoto ? nil : store.userProfile.avatarFileName
     }
@@ -62,25 +64,41 @@ struct ProfileEditorView: View {
         let weightText = weight.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
         var newWeightKg: Double?
         if !weightText.isEmpty {
-            guard let lbs = Double(weightText), (50...800).contains(lbs) else {
-                errorMessage = "Enter a weight between 50 and 800 lbs."
+            guard let parsed = Double(weightText) else {
+                errorMessage = "Enter a weight in \(units.weightLabel)."
                 return
             }
-            newWeightKg = lbs / Self.lbsPerKg
+            let kg = units == .metric ? parsed : parsed / Self.lbsPerKg
+            let lbs = kg * Self.lbsPerKg
+            guard (50...800).contains(lbs) else {
+                errorMessage = units == .metric
+                    ? "Enter a weight between 23 and 360 kg."
+                    : "Enter a weight between 50 and 800 lbs."
+                return
+            }
+            newWeightKg = kg
         }
 
         var newHeightCm: Double?
         let feetText = heightFeet.trimmingCharacters(in: .whitespaces)
         let inchesText = heightInches.trimmingCharacters(in: .whitespaces)
         if !feetText.isEmpty || !inchesText.isEmpty {
-            let feet = Int(feetText) ?? 0
-            let inches = Int(inchesText) ?? 0
-            let totalInches = Double(feet * 12 + inches)
-            guard (36...96).contains(totalInches) else {
-                errorMessage = "Enter a height between 3'0\" and 8'0\"."
-                return
+            if units == .metric {
+                guard let cm = Double(feetText), (90...245).contains(cm) else {
+                    errorMessage = "Enter a height between 90 and 245 cm."
+                    return
+                }
+                newHeightCm = cm
+            } else {
+                let feet = Int(feetText) ?? 0
+                let inches = Int(inchesText) ?? 0
+                let totalInches = Double(feet * 12 + inches)
+                guard (36...96).contains(totalInches) else {
+                    errorMessage = "Enter a height between 3'0\" and 8'0\"."
+                    return
+                }
+                newHeightCm = totalInches * Self.cmPerInch
             }
-            newHeightCm = totalInches * Self.cmPerInch
         }
 
         if let pendingPhoto {
@@ -190,11 +208,17 @@ struct ProfileEditorView: View {
 
     private func savedWeightText(_ profile: UserProfile) -> String {
         guard let kg = profile.weight else { return "" }
+        if profile.measurementSystem == .metric {
+            return String(Int(kg.rounded()))
+        }
         return String(Int((kg * Self.lbsPerKg).rounded()))
     }
 
     private func savedHeightText(_ profile: UserProfile) -> (feet: String, inches: String) {
         guard let cm = profile.height else { return ("", "") }
+        if profile.measurementSystem == .metric {
+            return (String(Int(cm.rounded())), "")
+        }
         let totalInches = Int((cm / Self.cmPerInch).rounded())
         return (String(totalInches / 12), String(totalInches % 12))
     }
@@ -203,12 +227,10 @@ struct ProfileEditorView: View {
         let profile = store.userProfile
         name = profile.name
         age = profile.age.map(String.init) ?? ""
-        weight = profile.weight.map { String(Int(($0 * Self.lbsPerKg).rounded())) } ?? ""
-        if let cm = profile.height {
-            let totalInches = Int((cm / Self.cmPerInch).rounded())
-            heightFeet = String(totalInches / 12)
-            heightInches = String(totalInches % 12)
-        }
+        weight = savedWeightText(profile)
+        let savedHeight = savedHeightText(profile)
+        heightFeet = savedHeight.feet
+        heightInches = savedHeight.inches
         experience = profile.experienceLevel
         gender = profile.gender
         biologicalSex = profile.biologicalSex
@@ -314,7 +336,7 @@ struct ProfileEditorView: View {
                 Circle().fill(Color.background).frame(width: 40, height: 40)
                 Circle().fill(Color.ember).frame(width: 36, height: 36)
                 Image(systemName: "camera.fill")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(HomeType.label)
                     .foregroundStyle(Color.white)
             }
             .accessibilityHidden(true)
@@ -373,7 +395,12 @@ struct ProfileEditorView: View {
 
                 ProfileFieldDivider()
 
-                ProfileFieldRow(label: "Weight (lbs)", placeholder: "Weight", text: $weight, keyboardType: .decimalPad)
+                ProfileFieldRow(
+                    label: "Weight (\(units.weightLabel))",
+                    placeholder: "Weight",
+                    text: $weight,
+                    keyboardType: .decimalPad
+                )
 
                 ProfileFieldDivider()
 
@@ -391,8 +418,12 @@ struct ProfileEditorView: View {
                 .lineLimit(2)
                 .layoutPriority(1)
             HStack(spacing: ForgeLayout.rowGap) {
-                heightField(placeholder: "5", text: $heightFeet, unit: "ft")
-                heightField(placeholder: "10", text: $heightInches, unit: "in")
+                if units == .metric {
+                    heightField(placeholder: "175", text: $heightFeet, unit: "cm")
+                } else {
+                    heightField(placeholder: "5", text: $heightFeet, unit: "ft")
+                    heightField(placeholder: "10", text: $heightInches, unit: "in")
+                }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
@@ -413,7 +444,7 @@ struct ProfileEditorView: View {
                 .foregroundStyle(Color.textTertiary)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Height in \(unit == "ft" ? "feet" : "inches")")
+        .accessibilityLabel("Height in \(unit == "ft" ? "feet" : unit == "cm" ? "centimeters" : "inches")")
     }
 
     private var trainingCard: some View {

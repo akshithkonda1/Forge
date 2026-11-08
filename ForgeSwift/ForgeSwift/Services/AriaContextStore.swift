@@ -327,6 +327,11 @@ final class AriaContextStore: ObservableObject {
     /// Mutates in-memory tags only — same as cross-zone. Not persisted.
     @discardableResult
     func applyMedicationLayer(query: String? = nil) -> MedicationContextLayer {
+        guard MedicationPharmacy.shareWithAria else {
+            context.constraints.removeAll { $0.hasPrefix("med:") }
+            context.lifestyleTags.removeAll { $0.hasPrefix("med_") }
+            return .empty
+        }
         let healthNames: [String]
         if HealthKitManager.shared.hasStructuredRecordsAccess,
            let summary = HealthKitManager.shared.clinicalSummary {
@@ -1222,7 +1227,7 @@ final class AriaContextStore: ObservableObject {
               let insight = context.lastInsights.first(where: { !$0.isEmpty }) else { return nil }
         let lower = input.lowercased()
         if lower.contains("tired") || lower.contains("recovery") || lower.contains("sleep") {
-            return "Last time you felt like this, we focused on recovery — \(insight)"
+            return "Last time you felt like this, we focused on rest — \(insight)"
         }
         return nil
     }
