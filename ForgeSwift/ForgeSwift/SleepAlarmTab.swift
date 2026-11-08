@@ -154,10 +154,11 @@ enum SleepAlarmScheduler {
     ) async -> SleepAlarmDelivery {
         var authError: String?
         var authorization = await center.notificationSettings().authorizationStatus
-        if ForgeNotificationScheduler.authorizationIntent(
+        switch ForgeNotificationScheduler.authorizationIntent(
             status: authorization,
             promptIfUndetermined: promptIfUndetermined
-        ) == .prompt {
+        ) {
+        case .prompt:
             do {
                 _ = try await center.requestAuthorization(
                     options: SleepAlarmAppleAPI.authorizationOptions
@@ -186,7 +187,7 @@ enum SleepAlarmScheduler {
                 expected: expected,
                 pending: 0,
                 addFailures: 0,
-                authError: nil
+                authError: authError
             )
         }
 

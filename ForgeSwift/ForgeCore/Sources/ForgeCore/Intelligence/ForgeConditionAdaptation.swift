@@ -22,7 +22,9 @@ public enum ForgeConditionAdaptation: Sendable {
         for condition in conditions where seen.insert(condition).inserted {
             lines.append(trainingConstraint(condition))
         }
-        let extra = freeform.trimmingCharacters(in: .whitespacesAndNewlines)
+        // The note is the person's words. Coach copy still must not name a
+        // seizure or a medication, so quote only the sanitized remainder.
+        let extra = ForgeConditionSafety.sanitize(freeform)
         if !extra.isEmpty {
             lines.append(
                 "They also noted: \(String(extra.prefix(160))). Adapt around that. Anything medical, a doctor."
@@ -52,7 +54,7 @@ public enum ForgeConditionAdaptation: Sendable {
         conditions: [ForgeLifestyleProfile.HealthConstraint],
         freeform: String = ""
     ) -> String {
-        let extra = freeform.trimmingCharacters(in: .whitespacesAndNewlines)
+        let extra = ForgeConditionSafety.sanitize(freeform)
         guard !conditions.isEmpty || !extra.isEmpty else { return "" }
         var bits: [String] = []
         var seen: Set<ForgeLifestyleProfile.HealthConstraint> = []
