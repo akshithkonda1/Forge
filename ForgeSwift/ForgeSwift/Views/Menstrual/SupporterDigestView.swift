@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // ============================================================
 // MARK: - What a supporter sees

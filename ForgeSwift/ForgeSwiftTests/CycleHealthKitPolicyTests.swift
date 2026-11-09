@@ -38,7 +38,7 @@ final class CycleHealthKitPolicyTests: XCTestCase {
         succeeded: Bool = true
     ) -> MenstrualHealthKitBundle {
         MenstrualHealthKitBundle(
-            flowSamples: flow.map { (date: $0.0, flow: $0.1) },
+            flowSamples: flow.map { (date: $0.0, flow: $0.1, updatedAt: $0.0) },
             bbtSamples: [],
             ovulationTests: [],
             mucusSamples: [],
