@@ -19,9 +19,6 @@ extension MenstrualHealthStore {
         )
         persistFlowAnchor(bundle.newFlowAnchor)
         mergeHealthKit(bundle)
-        if let anchor = bundle.newFlowAnchor {
-            defaults.set(anchor, forKey: Self.flowAnchorKey)
-        }
         lastSyncAt = Date()
         defaults.set(Date().timeIntervalSince1970, forKey: quietSyncKey)
         recompute()
