@@ -60,7 +60,7 @@ final class CycleHealthLaunchTests: XCTestCase {
     }
 }
 
-final class CycleCoachingCopyTests: XCTestCase {
+final class CycleHealthCopyTests: XCTestCase {
 
     func testPhaseTrainingBiasOmitsRecovery() {
         for phase in MenstrualPhase.allCases {
