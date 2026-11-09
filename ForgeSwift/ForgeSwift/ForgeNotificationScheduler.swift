@@ -378,12 +378,6 @@ enum ForgeNotificationScheduler {
         }
     }
 
-    /// Schedule only. If the user has not been asked yet, skip — do not present
-    /// the system sheet over the launch splash.
-    static func requestAuthorizationIfNeeded() async -> Bool {
-        await hasAuthorization()
-    }
-
     private static func scheduleDaily(
         id: String,
         hour: Int,
