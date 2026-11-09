@@ -200,11 +200,8 @@ struct NameComposer: View {
                 action: submit
             )
         }
-        .onAppear {
-            if coordinator.profile.trimmedName.isEmpty {
-                focusedField = .preferred
-            }
-        }
+        // Leave unfocused until a tap. Focusing here loads the keyboard on
+        // the main thread during launch, under the notification alert.
         .onChange(of: dictation.recognizedText) { _, text in
             guard dictation.isListening, focusedField != .last else { return }
             if case .fillName(let name) = AriaInterviewVoice.matchSpoken(text, step: .name, profile: coordinator.profile) {
