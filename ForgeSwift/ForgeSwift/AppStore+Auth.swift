@@ -59,24 +59,6 @@ extension AppStore {
             ) {
                 finishForgePrep()
             }
-            if AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: TestReadyLaunchPolicy.isRunningOnSimulator,
-                isTestHost: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
-                isAuthenticated: isAuthenticated,
-                isInterviewComplete: AriaForgePrepHandoff.isInterviewComplete,
-                launchPrepWedge: ProcessInfo.processInfo.environment["FORGE_LAUNCH_PREP_WEDGE"] == "1"
-            ) {
-                finishForgePrep()
-            }
-            if AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: TestReadyLaunchPolicy.isRunningOnSimulator,
-                isTestHost: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
-                isAuthenticated: isAuthenticated,
-                isInterviewComplete: AriaForgePrepHandoff.isInterviewComplete,
-                launchPrepWedge: ProcessInfo.processInfo.environment["FORGE_LAUNCH_PREP_WEDGE"] == "1"
-            ) {
-                finishForgePrep()
-            }
             return
         }
         restoreUserProfileForCurrentUser()

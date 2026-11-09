@@ -333,9 +333,11 @@ enum AriaForgePrepHandoff {
         }
     }
 
-    /// DEBUG simulator skip-hold must clear a leftover handoff at restore so
-    /// the 60s watchdog does not wait on OnboardingView / UserDefaults flush.
+    /// Opening Home at restore builds the tab shell on the first sample
+    /// window (prep_wedge measured 2.88s). The process fail-open still
+    /// clears the handoff at leftoverFailOpen, inside the 60s watchdog.
     /// XCTest keeps the flag so resume-prep cases can still observe it.
+    /// `launchPrepWedge` is an explicit simulator skip, not the launch gate.
     static func shouldFinishLeftoverPrepOnRestore(
         isDebugSimulator: Bool,
         isTestHost: Bool,
@@ -344,8 +346,8 @@ enum AriaForgePrepHandoff {
         launchPrepWedge: Bool = false
     ) -> Bool {
         if isTestHost { return false }
-        if launchPrepWedge && isDebugSimulator { return true }
-        return isDebugSimulator && isAuthenticated && isInterviewComplete
+        if !isAuthenticated || !isInterviewComplete { return false }
+        return launchPrepWedge && isDebugSimulator
     }
 }
 

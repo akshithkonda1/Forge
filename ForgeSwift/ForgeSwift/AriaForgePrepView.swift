@@ -5,7 +5,6 @@ import ForgeCore
 /// a quiet fill — never a "Loading 47%" readout, and never spoken ARIA.
 struct AriaForgePrepView: View {
     var coordinator: OnboardingCoordinator
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(AriaSpokenMute.mutedKey) private var spokenMuted = true
 
@@ -52,17 +51,13 @@ struct AriaForgePrepView: View {
             Spacer(minLength: ForgeLayout.sectionGap)
 
             VStack(spacing: FDS.Spacing.xl) {
-                AuroraOrbView(
-                    state: stage == .ready ? .idle : .processing,
-                    amplitude: reduceMotion ? 0.18 : 0.42,
-                    mood: .focused,
-                    size: orbSize,
-                    followPresence: false
-                )
-                // Frozen nest still-pose paints on the first commit.
-                // TimelineView animation is a later tick — not the ring.
-                .environment(\.forgeMinimalAnimation, true)
-                .accessibilityHidden(true)
+                // Static ember disc. The nest Canvas compiles a Metal
+                // pipeline on the main thread; that compile plus Home
+                // pushed prep_wedge sample 0 to 2.88s (limit 2.0s).
+                Circle()
+                    .fill(Color.ember)
+                    .frame(width: orbSize, height: orbSize)
+                    .accessibilityHidden(true)
 
                 statusCopy(stage: stage)
             }
