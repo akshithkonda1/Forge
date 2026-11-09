@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 final class MedicationPharmacyTests: XCTestCase {
@@ -155,7 +156,7 @@ final class MedicationPharmacyTests: XCTestCase {
         XCTAssertEqual(names.filter { $0.caseInsensitiveCompare(name) == .orderedSame }.count, 1)
     }
 
-    func testToggleSavedUsesStableCatalogId() {
+    func testToggleSavedUsesStableCatalogId() throws {
         let lipitor = MedicationPharmacy.search("lipitor", limit: 1).items.first
         XCTAssertNotNil(lipitor)
         let med = try XCTUnwrap(lipitor)
