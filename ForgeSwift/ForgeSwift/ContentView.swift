@@ -31,23 +31,9 @@ struct ContentView: View {
             needsForgePrep: store.needsForgePrep
         )
         ZStack {
-            Group {
-                if leftoverPrep {
-                    OnboardingView()
-                } else if !revealRoot {
-                    LaunchBrandField()
-                } else if store.launchRootDestination == .authWelcome {
-                    AuthWelcomeView()
-                } else if store.launchRootDestination == .onboarding {
-                    OnboardingView()
-                } else if !showSplash {
-                    MainTabView()
-                } else {
-                    LaunchBrandField()
-                }
-                .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
-                .animation(ForgeMotion.crossfade, value: store.isOnboarded)
-            }
+            launchRoot(leftoverPrep: leftoverPrep)
+                .animation(reduceMotion ? nil : ForgeMotion.crossfade, value: store.isAuthenticated)
+                .animation(reduceMotion ? nil : ForgeMotion.crossfade, value: store.isOnboarded)
 
             if showSplash && LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: leftoverPrep) {
                 ForgeSplashScreen(signedIn: store.isAuthenticated, onSkip: { dismissSplash() })
@@ -120,6 +106,28 @@ struct ContentView: View {
             )
             dismissSplash()
             attachVoiceGates()
+        }
+    }
+
+    @ViewBuilder
+    private func launchRoot(leftoverPrep: Bool) -> some View {
+        if leftoverPrep {
+            OnboardingView()
+        } else if !revealRoot {
+            LaunchBrandField()
+        } else {
+            switch store.launchRootDestination {
+            case .authWelcome:
+                AuthWelcomeView()
+            case .onboarding:
+                OnboardingView()
+            case .home:
+                if showSplash {
+                    LaunchBrandField()
+                } else {
+                    MainTabView()
+                }
+            }
         }
     }
 
