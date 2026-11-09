@@ -17,6 +17,8 @@ struct ContentView: View {
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
     @State private var neuralVoiceGate: AriaNeuralVoiceGate?
+    /// Same rule as the neural gate: do not touch the shared Kokoro gate from `body`.
+    @State private var kokoroVoiceGate: AriaKokoroVoiceGate?
     /// First SwiftUI commit is the splash field only — except leftover /
     /// wedged prep, which must paint AriaForgePrep on that commit.
     /// AuthWelcome / interview / Home attach after that paint — every build,
@@ -48,7 +50,7 @@ struct ContentView: View {
             }
 
             if showSplash && LaunchFirstCommit.splashCoversFirstCommit(leftoverPrep: leftoverPrep) {
-                ForgeSplashScreen()
+                ForgeSplashScreen(signedIn: store.isAuthenticated, onSkip: { dismissSplash() })
                     .transition(.opacity)
                     .zIndex(999)
                     // Decorative: keep VoiceOver off "FORGE" / "Forged." as it fades.
@@ -77,6 +79,7 @@ struct ContentView: View {
             if leftoverPrep {
                 revealRoot = true
                 showSplash = false
+                splashBlocksHits = false
                 Self.didFinishSplash = true
             }
         }
@@ -87,12 +90,11 @@ struct ContentView: View {
             if leftoverPrep {
                 revealRoot = true
                 showSplash = false
+                splashBlocksHits = false
                 Self.didFinishSplash = true
                 AriaForgePrep.armLeftoverTimeout(store: store)
                 await LaunchFirstFrame.afterPaint()
-                let gate = AriaNeuralVoiceGate.shared
-                neuralVoiceGate = gate
-                gate.refreshCatalog()
+                attachVoiceGates()
                 return
             }
             await LaunchFirstFrame.afterPaint()
@@ -107,20 +109,35 @@ struct ContentView: View {
                 AriaForgePrep.refreshInterviewOffMainActor(store: store)
             }
             guard showSplash else {
-                let gate = AriaNeuralVoiceGate.shared
-                neuralVoiceGate = gate
-                gate.refreshCatalog()
+                attachVoiceGates()
                 return
             }
-            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
-            Self.didFinishSplash = true
-            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
-                showSplash = false
-            }
-            let gate = AriaNeuralVoiceGate.shared
-            neuralVoiceGate = gate
-            gate.refreshCatalog()
+            try? await Task.sleep(
+                nanoseconds: ForgeSplashTiming.pauseNanoseconds(
+                    reduceMotion: reduceMotion,
+                    signedIn: store.isAuthenticated
+                )
+            )
+            dismissSplash()
+            attachVoiceGates()
         }
+    }
+
+    private func dismissSplash() {
+        Self.didFinishSplash = true
+        splashBlocksHits = false
+        withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
+            showSplash = false
+        }
+    }
+
+    private func attachVoiceGates() {
+        let neural = AriaNeuralVoiceGate.shared
+        neuralVoiceGate = neural
+        neural.refreshCatalog()
+        let kokoro = AriaKokoroVoiceGate.shared
+        kokoroVoiceGate = kokoro
+        Task { await kokoro.refresh() }
     }
 
     private var neuralPromptBinding: Binding<Bool> {
@@ -181,56 +198,37 @@ struct LaunchBrandField: View {
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
+    static let backdropHex = "09090B"
+    static let launchColorName = "LaunchBackground"
+
+    var signedIn: Bool = false
+    var onSkip: (() -> Void)? = nil
+
     // Visible on the first commit. Starting at opacity 0 made the splash a
     // uniform black frame, which the launch gate counts as blank.
-    @State private var logoScale: CGFloat = 1
     @State private var logoOpacity: Double = 1
-    @State private var glowIntensity: Double = 1
     @State private var textOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var side: CGFloat { LaunchBrandField.markSide }
+    private var settled: Bool { reduceMotion || signedIn }
 
     var body: some View {
         ZStack {
             Color(hex: Self.backdropHex)
                 .ignoresSafeArea()
 
-            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
-            // flat field; without this mark the first SwiftUI commit is a
-            // blank #08080C frame and the launch gate resets its streak.
+            // Same 220 pt ember as LaunchScreen.storyboard. Without this mark
+            // the first SwiftUI commit is a blank field and the launch gate
+            // resets its streak.
             RoundedRectangle(cornerRadius: 36, style: .continuous)
                 .fill(LaunchBrandField.ember)
-                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
-                .accessibilityHidden(true)
-
-            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
-            // flat field; without this mark the first SwiftUI commit is a
-            // blank #08080C frame and the launch gate resets its streak.
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .fill(LaunchBrandField.ember)
-                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
-                .accessibilityHidden(true)
-
-            // Same 220 pt ember as LaunchScreen.storyboard. Atmosphere is a
-            // flat field; without this mark the first SwiftUI commit is a
-            // blank #08080C frame and the launch gate resets its streak.
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .fill(LaunchBrandField.ember)
-                .frame(width: LaunchBrandField.markSide, height: LaunchBrandField.markSide)
+                .frame(width: side, height: side)
                 .accessibilityHidden(true)
 
             VStack(spacing: FDS.Spacing.xl) {
-                ZStack {
-                    PremiumPresenceBloom(
-                        size: 220,
-                        accent: ForgePalette.ember,
-                        frost: Color(hex: "A9D8FF"),
-                        live: false
-                    )
+                ForgeStrikeMark(playback: settled ? .trimmed : .full)
                     .frame(width: side, height: side)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .frame(maxWidth: 460)
-                .frame(height: 380)
 
                 VStack(spacing: FDS.Spacing.md) {
                     HStack(spacing: FDS.Spacing.md) {
@@ -255,14 +253,14 @@ struct ForgeSplashScreen: View {
         .accessibilityAction(.escape) { onSkip?() }
         .task {
             // One rigid tap as the hammer lands. Off under Reduce Motion
-            // (static pose) and on the signed-in trim (no swing).
-            guard !reduceMotion, !signedIn else { return }
+            // and on the signed-in trim (no swing).
+            guard !settled else { return }
             try? await Task.sleep(nanoseconds: UInt64(ForgeStrikeGeometry.splashImpactTime * 1_000_000_000))
             guard !Task.isCancelled else { return }
             ForgeHaptics.playStrike()
         }
         .onAppear {
-            if reduceMotion || signedIn {
+            if settled {
                 logoOpacity = 1
                 textOffset = 0
                 return

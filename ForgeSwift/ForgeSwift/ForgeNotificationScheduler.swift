@@ -27,6 +27,16 @@ enum ForgeNotificationScheduler {
         static let partnerSupport = "forge.notif.partner.support"
     }
 
+    /// The system sheet waits for onboarding, after sign-in. `sync` itself
+    /// never prompts; a fresh install must not sit on that alert through launch.
+    static let promptPolicy = "onboarding-after-sign-in"
+    static let syncPromptsWhenUndetermined = false
+
+    /// Onboarding calls this once the person is signed in.
+    static func promptAuthorization() async -> Bool {
+        await requestAuthorizationIfNeeded(promptIfUndetermined: true)
+    }
+
     /// Launch / prep must not show the system permission sheet. A fresh
     /// simulator install otherwise sits on that alert until the launch
     /// first-frame window expires. Settings toggles pass `promptIfUndetermined: true`.
