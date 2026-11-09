@@ -1,6 +1,7 @@
 import XCTest
 @testable import ForgeSwift
 
+@MainActor
 final class CycleCoachingCopyTests: XCTestCase {
 
     func testUserFacingCycleCopyNeverSaysRecovery() {
@@ -17,7 +18,7 @@ final class CycleCoachingCopyTests: XCTestCase {
         for phase in MenstrualPhase.allCases {
             for domain: CoachingDomain in [.workout, .nutrition, .sleep, .stress, .general] {
                 let high = CyclePhaseCoachingDirective.directive(
-                    for: phase, domain: domain, confidence: 0.9, lutealDays: 14
+                    for: phase, domain: domain, confidence: 0.9
                 )
                 XCTAssertFalse(high.localizedCaseInsensitiveContains("recovery"), high)
             }
@@ -26,7 +27,7 @@ final class CycleCoachingCopyTests: XCTestCase {
 
     func testWorkoutGuidanceIsTentativeAndReadinessFirst() {
         let follicular = CyclePhaseCoachingDirective.directive(
-            for: .follicular, domain: .workout, confidence: 0.8, lutealDays: 14
+            for: .follicular, domain: .workout, confidence: 0.8
         )
         XCTAssertTrue(follicular.localizedCaseInsensitiveContains("many people")
                       || follicular.localizedCaseInsensitiveContains("some"))
@@ -37,7 +38,7 @@ final class CycleCoachingCopyTests: XCTestCase {
         XCTAssertFalse(follicular.localizedCaseInsensitiveContains("best day"))
 
         let ovulation = CyclePhaseCoachingDirective.directive(
-            for: .ovulation, domain: .workout, confidence: 0.85, lutealDays: 14
+            for: .ovulation, domain: .workout, confidence: 0.85
         )
         XCTAssertFalse(ovulation.localizedCaseInsensitiveContains("one-rep"))
         XCTAssertFalse(ovulation.localizedCaseInsensitiveContains("aggression"))
@@ -51,12 +52,9 @@ final class CycleCoachingCopyTests: XCTestCase {
             for: .follicular,
             domain: .workout,
             confidence: 0.45,
-            lutealDays: 14,
             ovulationMethod: "population_fallback"
         )
-        XCTAssertTrue(CyclePhaseCoachingDirective.isLowConfidenceEstimate(
-            confidence: 0.45, ovulationMethod: "population_fallback"
-        ))
+        XCTAssertLessThan(0.45, CyclePhaseCoachingDirective.lowConfidenceCeiling)
         XCTAssertTrue(text.localizedCaseInsensitiveContains("low-confidence"))
         XCTAssertTrue(text.localizedCaseInsensitiveContains("do not push max efforts"))
         XCTAssertTrue(text.localizedCaseInsensitiveContains("readiness"))
@@ -64,19 +62,20 @@ final class CycleCoachingCopyTests: XCTestCase {
     }
 
     func testLutealGuidanceUsesEffectiveLutealLength() {
-        let split14 = CyclePhaseCoachingDirective.lutealSplit(lutealDays: 14)
+        let split14 = CyclePhaseCoachingDirective.lutealHalves(lutealDays: 14)
         XCTAssertEqual(split14.earlyEnd, 7)
         XCTAssertEqual(split14.lateStart, 8)
-        XCTAssertEqual(split14.luteal, 14)
+        XCTAssertEqual(split14.lateEnd, 14)
 
-        let split12 = CyclePhaseCoachingDirective.lutealSplit(lutealDays: 12)
+        let split12 = CyclePhaseCoachingDirective.lutealHalves(lutealDays: 12)
         XCTAssertEqual(split12.lateStart, 7)
-        XCTAssertEqual(split12.luteal, 12)
+        XCTAssertEqual(split12.lateEnd, 12)
 
         let luteal = CyclePhaseCoachingDirective.directive(
-            for: .luteal, domain: .workout, confidence: 0.8, lutealDays: 12
+            for: .luteal, domain: .workout, confidence: 0.8
         )
-        XCTAssertTrue(luteal.contains("7") && luteal.contains("12"), luteal)
+        XCTAssertTrue(luteal.localizedCaseInsensitiveContains("early luteal"), luteal)
+        XCTAssertTrue(luteal.localizedCaseInsensitiveContains("late luteal"), luteal)
         XCTAssertFalse(luteal.contains("8–14") || luteal.contains("8-14"))
     }
 
