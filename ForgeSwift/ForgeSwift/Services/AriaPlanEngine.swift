@@ -969,8 +969,14 @@ enum AriaPlanEngine {
         // Cycle phase stays in Cycle Health — not in workout chat.
         // (Training bias already applied via band stepDown; prescription lives
         // in MenstrualHealthView.)
-        // Medication never appears in the plan the person hears.
+        // Drug names and doses stay out of the plan the person hears.
+        // The lifestyle note only says the session was built around what
+        // they already take, and that it is not a prescription.
         var spoken = ForgeConditionSafety.sanitize(speech)
+        let medicationNote = context.medicationLayer.planNote
+        if !medicationNote.isEmpty {
+            spoken += " " + medicationNote
+        }
         if AriaCoachSpeechGuard.containsBanned(spoken) {
             spoken = spoken.replacingOccurrences(of: "Recovery", with: "Rest")
             spoken = spoken.replacingOccurrences(of: "recovery", with: "rest")
