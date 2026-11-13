@@ -39,14 +39,6 @@
 	     launch-stability first_frame check rejects a uniform screenshot. -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<!-- Hide the status bar over LaunchScreen so a solid #09090B field
-	     stays >= 0.995 dominant (blank) and cannot count as first_frame
-	     while dyld is still in notifyDebuggerLoad. SwiftUI shows the
-	     bar once ContentView appears (view-controller based appearance). -->
-	<key>UIStatusBarHidden</key>
-	<true/>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
 
 	<!-- Sleep soundscapes and the wake tone keep playing when the screen locks. -->
 	<key>UIBackgroundModes</key>

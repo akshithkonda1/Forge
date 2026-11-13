@@ -120,15 +120,22 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
             src,
         )
 
-    def test_app_does_not_link_kokoro_at_process_start(self):
+    def test_app_lazy_loads_kokoro_on_first_voice_use(self):
         pbx = PBXPROJ.read_text(encoding="utf-8")
         phase = pbx.split("AA0003000000000000000001 /* Frameworks */ = {", 1)[1]
         files = phase.split("files = (", 1)[1].split(");", 1)[0]
         self.assertNotIn("KokoroTTS in Frameworks", files)
-        app_target = pbx.split('name = ForgeSwift;', 1)[1]
+        app_target = pbx.split("name = ForgeSwift;", 1)[1]
         deps = app_target.split("packageProductDependencies = (", 1)[1].split(");", 1)[0]
-        self.assertNotIn("KokoroTTS", deps)
+        self.assertIn("KokoroTTS", deps)
+        self.assertIn("-lazy_framework", pbx)
+        self.assertIn("disable-autolink-framework", pbx)
         self.assertIn("mattmireles/kokoro-coreml", pbx)
+        engine = (ROOT / "ForgeSwift" / "ForgeSwift" / "AriaKokoroEngine.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("AriaVoiceEngineRegistry.shared.speak", engine)
+        self.assertNotIn("AVSpeechSynthesizer", engine)
 
     def test_first_layout_does_not_mount_strike_chat_or_weekly_sheet(self):
         prep = PREP.read_text(encoding="utf-8")
@@ -178,11 +185,6 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         chat_at = launch_task.find("self.restoreChatHistory()")
         self.assertGreater(onboarded_at, 0)
         self.assertGreater(chat_at, onboarded_at)
-        add = (ROOT / "ForgeSwift" / "ForgeSwift" / "Info-Add.plist").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("<key>UIStatusBarHidden</key>", add)
-        self.assertIn("<true/>", add.split("<key>UIStatusBarHidden</key>", 1)[1][:80])
 
     def test_prep_has_a_wall_clock_fail_open(self):
         src = PREP.read_text(encoding="utf-8")
