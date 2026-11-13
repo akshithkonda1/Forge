@@ -2,12 +2,13 @@ name: 'Terraform'
 
 # pull_request is unfiltered so required checks always report.
 # Push keeps a path filter.
-# Apply runs after the plan jobs on pull_request and push. workflow_dispatch
-# apply still requires run_apply=true (plan-only dispatch stays plan-only).
+# Apply runs only on push to main, or workflow_dispatch with
+# run_apply=true (plan-only dispatch stays plan-only). It never runs on
+# pull_request or merge_group, so Dependabot and other PRs do not fail
+# closed on missing AWS credentials. Plan and Checks still run on PRs.
 # Nothing reaches AWS until credentials exist and GitHub Environment
 # terraform-prod is approved. Missing credentials fail closed. This job
-# never auto-approves, never uses continue-on-error, and never treats a
-# skipped apply as success.
+# never auto-approves and never uses continue-on-error.
 on:
   push:
     paths:
@@ -220,11 +221,12 @@ jobs:
   terraform-apply:
     name: 'Terraform Apply (dev, approval-gated)'
     needs: [terraform-checks, terraform-prod-plan]
-    # Run on pull_request and push so this required check is not skipped.
-    # workflow_dispatch stays opt-in via run_apply. The credentials step
-    # fails closed when AWS_ROLE_ARN / access keys are unset. Nothing is
-    # applied without credentials.
-    if: github.event_name != 'workflow_dispatch' || inputs.run_apply == true
+    # Live apply is push to main, or workflow_dispatch with run_apply=true.
+    # pull_request / merge_group / other branches skip this job so Plan and
+    # Checks can stay green without AWS secrets. Environment terraform-prod
+    # remains the approval gate when this job runs. The credentials step
+    # still fails closed when AWS_ROLE_ARN / access keys are unset.
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
     environment: terraform-prod
     runs-on: ubuntu-latest
     # Two applies must not overlap. Never cancel an apply that has started.
