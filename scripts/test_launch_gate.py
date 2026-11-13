@@ -128,7 +128,7 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         engine = ENGINE.read_text(encoding="utf-8")
         self.assertIn("AriaVoiceEngineRegistry.shared.speak", engine)
         self.assertIn("bundle.loadAndReturnError()", engine)
-        self.assertIn("testingForceFailure", engine)
+        self.assertIn("testingBundleURL", engine)
         self.assertNotIn("AVSpeechSynthesizer", engine)
         test = KOKORO_TEST.read_text(encoding="utf-8")
         self.assertIn(

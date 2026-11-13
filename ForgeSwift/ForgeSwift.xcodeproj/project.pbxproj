@@ -347,7 +347,6 @@
 		F0B100000000000000000030 /* WorkoutActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000023 /* WorkoutActivityCoordinator.swift */; };
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
-		1KOKOROFW00000000000001 /* KokoroTTS in Frameworks */ = {isa = PBXBuildFile; productRef = 1KOKOROPROD00000000001 /* KokoroTTS */; };
 		1AKR010000000000000003 /* AriaKokoroRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AKR010000000000000001 /* AriaKokoroRuntime.swift */; };
 		1AKR010000000000000004 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1AKR010000000000000050 /* ForgeCore */; };
 		1AKR010000000000000005 /* KokoroTTS in Frameworks */ = {isa = PBXBuildFile; productRef = 1KOKOROPROD00000000001 /* KokoroTTS */; };

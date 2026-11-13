@@ -7,7 +7,7 @@ import os
 /// Dynamic framework mouth. The app embeds this image and does not link it.
 /// `AriaVoiceEngineRegistry` loads it on first speak via `Bundle.load`.
 @objc(AriaKokoroRuntimePrincipal)
-public final class AriaKokoroRuntimePrincipal: NSObject, AriaVoiceEngine {
+public final class AriaKokoroRuntimePrincipal: NSObject, AriaVoiceEngine, AriaKokoroHydrating {
     public let id = AriaVoiceEngineID.kokoro
     private static let logger = Logger(subsystem: "com.forge.aria", category: "kokoro.runtime")
 
@@ -35,6 +35,17 @@ public final class AriaKokoroRuntimePrincipal: NSObject, AriaVoiceEngine {
         engine?.stop()
         player = nil
         engine = nil
+    }
+
+    public func hydrateHuggingFace(cacheDirectory: URL) async -> Bool {
+        do {
+            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+            _ = try await KokoroResourceProvider.huggingFace(cacheDirectory: cacheDirectory)
+            return true
+        } catch {
+            Self.logger.error("Kokoro download failed: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
     }
 
     private func loadEngine() async -> Bool {

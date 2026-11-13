@@ -99,11 +99,11 @@ jobs:
           otool -L "$BIN"
           echo "### dyld_info -dependents ForgeSwift"
           dyld_info -dependents "$BIN" || true
-          if otool -L "$BIN" | grep -E 'KokoroTTS|MisakiSwift'; then
-            echo "::error::ForgeSwift binary still LC_LOAD_DYLIB KokoroTTS or MisakiSwift"
+          if otool -L "$BIN" | grep -E 'KokoroTTS|MisakiSwift|AriaKokoroRuntime'; then
+            echo "::error::ForgeSwift binary still LC_LOAD_DYLIB KokoroTTS, MisakiSwift, or AriaKokoroRuntime"
             exit 1
           fi
-          echo "No KokoroTTS or MisakiSwift in ForgeSwift load commands."
+          echo "No KokoroTTS, MisakiSwift, or AriaKokoroRuntime in ForgeSwift load commands."
           if [ -d "$APP/Frameworks/AriaKokoroRuntime.framework" ]; then
             echo "### nested AriaKokoroRuntime.framework is embedded, not linked by the app"
             otool -L "$APP/Frameworks/AriaKokoroRuntime.framework/AriaKokoroRuntime" || true

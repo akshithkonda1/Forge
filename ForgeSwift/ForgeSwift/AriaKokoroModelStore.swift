@@ -5,9 +5,6 @@ import os
 import System
 #endif
 
-#if canImport(KokoroTTS)
-import KokoroTTS
-#endif
 #if canImport(BackgroundAssets)
 import BackgroundAssets
 #endif
@@ -126,7 +123,6 @@ final class AriaKokoroModelStore {
             lastError = AriaKokoroVoice.loadFailedMessage
             return false
         }
-        #if canImport(KokoroTTS)
         guard AriaKokoroDelivery.isPinnedRevision(AriaKokoroVoice.hostedRevision) else {
             lastError = "Unpinned hosted revision."
             return false
@@ -136,7 +132,15 @@ final class AriaKokoroModelStore {
         defer { isDownloading = false }
         do {
             try FileManager.default.createDirectory(at: applicationSupportRoot, withIntermediateDirectories: true)
-            _ = try await KokoroResourceProvider.huggingFace(cacheDirectory: applicationSupportRoot)
+            guard let hydrator = AriaKokoroRuntimeLoader.engine() as? AriaKokoroHydrating else {
+                lastError = AriaKokoroVoice.loadFailedMessage
+                return false
+            }
+            let hydrated = await hydrator.hydrateHuggingFace(cacheDirectory: applicationSupportRoot)
+            guard hydrated else {
+                lastError = AriaKokoroVoice.loadFailedMessage
+                return false
+            }
             guard hasVerifiedRuntime else {
                 lastError = "Download finished without a verified runtime."
                 return false
@@ -152,10 +156,6 @@ final class AriaKokoroModelStore {
             Self.logger.error("Kokoro download failed: \(error.localizedDescription, privacy: .public)")
             return false
         }
-        #else
-        lastError = "KokoroTTS is not linked."
-        return false
-        #endif
     }
 
     /// TODO(aws): GET `origin`, verify checksum, write Application Support.

@@ -118,7 +118,8 @@ final class AriaKokoroEngineTests: XCTestCase {
 
     func testFirstSpeakLoadFailureThroughRegistryIsSilenceAndShownText() async {
         AriaKokoroEngine.resetForTests()
-        AriaKokoroRuntimeLoader.testingForceFailure = true
+        AriaKokoroRuntimeLoader.testingBundleURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ForgeTests-missing-AriaKokoroRuntime.framework")
         let presence = AriaPresence.shared
         presence.resetSynthesizerStorageForTests()
         let previousMute = AriaSpokenMute.isMuted
@@ -208,25 +209,19 @@ final class AriaKokoroEngineTests: XCTestCase {
     }
 
     func testSynthesisProducesNonEmptyAudioWhenModelIsPresent() async throws {
-        #if canImport(KokoroTTS)
         await AriaKokoroModelStore.shared.discover()
         guard AriaKokoroModelStore.shared.hasVerifiedRuntime else {
             throw XCTSkip("Kokoro-82M starter runtime is not on this CI host")
         }
         AriaKokoroEngine.resetForTests()
-        let ready = await AriaKokoroRuntimeSynthesizer.shared.prepare()
-        guard ready else {
-            throw XCTSkip("Kokoro engine could not load the present runtime")
+        guard AriaKokoroRuntimeLoader.engine() != nil else {
+            throw XCTSkip("AriaKokoroRuntime image is not loadable in this test host")
         }
-        let samples = await AriaKokoroRuntimeSynthesizer.shared.renderPCM(
+        let spoken = await AriaVoiceEngineRegistry.shared.speak(
             "Hello.",
             voiceID: AriaKokoroVoice.ariaPreset,
             speed: 1.0
         )
-        XCTAssertFalse(samples.isEmpty, "Kokoro synthesis returned empty audio")
-        XCTAssertTrue(AriaKokoroAudioPolicy.isPlayable(samples))
-        #else
-        throw XCTSkip("KokoroTTS is not linked in this test host")
-        #endif
+        XCTAssertTrue(spoken, "Kokoro synthesis through the loaded runtime must speak")
     }
 }

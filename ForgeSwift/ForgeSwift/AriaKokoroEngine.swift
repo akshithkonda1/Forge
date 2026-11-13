@@ -4,10 +4,6 @@ import Foundation
 import ForgeCore
 import os
 
-#if canImport(KokoroTTS)
-import KokoroTTS
-#endif
-
 /// Lazy on-device Kokoro mouth. The only registered `AriaVoiceEngine`.
 ///
 /// Package: `mattmireles/kokoro-coreml` v2.0 / `KokoroTTS` (Apache-2.0),
@@ -86,7 +82,7 @@ final class AriaKokoroVoiceEngine: ForgeCore.AriaVoiceEngine {
     }
 }
 
-/// Injected only by tests. Production always uses KokoroTTS + AVAudioEngine.
+/// Injected only by tests. Production speaks through the loaded runtime image.
 struct AriaKokoroEngineTestBackend {
     var modelPresent: Bool
     var load: () async -> Bool
@@ -106,10 +102,6 @@ final class AriaKokoroRuntimeSynthesizer {
     private var speakGeneration = 0
     private var testBackend: AriaKokoroEngineTestBackend?
 
-    #if canImport(KokoroTTS)
-    private var tts: KokoroTTS?
-    #endif
-
     private init() {}
 
     var loadState: AriaKokoroLoadState { path.loadState }
@@ -119,9 +111,6 @@ final class AriaKokoroRuntimeSynthesizer {
         path = AriaKokoroEnginePath()
         testBackend = nil
         stop()
-        #if canImport(KokoroTTS)
-        tts = nil
-        #endif
     }
 
     func installTestBackend(_ backend: AriaKokoroEngineTestBackend) {
@@ -175,31 +164,10 @@ final class AriaKokoroRuntimeSynthesizer {
                 from: await testBackend.render(text, voiceID, speed)
             )
         }
-        #if canImport(KokoroTTS)
-        guard let tts else { return [] }
-        let voice = KokoroVoiceID(AriaKokoroVoice.sanitizePreset(voiceID))
-        let options = KokoroSynthesisOptions(
-            speed: Float(speed),
-            maxChunkSeconds: AriaKokoroDelivery.maxChunkSeconds
-        )
-        do {
-            let audio = try await synthesizeWithFallback(
-                tts: tts,
-                text: text,
-                voice: voice,
-                options: options
-            )
-            return AriaKokoroAudioPolicy.playableSamples(from: audio.samples)
-        } catch {
-            Self.logger.error("Kokoro synthesize failed: \(error.localizedDescription, privacy: .public)")
-            return []
-        }
-        #else
         _ = text
         _ = voiceID
         _ = speed
         return []
-        #endif
     }
 
     func stop() {
@@ -223,48 +191,7 @@ final class AriaKokoroRuntimeSynthesizer {
         if let testBackend {
             return await testBackend.load()
         }
-        return await loadEngine()
-    }
-
-    #if canImport(KokoroTTS)
-    private func synthesizeWithFallback(
-        tts: KokoroTTS,
-        text: String,
-        voice: KokoroVoiceID,
-        options: KokoroSynthesisOptions
-    ) async throws -> KokoroAudio {
-        do {
-            return try await tts.synthesize(text, voice: voice, options: options)
-        } catch {
-            let fallback = KokoroVoiceID.afHeart
-            guard voice != fallback else { throw error }
-            return try await tts.synthesize(text, voice: fallback, options: options)
-        }
-    }
-    #endif
-
-    private func loadEngine() async -> Bool {
-        #if canImport(KokoroTTS)
-        guard let root = AriaKokoroModelStore.shared.resolvedRuntimeURL() else {
-            return false
-        }
-        let compiled = AriaKokoroModelStore.shared.compiledModelsDirectory
-        do {
-            try FileManager.default.createDirectory(at: compiled, withIntermediateDirectories: true)
-            let resources = KokoroResourceProvider.directory(
-                root,
-                compiledModelsDirectory: compiled
-            )
-            tts = try await KokoroTTS.load(resources: resources)
-            return tts != nil
-        } catch {
-            Self.logger.error("Kokoro load failed: \(error.localizedDescription, privacy: .public)")
-            tts = nil
-            return false
-        }
-        #else
         return false
-        #endif
     }
 
     private func play(samples: [Float], sampleRate: Double, generation: Int) async -> Bool {
@@ -341,13 +268,13 @@ final class AriaKokoroRuntimeSynthesizer {
 /// Embeds `AriaKokoroRuntime.framework` without linking it. First speak
 /// `Bundle.load`s the image and takes its `AriaVoiceEngine` principal class.
 enum AriaKokoroRuntimeLoader {
-    static var testingForceFailure = false
+    /// Tests point this at a missing or garbage framework URL.
+    static var testingBundleURL: URL?
     private static var cached: (any AriaVoiceEngine)?
 
     static func engine() -> (any AriaVoiceEngine)? {
-        if testingForceFailure { return nil }
         if let cached { return cached }
-        let url = Bundle.main.bundleURL
+        let url = testingBundleURL ?? Bundle.main.bundleURL
             .appendingPathComponent("Frameworks/AriaKokoroRuntime.framework")
         guard let bundle = Bundle(url: url) else { return nil }
         do {
@@ -365,6 +292,6 @@ enum AriaKokoroRuntimeLoader {
 
     static func resetForTests() {
         cached = nil
-        testingForceFailure = false
+        testingBundleURL = nil
     }
 }
