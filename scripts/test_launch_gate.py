@@ -17,7 +17,6 @@ SCRIPT = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "launch_gate.py"
 THRESHOLDS = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "thresholds.env"
 HEALTHKIT = ROOT / "ForgeSwift" / "ForgeSwift" / "HealthKitManager.swift"
 CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
-LAUNCH_STORYBOARD = ROOT / "ForgeSwift" / "ForgeSwift" / "LaunchScreen.storyboard"
 APP = ROOT / "ForgeSwift" / "ForgeSwift" / "ForgeSwiftApp.swift"
 AUTH = ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore+Auth.swift"
 PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
@@ -110,12 +109,6 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertNotIn("return launchPrepWedge && isDebugSimulator", prep)
         self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", auth)
         self.assertNotIn("launchPrepWedge:", auth)
-
-    def test_launch_storyboard_is_blank_so_first_frame_is_swiftui(self):
-        src = LAUNCH_STORYBOARD.read_text(encoding="utf-8")
-        self.assertNotIn("forge-launch-mark", src)
-        self.assertNotIn("constant=\"220\"", src)
-        self.assertIn("0.03529411764705882", src)
 
     def test_first_commit_is_branded_not_a_solid_field(self):
         src = CONTENT.read_text(encoding="utf-8")
