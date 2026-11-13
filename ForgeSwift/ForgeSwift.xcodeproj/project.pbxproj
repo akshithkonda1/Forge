@@ -348,6 +348,10 @@
 		F0B100000000000000000031 /* LifestyleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000024 /* LifestyleWidget.swift */; };
 		F0B100000000000000000032 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000003 /* ForgeCore */; };
 		1KOKOROFW00000000000001 /* KokoroTTS in Frameworks */ = {isa = PBXBuildFile; productRef = 1KOKOROPROD00000000001 /* KokoroTTS */; };
+		1AKR010000000000000003 /* AriaKokoroRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AKR010000000000000001 /* AriaKokoroRuntime.swift */; };
+		1AKR010000000000000004 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1AKR010000000000000050 /* ForgeCore */; };
+		1AKR010000000000000005 /* KokoroTTS in Frameworks */ = {isa = PBXBuildFile; productRef = 1KOKOROPROD00000000001 /* KokoroTTS */; };
+		1AKR010000000000000006 /* AriaKokoroRuntime.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1AKR010000000000000002 /* AriaKokoroRuntime.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F0B100000000000000000033 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0F200000000000000000004 /* ForgeCore */; };
 		F0B100000000000000000034 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000025 /* ForgeWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F0B100000000000000000035 /* SleepSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000026 /* SleepSummaryView.swift */; };
@@ -447,6 +451,13 @@
 			remoteGlobalIDString = AA0005000000000000000001;
 			remoteInfo = ForgeSwift;
 		};
+		1AKR010000000000000020 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0008000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1AKR010000000000000010;
+			remoteInfo = AriaKokoroRuntime;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -470,6 +481,17 @@
 				F0B100000000000000000023 /* ForgeWatch.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1AKR010000000000000040 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				1AKR010000000000000006 /* AriaKokoroRuntime.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F0D10000000000000000000C /* Embed Foundation Extensions */ = {
@@ -540,6 +562,8 @@
 		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
 		1VOICE0032F9FF867004091AA /* AriaSpokenVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoice.swift; sourceTree = "<group>"; };
 		1VOICE0102F9FF867004091AA /* AriaCharacterVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCharacterVoice.swift; sourceTree = "<group>"; };
+		1AKR010000000000000001 /* AriaKokoroRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroRuntime.swift; sourceTree = "<group>"; };
+		1AKR010000000000000002 /* AriaKokoroRuntime.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AriaKokoroRuntime.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1KOKORO0102F9FF867004091AA /* AriaKokoroEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroEngine.swift; sourceTree = "<group>"; };
 		721A80B556742E555A548662 /* AriaKokoroModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroModelStore.swift; sourceTree = "<group>"; };
 		98BF916CCA77F6FB3AC58249 /* AriaKokoroVoicePrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaKokoroVoicePrompt.swift; sourceTree = "<group>"; };
@@ -911,7 +935,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0B100000000000000000032 /* ForgeCore in Frameworks */,
-				1KOKOROFW00000000000001 /* KokoroTTS in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1AKR010000000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1AKR010000000000000004 /* ForgeCore in Frameworks */,
+				1AKR010000000000000005 /* KokoroTTS in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1270,6 +1302,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000200000000000000000D /* ForgeSwift.app */,
+				1AKR010000000000000002 /* AriaKokoroRuntime.framework */,
 				F0F100000000000000000018 /* ForgeWatch.app */,
 				F0F100000000000000000019 /* ForgeWatchWidgets.appex */,
 				F0F100000000000000000025 /* ForgeWidgetExtension.appex */,
@@ -1280,10 +1313,19 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		1AKR010000000000000013 /* AriaKokoroRuntime */ = {
+			isa = PBXGroup;
+			children = (
+				1AKR010000000000000001 /* AriaKokoroRuntime.swift */,
+			);
+			path = AriaKokoroRuntime;
+			sourceTree = "<group>";
+		};
 		AA0004000000000000000003 = {
 			isa = PBXGroup;
 			children = (
 				AA0004000000000000000001 /* ForgeSwift */,
+				1AKR010000000000000013 /* AriaKokoroRuntime */,
 				1TEST00800000000000000A /* ForgeSwiftTests */,
 				F0F100000000000000000017 /* ForgeCore */,
 				F0A100000000000000000001 /* ForgeWatch */,
@@ -1541,10 +1583,12 @@
 				AA0007000000000000000002 /* Resources */,
 				F0D100000000000000000008 /* Embed Watch Content */,
 				F0D10000000000000000000C /* Embed Foundation Extensions */,
+				1AKR010000000000000040 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1AKR010000000000000021 /* PBXTargetDependency */,
 				F0C300000000000000000002 /* PBXTargetDependency */,
 				F0C300000000000000000003 /* PBXTargetDependency */,
 				AA000B0000000000000000C1 /* PBXTargetDependency */,
@@ -1553,7 +1597,6 @@
 			name = ForgeSwift;
 			packageProductDependencies = (
 				F0F200000000000000000003 /* ForgeCore */,
-				1KOKOROPROD00000000001 /* KokoroTTS */,
 			);
 			productName = ForgeSwift;
 			productReference = AA000200000000000000000D /* ForgeSwift.app */;
@@ -1621,6 +1664,26 @@
 			productReference = F0F100000000000000000025 /* ForgeWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		1AKR010000000000000010 /* AriaKokoroRuntime */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1AKR010000000000000032 /* Build configuration list for PBXNativeTarget "AriaKokoroRuntime" */;
+			buildPhases = (
+				1AKR010000000000000011 /* Sources */,
+				1AKR010000000000000012 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AriaKokoroRuntime;
+			packageProductDependencies = (
+				1AKR010000000000000050 /* ForgeCore */,
+				1KOKOROPROD00000000001 /* KokoroTTS */,
+			);
+			productName = AriaKokoroRuntime;
+			productReference = 1AKR010000000000000002 /* AriaKokoroRuntime.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		1TEST00100000000000000A /* ForgeSwiftTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1TEST00200000000000000A /* Build configuration list for PBXNativeTarget "ForgeSwiftTests" */;
@@ -1648,6 +1711,9 @@
 				LastSwiftUpdateCheck = 1530;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
+					1AKR010000000000000010 = {
+						CreatedOnToolsVersion = 15.3;
+					};
 					AA0005000000000000000001 = {
 						CreatedOnToolsVersion = 15.3;
 					};
@@ -1685,6 +1751,7 @@
 			projectRoot = "";
 			targets = (
 				AA0005000000000000000001 /* ForgeSwift */,
+				1AKR010000000000000010 /* AriaKokoroRuntime */,
 				F0C100000000000000000001 /* ForgeWatch */,
 				F0C100000000000000000002 /* ForgeWatchWidgets */,
 				F0C100000000000000000003 /* ForgeWidgetExtension */,
@@ -1751,6 +1818,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1AKR010000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1AKR010000000000000003 /* AriaKokoroRuntime.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AB0007000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2205,9 +2280,74 @@
 			target = AA0005000000000000000001 /* ForgeSwift */;
 			targetProxy = 1TEST01000000000000000A /* PBXContainerItemProxy */;
 		};
+		1AKR010000000000000021 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1AKR010000000000000010 /* AriaKokoroRuntime */;
+			targetProxy = 1AKR010000000000000020 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1AKR010000000000000030 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPrincipalClass = AriaKokoroRuntimePrincipal;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = mh_dylib;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.AriaKokoroRuntime;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1AKR010000000000000031 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPrincipalClass = AriaKokoroRuntimePrincipal;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = mh_dylib;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.AriaKokoroRuntime;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		AB0009000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2826,6 +2966,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		1AKR010000000000000032 /* Build configuration list for PBXNativeTarget "AriaKokoroRuntime" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1AKR010000000000000030 /* Debug */,
+				1AKR010000000000000031 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		1TEST00200000000000000A /* Build configuration list for PBXNativeTarget "ForgeSwiftTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2877,6 +3026,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1KOKOROREPO00000000001 /* XCRemoteSwiftPackageReference "kokoro-coreml" */;
 			productName = KokoroTTS;
+		};
+		1AKR010000000000000050 /* ForgeCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ForgeCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

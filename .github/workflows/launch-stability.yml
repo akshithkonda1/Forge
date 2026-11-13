@@ -90,6 +90,25 @@ jobs:
             ENABLE_DEBUG_DYLIB=NO 2>&1 | tee /tmp/launch-build.log
           test -d /tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
 
+      - name: Prove ForgeSwift does not LC_LOAD_DYLIB KokoroTTS or MisakiSwift
+        run: |
+          set -euo pipefail
+          APP=/tmp/dd-launch/Build/Products/Debug-iphonesimulator/ForgeSwift.app
+          BIN="$APP/ForgeSwift"
+          echo "### otool -L ForgeSwift (app binary, not nested frameworks)"
+          otool -L "$BIN"
+          echo "### dyld_info -dependents ForgeSwift"
+          dyld_info -dependents "$BIN" || true
+          if otool -L "$BIN" | grep -E 'KokoroTTS|MisakiSwift'; then
+            echo "::error::ForgeSwift binary still LC_LOAD_DYLIB KokoroTTS or MisakiSwift"
+            exit 1
+          fi
+          echo "No KokoroTTS or MisakiSwift in ForgeSwift load commands."
+          if [ -d "$APP/Frameworks/AriaKokoroRuntime.framework" ]; then
+            echo "### nested AriaKokoroRuntime.framework is embedded, not linked by the app"
+            otool -L "$APP/Frameworks/AriaKokoroRuntime.framework/AriaKokoroRuntime" || true
+          fi
+
       # Xcode "Sign to Run Locally" (CODE_SIGN_IDENTITY=-) signs every nested
       # bundle inside-out and embeds ForgeSwift.entitlements, exactly like a
       # local simulator run. Without the entitlements CKContainer(identifier:)

@@ -20,6 +20,10 @@ CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
 APP = ROOT / "ForgeSwift" / "ForgeSwift" / "ForgeSwiftApp.swift"
 AUTH = ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore+Auth.swift"
 PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
+PBXPROJ = ROOT / "ForgeSwift" / "ForgeSwift.xcodeproj" / "project.pbxproj"
+ENGINE = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaKokoroEngine.swift"
+KOKORO_TEST = ROOT / "ForgeSwift" / "ForgeSwiftTests" / "AriaKokoroEngineTests.swift"
+STABILITY_YML = ROOT / ".github" / "workflows" / "launch-stability.yml"
 
 
 def _load():
@@ -109,6 +113,34 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
             "if !revealRoot {\n                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)",
             src,
         )
+
+    def test_app_embeds_but_does_not_link_kokoro_at_process_start(self):
+        pbx = PBXPROJ.read_text(encoding="utf-8")
+        phase = pbx.split("AA0003000000000000000001 /* Frameworks */ = {", 1)[1]
+        files = phase.split("files = (", 1)[1].split(");", 1)[0]
+        self.assertNotIn("KokoroTTS in Frameworks", files)
+        app_target = pbx.split("name = ForgeSwift;", 1)[1]
+        deps = app_target.split("packageProductDependencies = (", 1)[1].split(");", 1)[0]
+        self.assertNotIn("KokoroTTS", deps)
+        self.assertIn("AriaKokoroRuntime", pbx)
+        self.assertIn("Embed Frameworks", pbx)
+        self.assertNotIn("-lazy_framework", pbx)
+        engine = ENGINE.read_text(encoding="utf-8")
+        self.assertIn("AriaVoiceEngineRegistry.shared.speak", engine)
+        self.assertIn("bundle.loadAndReturnError()", engine)
+        self.assertIn("testingForceFailure", engine)
+        self.assertNotIn("AVSpeechSynthesizer", engine)
+        test = KOKORO_TEST.read_text(encoding="utf-8")
+        self.assertIn(
+            "func testFirstSpeakLoadFailureThroughRegistryIsSilenceAndShownText()",
+            test,
+        )
+        gate = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("DYLD_PRINT_LIBRARIES", gate)
+        self.assertIn("DYLD_PRINT_STATISTICS", gate)
+        yml = STABILITY_YML.read_text(encoding="utf-8")
+        self.assertIn("otool -L", yml)
+        self.assertIn("KokoroTTS|MisakiSwift", yml)
 
     def test_prep_has_a_wall_clock_fail_open(self):
         src = PREP.read_text(encoding="utf-8")

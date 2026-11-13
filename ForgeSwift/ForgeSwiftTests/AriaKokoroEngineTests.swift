@@ -116,6 +116,57 @@ final class AriaKokoroEngineTests: XCTestCase {
         XCTAssertEqual(renders, 1 + AriaKokoroAudioPolicy.synthesisRetryLimit)
     }
 
+    func testFirstSpeakLoadFailureThroughRegistryIsSilenceAndShownText() async {
+        AriaKokoroEngine.resetForTests()
+        AriaKokoroRuntimeLoader.testingForceFailure = true
+        let presence = AriaPresence.shared
+        presence.resetSynthesizerStorageForTests()
+        let previousMute = AriaSpokenMute.isMuted
+        AriaSpokenMute.isMuted = false
+        defer {
+            AriaSpokenMute.isMuted = previousMute
+            presence.resetSynthesizerStorageForTests()
+            presence.stopSpeaking()
+            AriaKokoroRuntimeLoader.resetForTests()
+        }
+
+        let line = "Hello from ARIA."
+        XCTAssertEqual(AriaSpeechPrep.spokenLine(in: line), line)
+        XCTAssertFalse(
+            AriaPresence.appleFallbackPlaybackEnabled,
+            "failed load must not hand off to Apple TTS"
+        )
+
+        let spoken = await AriaVoiceEngineRegistry.shared.speak(
+            line,
+            voiceID: AriaKokoroVoice.ariaPreset,
+            speed: 1.0
+        )
+        XCTAssertFalse(spoken, "failed first speak is silence")
+        XCTAssertNil(
+            presence.synthesizerStorageForTests,
+            "no fallback voice — AVSpeechSynthesizer stays unallocated"
+        )
+        XCTAssertFalse(presence.appleSynthesizerIsSpeaking)
+        XCTAssertEqual(
+            AriaKokoroVoice.loadFailedMessage,
+            "Voice could not load. The text reply is shown."
+        )
+
+        presence.speak(line)
+        let deadline = Date().addingTimeInterval(1)
+        while presence.isSpeaking && Date() < deadline {
+            await Task.yield()
+        }
+        XCTAssertFalse(presence.isSpeaking, "failed load leaves ARIA silent")
+        XCTAssertNil(presence.synthesizerStorageForTests)
+        XCTAssertEqual(
+            AriaSpeechPrep.spokenLine(in: line),
+            line,
+            "the reply text stays on screen"
+        )
+    }
+
     func testSpeakFailsClosedWhenTheRuntimeIsMissing() async {
         AriaKokoroRuntimeSynthesizer.shared.installTestBackend(
             AriaKokoroEngineTestBackend(
