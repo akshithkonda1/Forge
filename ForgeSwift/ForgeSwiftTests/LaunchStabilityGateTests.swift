@@ -82,7 +82,10 @@ final class LaunchStabilityGateTests: XCTestCase {
 
     func testPrepHoldDefaultsOffAndCapBeatsWatchdog() {
         let coordinator = OnboardingCoordinator()
-        XCTAssertFalse(coordinator.skipPrepHold)
+        XCTAssertFalse(
+            coordinator.skipPrepHold,
+            "Launch never sets skipPrepHold; DEBUG Skip wait is explicit"
+        )
         XCTAssertEqual(AriaForgePrep.floor, 45)
         XCTAssertEqual(AriaForgePrep.cap, 55)
         XCTAssertEqual(AriaForgePrep.watchdog, 60)
@@ -158,13 +161,36 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertTrue(store.needsForgePrep)
         XCTAssertTrue(AriaForgePrepHandoff.isInterviewComplete)
         XCTAssertFalse(store.isOnboarded)
+        XCTAssertFalse(
+            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: true,
+                isTestHost: false,
+                isAuthenticated: true,
+                isInterviewComplete: true
+            ),
+            "Debug simulator restore is not a leftover-prep exit"
+        )
+        XCTAssertFalse(
+            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
+                isDebugSimulator: false,
+                isTestHost: false,
+                isAuthenticated: true,
+                isInterviewComplete: true
+            )
+        )
     }
 
     func testFirstFrameRevealIsNotAThirtySecondHide() {
+        XCTAssertNil(
+            ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"],
+            "Launch never sets FORGE_LAUNCH_LIGHT_ROOT"
+        )
         XCTAssertFalse(
             ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
         )
         XCTAssertEqual(LaunchBrandField.markSide, 220)
+        let coordinator = OnboardingCoordinator()
+        XCTAssertFalse(coordinator.skipPrepHold)
     }
 
     func testKokoroOnlyStopAndIsSpeakingDoNotAllocateSynthesizer() {

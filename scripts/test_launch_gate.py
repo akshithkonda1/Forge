@@ -2,7 +2,7 @@
 """Launch-gate classifier and threshold pins.
 
 Keeps thresholds.env from being loosened in this PR and pins the idle
-parser so a dyld/sampler attach stall is not billed as a main-thread hang.
+parser to run-loop waits only (no sampler-stall skip, no harness warmup).
 """
 
 from __future__ import annotations
@@ -17,6 +17,8 @@ SCRIPT = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "launch_gate.py"
 THRESHOLDS = ROOT / "ForgeSwift" / "Scripts" / "launch-gate" / "thresholds.env"
 HEALTHKIT = ROOT / "ForgeSwift" / "ForgeSwift" / "HealthKitManager.swift"
 CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
+APP = ROOT / "ForgeSwift" / "ForgeSwift" / "ForgeSwiftApp.swift"
+AUTH = ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore+Auth.swift"
 PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
 
 
@@ -75,6 +77,29 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertNotIn('extra = {"FORGE_LAUNCH_LIGHT_ROOT": "1"}', src)
         self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", src)
 
+    def test_gate_has_no_sampler_stall_or_warmup(self):
+        src = SCRIPT.read_text(encoding="utf-8")
+        self.assertNotIn("SAMPLER_STALL", src)
+        self.assertNotIn("notifyDebuggerLoad", src)
+        self.assertNotIn("warmup_screenshot_io", src)
+        self.assertNotIn("warmup_app_launch", src)
+
+    def test_app_has_no_light_root_or_reveal_delay(self):
+        content = CONTENT.read_text(encoding="utf-8")
+        app = APP.read_text(encoding="utf-8")
+        self.assertNotIn("FORGE_LAUNCH_LIGHT_ROOT", content)
+        self.assertNotIn("LaunchHarnessPolicy", content)
+        self.assertNotIn("revealDelaySeconds", content)
+        self.assertNotIn("LaunchHarnessPolicy", app)
+        self.assertNotIn("FORGE_LAUNCH_LIGHT_ROOT", app)
+
+    def test_restore_does_not_finish_leftover_prep_on_simulator(self):
+        prep = PREP.read_text(encoding="utf-8")
+        auth = AUTH.read_text(encoding="utf-8")
+        self.assertNotIn("return launchPrepWedge && isDebugSimulator", prep)
+        self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", auth)
+        self.assertNotIn("launchPrepWedge:", auth)
+
     def test_first_commit_is_branded_not_a_solid_field(self):
         src = CONTENT.read_text(encoding="utf-8")
         self.assertIn("struct LaunchBrandField", src)
@@ -115,7 +140,7 @@ class IdleClassifier(unittest.TestCase):
         self.assertEqual(idle, 300)
         self.assertEqual(busy, 0.0)
 
-    def test_sampler_dyld_stall_is_idle(self):
+    def test_sampler_dyld_stall_is_busy(self):
         text = _sample(
             "    + 300 start\n"
             "    +   153 CFRunLoopRun\n"
@@ -127,9 +152,8 @@ class IdleClassifier(unittest.TestCase):
         )
         busy, total, idle = _busy(text)
         self.assertEqual(total, 300)
-        self.assertEqual(idle, 300)
-        self.assertLess(busy, lg.T["MAIN_THREAD_BLOCK_MAX_S"])
-        self.assertAlmostEqual(busy, 0.0)
+        self.assertEqual(idle, 153)
+        self.assertAlmostEqual(busy, 147 / 300 * 3.0)
 
     def test_app_code_mach_msg_stays_busy(self):
         text = _sample(

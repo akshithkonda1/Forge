@@ -337,17 +337,18 @@ enum AriaForgePrepHandoff {
     /// window (prep_wedge measured 2.88s). The process fail-open still
     /// clears the handoff at leftoverFailOpen, inside the 60s watchdog.
     /// XCTest keeps the flag so resume-prep cases can still observe it.
-    /// `launchPrepWedge` is an explicit simulator skip, not the launch gate.
+    /// Launch never skips leftover prep — not on the debug simulator,
+    /// not for a harness env flag.
     static func shouldFinishLeftoverPrepOnRestore(
         isDebugSimulator: Bool,
         isTestHost: Bool,
         isAuthenticated: Bool,
-        isInterviewComplete: Bool,
-        launchPrepWedge: Bool = false
+        isInterviewComplete: Bool
     ) -> Bool {
         if isTestHost { return false }
         if !isAuthenticated || !isInterviewComplete { return false }
-        return launchPrepWedge && isDebugSimulator
+        if isDebugSimulator { return false }
+        return false
     }
 }
 
