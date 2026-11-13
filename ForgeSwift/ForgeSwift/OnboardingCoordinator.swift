@@ -299,9 +299,6 @@ final class OnboardingCoordinator {
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeName(profile.firstName), mood: .energized)
             await advanceTo(.health)
-            if LaunchFirstCommit.shouldPromptNotifications(needsForgePrep: false) {
-                await ForgeNotificationScheduler.promptAuthorization()
-            }
         }
     }
 
@@ -1164,9 +1161,6 @@ final class OnboardingCoordinator {
         // sees onboarded even if seeding is slow.
         store.finishForgePrep()
         isPrepping = false
-        guard LaunchFirstCommit.shouldOpenChatAfterPrep(leftoverResume: leftoverResume) else {
-            return
-        }
 
         store.activeTab = .chat
         // Interview → chat opener. On Dummy / Test-Ready, skip First Bond so

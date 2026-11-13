@@ -341,17 +341,20 @@ final class AppStore: ObservableObject {
         AriaForgePrep.bindLeftoverStore(self)
         
         AriaContextStore.shared.configure()
+        AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
 
         // Restore persisted onboarding so a returning user skips setup entirely.
         restoreOnboardingState()
+
+        // Training habits restore synchronously too — the suggestion box needs
+        // to know this person's patterns before the first Train question.
+        restoreTrainingHabits()
 
         // Chat JSON is decoded after the first frame. Home is the launch tab,
         // so a deferred transcript cannot flash mock chat. Tests still restore
         // synchronously so cases that write history see it immediately.
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             restoreChatHistory()
-            restoreTrainingHabits()
-            AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
         }
 
         // Real nights, history, and today's session come from Apple Health + this
@@ -370,8 +373,6 @@ final class AppStore: ObservableObject {
         }
         Task { @MainActor in
             await LaunchFirstFrame.afterPaint()
-            restoreTrainingHabits()
-            AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
             #if canImport(FoundationModels) && !targetEnvironment(simulator)
             let foundationModelsGenerator = FoundationModelsResponseGenerator()
             if foundationModelsGenerator.isAvailable {
@@ -384,14 +385,10 @@ final class AppStore: ObservableObject {
             // main thread before first layout — screenshots stalled and
             // the first commit stayed Color.background #09090B.
             if self.needsForgePrep { return }
-            if !self.isOnboarded { return }
-            // Chat JSON on an interview first layout invalidates
-            // AriaInterviewLayout + SpeechManager (kill_relaunch sample 0
-            // was restoreChatHistory → AttributeGraph). Home is the launch
-            // tab; restore after the person is onboarded.
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 self.restoreChatHistory()
             }
+            if !self.isOnboarded { return }
             await self.refreshDailyData()
             // Never prompt for notifications at launch. Returning users who
             // already granted can reschedule; fresh installs wait for onboarding.

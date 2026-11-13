@@ -32,10 +32,6 @@ struct OnboardingView: View {
         .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.isPrepping)
         .onAppear {
             coordinator.startIfNeeded(in: store)
-            guard LaunchFirstCommit.promptsNotificationsOnOnboardingAppear else { return }
-            guard LaunchFirstCommit.shouldPromptNotifications(
-                needsForgePrep: store.needsForgePrep
-            ) else { return }
             Task { await ForgeNotificationScheduler.promptAuthorization() }
         }
         .onDisappear { coordinator.stopInterviewVoice() }

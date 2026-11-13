@@ -162,14 +162,11 @@ struct ChatView: View {
                 proactiveInsight = insight
             }
             consumePendingHomeHandoff()
+            weeklyReview.considerPresenting()
             store.startAriaFirstBondIfNeeded()
             if store.isInAriaFirstBond {
                 showQuickActions = true
             }
-        }
-        .task {
-            await LaunchFirstFrame.afterPaint()
-            weeklyReview.considerPresenting()
         }
         .onChange(of: store.ariaPendingChatPrompt) { _, _ in
             tryConsumeHandoff()

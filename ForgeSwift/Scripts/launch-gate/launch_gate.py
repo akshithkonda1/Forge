@@ -270,48 +270,12 @@ def launch(udid, env=None):
     # Do not inject FORGE_LAUNCH_LIGHT_ROOT — the app must meet the
     # first-frame / main-thread limits on the real launch path.
     extra = dict(env or {})
-    extra.setdefault("DYLD_PRINT_STATISTICS", "1")
-    extra.setdefault("DYLD_PRINT_STATISTICS_DETAILS", "1")
     extra_env = {f"SIMCTL_CHILD_{key}": str(value) for key, value in extra.items()}
     out = simctl("launch", udid, BUNDLE, extra_env=extra_env).stdout
     m = re.search(r":\s*(\d+)", out)
     if not m:
         raise RuntimeError(f"no pid from simctl launch: {out!r}")
     return int(m.group(1)), time.monotonic()
-
-
-def dump_dyld_trace(pid, name):
-    """Print DYLD_PRINT_STATISTICS. Not a gate check — scoring is unchanged."""
-    pred = (
-        f'processID == {int(pid)} AND ('
-        f'composedMessage CONTAINS[c] "pre-main" OR '
-        f'composedMessage CONTAINS[c] "dylib loading" OR '
-        f'composedMessage CONTAINS[c] "rebase" OR '
-        f'composedMessage CONTAINS[c] "initializer" OR '
-        f'composedMessage CONTAINS[c] "dyld" OR '
-        f'composedMessage CONTAINS "Kokoro" OR '
-        f'composedMessage CONTAINS "Misaki")'
-    )
-    r = sh(
-        "log", "show", "--last", "3m", "--style", "compact",
-        "--predicate", pred,
-        check=False, timeout=40,
-    )
-    text = (r.stdout or "") + (r.stderr or "")
-    path = f"{OUT}/{name}-dyld.txt"
-    try:
-        os.makedirs(OUT, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(text)
-    except OSError:
-        pass
-    lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
-    if not lines:
-        print(f"  [dyld] {name}: no DYLD_PRINT_STATISTICS lines for pid {pid}", flush=True)
-        return
-    print(f"  [dyld] {name} pid {pid}", flush=True)
-    for ln in lines[-60:]:
-        print(f"  [dyld] {ln}", flush=True)
 
 
 def app_data_container(udid):
@@ -431,7 +395,6 @@ def run_scenario(name, udid, app):
     if last:
         summarize(last, f"{name} last frame @{el():.1f}s")
     summarize(base, f"{name} baseline")
-    dump_dyld_trace(pid, name)
     check("alive@first_frame", pid_alive(pid), f"pid {pid}", "alive")
     check("first_frame", frame_at is not None and frame_at <= T["FIRST_FRAME_MAX_S"],
           f"{frame_at:.2f}s x{int(T['FIRST_FRAME_CONSECUTIVE'])} frames (diff vs baseline {diff:.2f}, dominant {share:.3f})" if frame_at is not None

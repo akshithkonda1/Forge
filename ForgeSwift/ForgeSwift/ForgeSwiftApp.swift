@@ -23,9 +23,11 @@ struct ForgeSwiftApp: App {
 
     init() {
         AriaForgePrep.markProcessStart()
-        // Keychain migration of leftover UserDefaults is not first-frame
-        // work. AppStore.restore still reads the current store; the sweep
-        // runs after the first SwiftUI commit.
+        // One launch interval for the synchronous start work; AppStore's
+        // init carries its own span. Durations only — see ForgePerf.
+        ForgePerf.measure("appInit", category: .launch) {
+            SecureStoreMigration.run(from: .standard, to: KeychainStore())
+        }
     }
 
     var body: some Scene {
@@ -41,10 +43,6 @@ struct ForgeSwiftApp: App {
                     Task {
                         await LaunchFirstFrame.afterPaint()
                         await Task.yield()
-                        await Task.detached(priority: .utility) {
-                            SecureStoreMigration.run(from: .standard, to: KeychainStore())
-                            ForgeFont.registerIfNeeded()
-                        }.value
                         // Un-onboarded / leftover prep: do not probe HealthKit
                         // on the first sample window (kill-relaunch main-thread
                         // was a 3s busy HK source catalog after first frame).

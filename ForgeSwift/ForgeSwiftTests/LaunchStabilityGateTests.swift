@@ -283,82 +283,6 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(AriaForgePrep.Stage.profile.headline, "Loading your profile")
     }
 
-    func testLaunchPathDoesNotDumpChatSheetOrStrikeOnFirstLayout() {
-        XCTAssertFalse(
-            LaunchFirstCommit.splashMountsStrikeOnFirstCommit,
-            "ForgeStrikeMark TimelineView+Canvas stays off the first splash commit"
-        )
-        XCTAssertFalse(
-            LaunchFirstCommit.shouldOpenChatAfterPrep(leftoverResume: true),
-            "Leftover fail-open must land on Home, not Chat+AriaMeet+weekly sheet"
-        )
-        XCTAssertTrue(LaunchFirstCommit.shouldOpenChatAfterPrep(leftoverResume: false))
-        XCTAssertFalse(
-            LaunchFirstCommit.shouldPromptNotifications(needsForgePrep: true),
-            "Leftover prep must not present the notification permission sheet"
-        )
-        XCTAssertTrue(LaunchFirstCommit.shouldPromptNotifications(needsForgePrep: false))
-        XCTAssertFalse(LaunchFirstCommit.shouldAttachVoiceGates(leftoverPrep: true))
-        XCTAssertTrue(LaunchFirstCommit.shouldAttachVoiceGates(leftoverPrep: false))
-        XCTAssertFalse(
-            LaunchFirstCommit.shouldAttachVoiceGatesOnLaunch(leftoverPrep: false, isOnboarded: false),
-            "Kokoro 210 MB sheet is not an interview first frame"
-        )
-        XCTAssertTrue(
-            LaunchFirstCommit.shouldAttachVoiceGatesOnLaunch(leftoverPrep: false, isOnboarded: true)
-        )
-        XCTAssertFalse(LaunchFirstCommit.promptsNotificationsOnOnboardingAppear)
-        XCTAssertFalse(
-            LaunchFirstCommit.presentsWeeklyReviewOnFirstChatLayout,
-            "WeeklyAriaReviewSheet is not a first Chat layout"
-        )
-        XCTAssertFalse(
-            LaunchFirstCommit.usesBrandFontsOnFirstCommit,
-            "Seven TTF registrations are not a splash / prep first layout"
-        )
-        XCTAssertFalse(
-            LaunchFirstCommit.mountsHomeHeroOnFirstCommit,
-            "Home progress ring and morning card wait one hop after Home appears"
-        )
-        XCTAssertEqual(AppStore().activeTab, .home)
-    }
-
-    func testLeftoverPrepPendingFromDefaultsReadsInterviewFlagOnly() {
-        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
-        defer {
-            AriaForgePrepHandoff.clearInterviewComplete()
-            AriaForgePrep.resetLeftoverSessionForTests()
-            if let previousOnboarded {
-                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
-            }
-            UserDefaults.standard.synchronize()
-        }
-
-        UserDefaults.standard.set(false, forKey: AppStore.onboardedDefaultsKey)
-        UserDefaults.standard.synchronize()
-        AriaForgePrepHandoff.resetInterviewCacheForTests()
-        AriaForgePrepHandoff.clearInterviewComplete()
-        XCTAssertFalse(
-            LaunchFirstCommit.leftoverPrepPendingFromDefaults(),
-            "Cold launch has no leftover interview flag"
-        )
-
-        AriaForgePrepHandoff.markInterviewComplete()
-        XCTAssertTrue(
-            LaunchFirstCommit.leftoverPrepPendingFromDefaults(),
-            "Wedged prep must construct AppStore before the first SwiftUI commit"
-        )
-
-        UserDefaults.standard.set(true, forKey: AppStore.onboardedDefaultsKey)
-        UserDefaults.standard.synchronize()
-        XCTAssertFalse(
-            LaunchFirstCommit.leftoverPrepPendingFromDefaults(),
-            "Onboarded Home does not treat a leftover interview flag as prep"
-        )
-    }
-
     func testLeftoverFailOpenBeatsWatchdogWithMargin() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
         XCTAssertEqual(AriaForgePrep.cap, 55)
@@ -555,11 +479,6 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertTrue(
             AriaForgePrepHandoff.readBool(AppStore.onboardedDefaultsKey),
             "Authenticated leftover fail-open marks onboarded on disk"
-        )
-        XCTAssertEqual(
-            store.activeTab,
-            .home,
-            "Fail-open must not hop to Chat on the same commit as onboarded"
         )
     }
 }

@@ -49,14 +49,12 @@ public enum ForgeFont {
     }()
 
     /// Safe to call any number of times; registers once per process.
-    /// `nonisolated` so launch can register the seven TTFs off the main
-    /// actor after the first SwiftUI commit.
     @discardableResult
-    nonisolated public static func registerIfNeeded() -> Bool {
+    public static func registerIfNeeded() -> Bool {
         didRegister
     }
 
-    nonisolated private static func registerBundledFonts() {
+    private static func registerBundledFonts() {
         #if SWIFT_PACKAGE
         let bundle = Bundle.module
         #else

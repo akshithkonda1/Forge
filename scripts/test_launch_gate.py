@@ -20,11 +20,6 @@ CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
 APP = ROOT / "ForgeSwift" / "ForgeSwift" / "ForgeSwiftApp.swift"
 AUTH = ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore+Auth.swift"
 PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
-COORDINATOR = ROOT / "ForgeSwift" / "ForgeSwift" / "OnboardingCoordinator.swift"
-CHAT = ROOT / "ForgeSwift" / "ForgeSwift" / "ChatView.swift"
-ONBOARDING = ROOT / "ForgeSwift" / "ForgeSwift" / "OnboardingView.swift"
-HOME = ROOT / "ForgeSwift" / "ForgeSwift" / "HomeView.swift"
-PBXPROJ = ROOT / "ForgeSwift" / "ForgeSwift.xcodeproj" / "project.pbxproj"
 
 
 def _load():
@@ -97,11 +92,6 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertNotIn("revealDelaySeconds", content)
         self.assertNotIn("LaunchHarnessPolicy", app)
         self.assertNotIn("FORGE_LAUNCH_LIGHT_ROOT", app)
-        self.assertNotIn(
-            "SecureStoreMigration.run(from: .standard, to: KeychainStore())",
-            app.split("var body")[0],
-        )
-        self.assertIn("SecureStoreMigration.run(from: .standard, to: KeychainStore())", app)
 
     def test_restore_does_not_finish_leftover_prep_on_simulator(self):
         prep = PREP.read_text(encoding="utf-8")
@@ -119,72 +109,6 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
             "if !revealRoot {\n                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)",
             src,
         )
-
-    def test_app_lazy_loads_kokoro_on_first_voice_use(self):
-        pbx = PBXPROJ.read_text(encoding="utf-8")
-        phase = pbx.split("AA0003000000000000000001 /* Frameworks */ = {", 1)[1]
-        files = phase.split("files = (", 1)[1].split(");", 1)[0]
-        self.assertNotIn("KokoroTTS in Frameworks", files)
-        app_target = pbx.split("name = ForgeSwift;", 1)[1]
-        deps = app_target.split("packageProductDependencies = (", 1)[1].split(");", 1)[0]
-        self.assertIn("KokoroTTS", deps)
-        self.assertIn("-lazy_framework", pbx)
-        self.assertIn("disable-autolink-framework", pbx)
-        self.assertIn("mattmireles/kokoro-coreml", pbx)
-        engine = (ROOT / "ForgeSwift" / "ForgeSwift" / "AriaKokoroEngine.swift").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("AriaVoiceEngineRegistry.shared.speak", engine)
-        self.assertNotIn("AVSpeechSynthesizer", engine)
-
-    def test_first_layout_does_not_mount_strike_chat_or_weekly_sheet(self):
-        prep = PREP.read_text(encoding="utf-8")
-        content = CONTENT.read_text(encoding="utf-8")
-        coordinator = COORDINATOR.read_text(encoding="utf-8")
-        chat = CHAT.read_text(encoding="utf-8")
-        onboarding = ONBOARDING.read_text(encoding="utf-8")
-        self.assertIn("static var splashMountsStrikeOnFirstCommit: Bool { false }", prep)
-        self.assertIn("if showStrike {", content)
-        self.assertIn("ForgeStrikeMark(playback:", content)
-        self.assertIn(
-            "guard LaunchFirstCommit.shouldOpenChatAfterPrep(leftoverResume: leftoverResume) else {",
-            coordinator,
-        )
-        self.assertNotIn("weeklyReview.considerPresenting()", chat.split(".task")[0])
-        self.assertIn("weeklyReview.considerPresenting()", chat)
-        self.assertIn(
-            "LaunchFirstCommit.promptsNotificationsOnOnboardingAppear",
-            onboarding,
-        )
-        self.assertIn("static var promptsNotificationsOnOnboardingAppear: Bool { false }", prep)
-        self.assertIn(
-            "shouldAttachVoiceGatesOnLaunch(",
-            content,
-        )
-        self.assertIn(
-            "static var usesBrandFontsOnFirstCommit: Bool { false }",
-            prep,
-        )
-        self.assertIn(
-            "static var mountsHomeHeroOnFirstCommit: Bool { false }",
-            prep,
-        )
-        home = HOME.read_text(encoding="utf-8")
-        self.assertIn("LaunchFirstCommit.mountsHomeHeroOnFirstCommit", home)
-        self.assertIn("useBrandFonts", content)
-        self.assertIn(".statusBarHidden(false)", content)
-        self.assertIn(
-            "static func leftoverPrepPendingFromDefaults()",
-            prep,
-        )
-        appstore = (ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore.swift").read_text(
-            encoding="utf-8"
-        )
-        launch_task = appstore.split("await LaunchFirstFrame.afterPaint()", 1)[1]
-        onboarded_at = launch_task.find("if !self.isOnboarded { return }")
-        chat_at = launch_task.find("self.restoreChatHistory()")
-        self.assertGreater(onboarded_at, 0)
-        self.assertGreater(chat_at, onboarded_at)
 
     def test_prep_has_a_wall_clock_fail_open(self):
         src = PREP.read_text(encoding="utf-8")

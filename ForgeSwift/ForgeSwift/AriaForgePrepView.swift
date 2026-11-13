@@ -7,7 +7,6 @@ struct AriaForgePrepView: View {
     var coordinator: OnboardingCoordinator
     @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(AriaSpokenMute.mutedKey) private var spokenMuted = true
-    @State private var useBrandFonts = LaunchFirstCommit.usesBrandFontsOnFirstCommit
 
     private var orbSize: CGFloat { typeSize.isAccessibilitySize ? 96 : 132 }
 
@@ -33,13 +32,6 @@ struct AriaForgePrepView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollBounceBehavior(.basedOnSize)
             }
-        }
-        .task {
-            await LaunchFirstFrame.afterPaint()
-            await Task.detached(priority: .utility) {
-                ForgeFont.registerIfNeeded()
-            }.value
-            useBrandFonts = true
         }
     }
 
@@ -81,20 +73,17 @@ struct AriaForgePrepView: View {
     private func statusCopy(stage: AriaForgePrep.Stage) -> some View {
         VStack(spacing: ForgeLayout.pairGap) {
             Text(stage.eyebrow)
-                .font(useBrandFonts ? FDS.TypeScale.Dynamic.label : .system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.textTertiary)
-                .tracking(1.4)
-                .textCase(.uppercase)
+                .forgeSectionLabel()
                 .multilineTextAlignment(.center)
 
             Text(stage.headline)
-                .font(useBrandFonts ? ForgeType.pageTitle : .system(size: 28, weight: .regular, design: .serif))
+                .font(ForgeType.pageTitle)
                 .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
                 .forgeWrapping()
 
             Text(stage.detail(healthConnected: coordinator.prepHealthConnected))
-                .font(useBrandFonts ? HomeType.body : .system(size: 17, weight: .regular))
+                .font(HomeType.body)
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
                 .forgeWrapping()
@@ -115,14 +104,14 @@ struct AriaForgePrepView: View {
                 .accessibilityHidden(true)
 
             Text(stage.footer(progress: progress))
-                .font(useBrandFonts ? HomeType.body : .system(size: 17, weight: .regular))
+                .font(HomeType.body)
                 .foregroundStyle(Color.textTertiary)
                 .multilineTextAlignment(.center)
                 .forgeWrapping()
 
             if spokenMuted {
                 Text("Voice is muted")
-                    .font(useBrandFonts ? HomeType.micro : .system(size: 11, weight: .medium))
+                    .font(HomeType.micro)
                     .foregroundStyle(Color.textTertiary)
             }
         }
