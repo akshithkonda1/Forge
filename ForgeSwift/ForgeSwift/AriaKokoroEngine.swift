@@ -270,9 +270,9 @@ final class AriaKokoroRuntimeSynthesizer {
 enum AriaKokoroRuntimeLoader {
     /// Tests point this at a missing or garbage framework URL.
     static var testingBundleURL: URL?
-    private static var cached: (any AriaVoiceEngine)?
+    private static var cached: (any ForgeCore.AriaVoiceEngine)?
 
-    static func engine() -> (any AriaVoiceEngine)? {
+    static func engine() -> (any ForgeCore.AriaVoiceEngine)? {
         if let cached { return cached }
         let url = testingBundleURL ?? Bundle.main.bundleURL
             .appendingPathComponent("Frameworks/AriaKokoroRuntime.framework")
@@ -285,7 +285,7 @@ enum AriaKokoroRuntimeLoader {
         }
         guard let principal = bundle.principalClass as? NSObject.Type else { return nil }
         let object = principal.init()
-        guard let engine = object as? any AriaVoiceEngine else { return nil }
+        guard let engine = object as? any ForgeCore.AriaVoiceEngine else { return nil }
         cached = engine
         return engine
     }
