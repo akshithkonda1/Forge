@@ -367,8 +367,18 @@ extension AriaForgePrep {
     private static var leftoverTimeoutArmed = false
     private static var leftoverTimeoutWork: DispatchWorkItem?
     private static var processWatchdogWork: DispatchWorkItem?
+    /// Product `watchdog` (60s) deadline. Runs on `watchdogQueue`, not MainActor,
+    /// so a sheet or notification cannot starve the launch-gate plist flush.
+    private static let watchdogQueue = DispatchQueue(
+        label: "forge.prep.watchdog",
+        qos: .userInitiated
+    )
+    private static var watchdogSource: DispatchSourceTimer?
+    private static var watchdogArmed = false
     @MainActor
     private static weak var leftoverStore: AppStore?
+    private static let leftoverAuthLock = NSLock()
+    nonisolated(unsafe) private static var leftoverAuthenticatedSnapshot = false
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
     /// Set from the leftover timer thread so `runSequence` can leave the
@@ -385,6 +395,7 @@ extension AriaForgePrep {
             // fail-open timer.
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 scheduleProcessHandoffWatchdog()
+                schedulePrepWatchdog()
             }
         }
     }
@@ -392,6 +403,7 @@ extension AriaForgePrep {
     @MainActor
     static func bindLeftoverStore(_ store: AppStore) {
         leftoverStore = store
+        rememberLeftoverAuthenticated(store.isAuthenticated)
     }
 
     @MainActor
@@ -403,12 +415,16 @@ extension AriaForgePrep {
         leftoverTimeoutWork = nil
         processWatchdogWork?.cancel()
         processWatchdogWork = nil
+        cancelPrepWatchdog()
         leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
         leftoverFailOpenLock.lock()
         leftoverDidFailOpen = false
         leftoverFailOpenLock.unlock()
+        leftoverAuthLock.lock()
+        leftoverAuthenticatedSnapshot = false
+        leftoverAuthLock.unlock()
         AriaForgePrepHandoff.resetInterviewCacheForTests()
     }
 
@@ -423,12 +439,16 @@ extension AriaForgePrep {
         leftoverTimeoutWork = nil
         processWatchdogWork?.cancel()
         processWatchdogWork = nil
+        cancelPrepWatchdog()
         leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
         leftoverFailOpenLock.lock()
         leftoverDidFailOpen = false
         leftoverFailOpenLock.unlock()
+        leftoverAuthLock.lock()
+        leftoverAuthenticatedSnapshot = false
+        leftoverAuthLock.unlock()
         AriaForgePrepHandoff.resetInterviewCacheForTests()
     }
 
@@ -449,9 +469,10 @@ extension AriaForgePrep {
     }
 
     /// Remaining delay for leftover fail-open. Injected `requested < 1` is
-    /// the XCTest hop (50ms); production remaining is `leftoverFailOpen`
-    /// minus process-relative elapsed — never `watchdog` and never machine
-    /// awake time.
+    /// the XCTest hop (50ms); production leftover remaining is
+    /// `leftoverFailOpen` minus process-relative elapsed. The 60s product
+    /// watchdog passes `failOpen: watchdog` so that timer is not capped at
+    /// 24s. Never machine awake time.
     static func leftoverRemaining(
         requested: TimeInterval,
         elapsed: TimeInterval,
@@ -503,6 +524,7 @@ extension AriaForgePrep {
         guard AriaForgePrepHandoff.isInterviewComplete else { return }
         leftoverTimeoutArmed = true
         leftoverStore = store
+        rememberLeftoverAuthenticated(store.isAuthenticated)
         let authenticated = store.isAuthenticated
         let elapsed = elapsedSinceProcessStart()
         // Product cap is 55s. Wedge fail-open is leftoverFailOpen (24s)
@@ -527,6 +549,75 @@ extension AriaForgePrep {
             deadline: .now() + remaining,
             execute: work
         )
+    }
+
+    /// `PREP_WATCHDOG_S` / `AriaForgePrep.watchdog` (60s) from process start.
+    /// `DispatchSourceTimer` on a non-main queue so a Kokoro sheet or the
+    /// notification alert cannot keep `interviewComplete` set. Injected
+    /// `after < 1` is the XCTest hop — same as leftover remaining.
+    @MainActor
+    static func armWatchdogTimer(
+        store: AppStore,
+        after seconds: TimeInterval = watchdog
+    ) {
+        leftoverStore = store
+        rememberLeftoverAuthenticated(store.isAuthenticated)
+        schedulePrepWatchdog(after: seconds)
+    }
+
+    private static func rememberLeftoverAuthenticated(_ authenticated: Bool) {
+        leftoverAuthLock.lock()
+        leftoverAuthenticatedSnapshot = authenticated
+        leftoverAuthLock.unlock()
+    }
+
+    private static func schedulePrepWatchdog(after seconds: TimeInterval = watchdog) {
+        let remaining = leftoverRemaining(
+            requested: seconds,
+            elapsed: elapsedSinceProcessStart(),
+            failOpen: watchdog
+        )
+        watchdogQueue.sync {
+            guard !watchdogArmed else { return }
+            watchdogArmed = true
+            let source = DispatchSource.makeTimerSource(queue: watchdogQueue)
+            source.schedule(deadline: .now() + remaining, leeway: .milliseconds(50))
+            source.setEventHandler {
+                firePrepWatchdog()
+            }
+            watchdogSource = source
+            source.resume()
+        }
+    }
+
+    private static func cancelPrepWatchdog() {
+        watchdogQueue.sync {
+            watchdogSource?.setEventHandler(handler: nil)
+            watchdogSource?.cancel()
+            watchdogSource = nil
+            watchdogArmed = false
+        }
+    }
+
+    /// Flush the launch-gate plist off the main thread. Visual `isPrepping`
+    /// still hops to MainActor; the harness reads this plist.
+    private static func firePrepWatchdog() {
+        let interview = AriaForgePrepHandoff.refreshInterviewFromDisk()
+        guard interview else { return }
+        markLeftoverFailedOpen()
+        leftoverAuthLock.lock()
+        let snapshot = leftoverAuthenticatedSnapshot
+        leftoverAuthLock.unlock()
+        let authenticated = snapshot || AriaForgePrepHandoff.readBool(
+            AppStore.authDefaultsKey,
+            forceDisk: true
+        )
+        AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
+        Task { @MainActor in
+            leftoverIngestTask?.cancel()
+            leftoverIngestTask = nil
+            leftoverStore?.finishForgePrep()
+        }
     }
 
     /// Always-on fail-open from process start. The launch gate writes

@@ -44,9 +44,11 @@ final class AriaKokoroModelStore {
     }
 
     func resolvedRuntimeURL() -> URL? {
-        locator.resolvedRoot { url in
-            FileManager.default.fileExists(atPath: url.path)
-        }
+        Self.runtimeURLIfPresent(
+            packRoot: cachedPackRoot,
+            bundled: bundledRuntimeURL(),
+            support: applicationSupportRoot
+        )
     }
 
     var locator: AriaKokoroRuntimeLocator {
@@ -55,6 +57,22 @@ final class AriaKokoroModelStore {
         if let bundled = bundledRuntimeURL() { roots.append(bundled) }
         roots.append(applicationSupportRoot)
         return AriaKokoroRuntimeLocator(roots: roots)
+    }
+
+    /// File existence / size probes. Call from a detached task so launch
+    /// discover does not SHA / stat on MainActor.
+    nonisolated private static func runtimeURLIfPresent(
+        packRoot: URL?,
+        bundled: URL?,
+        support: URL
+    ) -> URL? {
+        var roots: [URL] = []
+        if let packRoot { roots.append(packRoot) }
+        if let bundled { roots.append(bundled) }
+        roots.append(support)
+        return AriaKokoroRuntimeLocator(roots: roots).resolvedRoot { url in
+            FileManager.default.fileExists(atPath: url.path)
+        }
     }
 
     func bundledRuntimeURL() -> URL? {
@@ -74,14 +92,27 @@ final class AriaKokoroModelStore {
     }
 
     func discover() async {
-        cachedPackRoot = await backgroundAssetRoot()
-        if hasVerifiedRuntime {
+        let span = ForgePerf.begin("kokoroDiscover", category: .launch)
+        defer { span.end() }
+        let pack = await backgroundAssetRoot()
+        cachedPackRoot = pack
+        let bundled = bundledRuntimeURL()
+        let support = applicationSupportRoot
+        let found = await Task.detached(priority: .utility) {
+            Self.runtimeURLIfPresent(
+                packRoot: pack,
+                bundled: bundled,
+                support: support
+            )
+        }.value
+        if found != nil {
             AriaKokoroEngine.noteRuntimeBecameAvailable()
         }
     }
 
     /// Hydrate the pinned Hugging Face starter bundle into Application Support.
     /// Refuses unless a local copy is already present or the user consented.
+    /// Refresh / launch never call this — only an explicit acceptDownload.
     func prefetchIfAllowed(defaults: UserDefaults = .standard) async -> Bool {
         if hasVerifiedRuntime { return true }
         let consented = defaults.bool(forKey: AriaKokoroDelivery.consentKey)
@@ -96,7 +127,9 @@ final class AriaKokoroModelStore {
             return await existing.value
         }
         let task = Task { () -> Bool in
-            await self.performDownload()
+            let span = ForgePerf.begin("kokoroPrefetch", category: .launch)
+            defer { span.end() }
+            return await self.performDownload()
         }
         hydrateTask = task
         let ok = await task.value
@@ -141,11 +174,22 @@ final class AriaKokoroModelStore {
                 lastError = AriaKokoroVoice.loadFailedMessage
                 return false
             }
-            guard hasVerifiedRuntime else {
+            let support = applicationSupportRoot
+            let verified = await Task.detached(priority: .utility) {
+                Self.runtimeURLIfPresent(
+                    packRoot: nil,
+                    bundled: nil,
+                    support: support
+                ) != nil
+            }.value
+            guard verified else {
                 lastError = "Download finished without a verified runtime."
                 return false
             }
-            guard verifyHostedManifestChecksum() else {
+            let checksumOK = await Task.detached(priority: .utility) {
+                Self.verifyHostedManifestChecksumOffMain(applicationSupportRoot: support)
+            }.value
+            guard checksumOK else {
                 lastError = "Hosted manifest checksum mismatch."
                 return false
             }
@@ -166,7 +210,9 @@ final class AriaKokoroModelStore {
         return false
     }
 
-    private func verifyHostedManifestChecksum() -> Bool {
+    nonisolated private static func verifyHostedManifestChecksumOffMain(
+        applicationSupportRoot: URL
+    ) -> Bool {
         let url = applicationSupportRoot.appendingPathComponent("HostedManifest.json")
         guard let data = try? Data(contentsOf: url) else {
             // Some hydrations write only the runtime tree. The SDK already

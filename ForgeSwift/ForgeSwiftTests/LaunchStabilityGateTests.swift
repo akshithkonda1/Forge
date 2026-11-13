@@ -481,4 +481,121 @@ final class LaunchStabilityGateTests: XCTestCase {
             "Authenticated leftover fail-open marks onboarded on disk"
         )
     }
+
+    func testWatchdogRemainingIsSixtySecondsNotLeftoverFailOpen() {
+        let remaining = AriaForgePrep.leftoverRemaining(
+            requested: AriaForgePrep.watchdog,
+            elapsed: 0,
+            failOpen: AriaForgePrep.watchdog
+        )
+        XCTAssertEqual(remaining, AriaForgePrep.watchdog)
+        XCTAssertEqual(AriaForgePrep.watchdog, 60)
+        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen, AriaForgePrep.watchdog)
+    }
+
+    func testWatchdogExitsPrepWhileKokoroSheetIsShowing() {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
+        let gate = AriaKokoroVoiceGate.shared
+        let previousPrompt = gate.showPrompt
+        defer {
+            gate.showPrompt = previousPrompt
+            AriaForgePrep.resetLeftoverSessionForTests()
+            if let previousOnboarded {
+                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
+            }
+            UserDefaults.standard.synchronize()
+        }
+
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(store.needsForgePrep)
+
+        // Wedge: Kokoro 210 MB sheet is up. The 60s deadline must still
+        // flush off-main. Injected `after: 0.05` is the existing leftover
+        // hop — the tree has no fake clock for DispatchSourceTimer.
+        gate.showPrompt = true
+        AriaForgePrep.armWatchdogTimer(store: store, after: 0.05)
+        Thread.sleep(forTimeInterval: 0.3)
+        XCTAssertFalse(
+            AriaForgePrepHandoff.isInterviewComplete,
+            "Prep watchdog must flush the handoff while the Kokoro sheet is showing"
+        )
+        XCTAssertTrue(
+            AriaForgePrepHandoff.readBool(AppStore.onboardedDefaultsKey),
+            "Authenticated leftover watchdog marks onboarded on disk at or before 60s"
+        )
+        XCTAssertLessThanOrEqual(0.05, AriaForgePrep.watchdog)
+    }
+
+    func testKokoroPromptDoesNotPresentDuringLeftoverPrep() async {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        let gate = AriaKokoroVoiceGate.shared
+        let previousPrompt = gate.showPrompt
+        defer {
+            gate.showPrompt = previousPrompt
+            AriaForgePrep.resetLeftoverSessionForTests()
+        }
+
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(store.needsForgePrep)
+
+        gate.showPrompt = false
+        await gate.refresh(presentPrompt: true)
+        XCTAssertFalse(
+            gate.showPrompt,
+            "210 MB download prompt must not present during leftover prep"
+        )
+        XCTAssertFalse(gate.isDownloading)
+    }
+
+    func testKokoroPromptCanPresentAfterPrepFinishes() async {
+        AriaForgePrep.resetLeftoverSessionForTests()
+        let gate = AriaKokoroVoiceGate.shared
+        let previousPrompt = gate.showPrompt
+        let previousConsent = UserDefaults.standard.object(forKey: AriaKokoroDelivery.consentKey)
+        let previousDeclined = UserDefaults.standard.object(forKey: AriaKokoroDelivery.declinedKey)
+        defer {
+            gate.showPrompt = previousPrompt
+            AriaForgePrep.resetLeftoverSessionForTests()
+            if let previousConsent {
+                UserDefaults.standard.set(previousConsent, forKey: AriaKokoroDelivery.consentKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AriaKokoroDelivery.consentKey)
+            }
+            if let previousDeclined {
+                UserDefaults.standard.set(previousDeclined, forKey: AriaKokoroDelivery.declinedKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AriaKokoroDelivery.declinedKey)
+            }
+        }
+
+        let store = AppStore()
+        store.isAuthenticated = true
+        store.isOnboarded = false
+        AriaForgePrepHandoff.markInterviewComplete()
+        store.finishForgePrep()
+        XCTAssertFalse(store.needsForgePrep)
+        XCTAssertTrue(store.isOnboarded)
+
+        UserDefaults.standard.set(false, forKey: AriaKokoroDelivery.consentKey)
+        UserDefaults.standard.set(false, forKey: AriaKokoroDelivery.declinedKey)
+        await gate.refresh(presentPrompt: true)
+        if AriaKokoroModelStore.shared.hasVerifiedRuntime {
+            XCTAssertFalse(gate.showPrompt)
+        } else {
+            XCTAssertTrue(
+                gate.showPrompt,
+                "210 MB prompt is allowed after prep finishes when no local runtime"
+            )
+        }
+        XCTAssertFalse(gate.isDownloading, "refresh must not start a download by itself")
+    }
 }

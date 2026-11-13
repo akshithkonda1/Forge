@@ -57,6 +57,7 @@ struct ForgeSwiftApp: App {
                         // After first paint. Background Assets / speech
                         // catalog work on appear pinned kill_relaunch samples.
                         try? await Task.sleep(for: .seconds(2))
+                        guard store.isOnboarded, !store.needsForgePrep else { return }
                         await AriaKokoroModelStore.shared.discover()
                         if AriaKokoroModelStore.shared.hasVerifiedRuntime {
                             AriaKokoroEngine.noteRuntimeBecameAvailable()

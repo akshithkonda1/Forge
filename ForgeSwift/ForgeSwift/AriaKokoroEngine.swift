@@ -154,6 +154,7 @@ final class AriaKokoroRuntimeSynthesizer {
         path = enginePath
         if !spoken, !path.loadState.isReady {
             Self.logLoadFailure()
+            AriaKokoroVoiceGate.shared.noteFirstSpeakWithoutRuntime()
         }
         return spoken
     }

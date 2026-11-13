@@ -50,7 +50,7 @@ struct ContentView: View {
                 AriaNeuralVoiceSheet(gate: neuralVoiceGate)
             }
         }
-        .sheet(isPresented: kokoroPromptBinding) {
+        .sheet(isPresented: kokoroPromptBinding(blocked: leftoverPrep || showSplash)) {
             if let kokoroVoiceGate {
                 AriaKokoroVoiceSheet(gate: kokoroVoiceGate)
             }
@@ -79,8 +79,8 @@ struct ContentView: View {
                 splashBlocksHits = false
                 Self.didFinishSplash = true
                 AriaForgePrep.armLeftoverTimeout(store: store)
+                AriaForgePrep.armWatchdogTimer(store: store)
                 await LaunchFirstFrame.afterPaint()
-                attachVoiceGates()
                 return
             }
             await LaunchFirstFrame.afterPaint()
@@ -91,11 +91,12 @@ struct ContentView: View {
             // watchdog still fail-opens at leftoverFailOpen.
             if store.needsForgePrep {
                 AriaForgePrep.armLeftoverTimeout(store: store)
+                AriaForgePrep.armWatchdogTimer(store: store)
             } else if !store.isOnboarded {
                 AriaForgePrep.refreshInterviewOffMainActor(store: store)
             }
             guard showSplash else {
-                attachVoiceGates()
+                attachVoiceGates(presentKokoroPrompt: false)
                 return
             }
             try? await Task.sleep(
@@ -105,7 +106,12 @@ struct ContentView: View {
                 )
             )
             dismissSplash()
-            attachVoiceGates()
+            attachVoiceGates(presentKokoroPrompt: false)
+        }
+        .onChange(of: store.isOnboarded) { _, onboarded in
+            if onboarded, !store.needsForgePrep {
+                attachVoiceGates(presentKokoroPrompt: true)
+            }
         }
     }
 
@@ -139,13 +145,13 @@ struct ContentView: View {
         }
     }
 
-    private func attachVoiceGates() {
+    private func attachVoiceGates(presentKokoroPrompt: Bool) {
         let neural = AriaNeuralVoiceGate.shared
         neuralVoiceGate = neural
         neural.refreshCatalog()
         let kokoro = AriaKokoroVoiceGate.shared
         kokoroVoiceGate = kokoro
-        Task { await kokoro.refresh() }
+        Task { await kokoro.refresh(presentPrompt: presentKokoroPrompt) }
     }
 
     private var neuralPromptBinding: Binding<Bool> {
@@ -155,9 +161,9 @@ struct ContentView: View {
         )
     }
 
-    private var kokoroPromptBinding: Binding<Bool> {
+    private func kokoroPromptBinding(blocked: Bool) -> Binding<Bool> {
         Binding(
-            get: { kokoroVoiceGate?.showPrompt ?? false },
+            get: { !blocked && (kokoroVoiceGate?.showPrompt ?? false) },
             set: { kokoroVoiceGate?.showPrompt = $0 }
         )
     }
