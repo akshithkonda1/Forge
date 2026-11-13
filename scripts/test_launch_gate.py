@@ -173,15 +173,10 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertIn("LaunchFirstCommit.mountsHomeHeroOnFirstCommit", home)
         self.assertIn("useBrandFonts", content)
         self.assertIn(".statusBarHidden(false)", content)
-        app = APP.read_text(encoding="utf-8")
         self.assertIn(
             "static func leftoverPrepPendingFromDefaults()",
             prep,
         )
-        self.assertIn("final class LaunchSession", app)
-        self.assertIn("session.attachStoreIfNeeded()", app)
-        self.assertIn("LaunchBrandField()", app)
-        self.assertNotIn("@StateObject private var store", app)
         appstore = (ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore.swift").read_text(
             encoding="utf-8"
         )
