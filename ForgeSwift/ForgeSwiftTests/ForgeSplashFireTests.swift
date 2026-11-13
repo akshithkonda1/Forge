@@ -47,6 +47,10 @@ final class ForgeSplashFireTests: XCTestCase {
     func testLaunchScreenMatchesSplashField() {
         XCTAssertEqual(ForgeSplashScreen.backdropHex, "09090B")
         XCTAssertEqual(ForgeSplashScreen.launchColorName, "LaunchBackground")
+        XCTAssertFalse(
+            LaunchFirstCommit.splashMountsStrikeOnFirstCommit,
+            "LaunchScreen is a blank #09090B field; SwiftUI paints the ember"
+        )
     }
 
     func testNotificationPromptWaitsForOnboarding() {
