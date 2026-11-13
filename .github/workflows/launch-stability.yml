@@ -7,13 +7,45 @@
 # ForgeSwift/Scripts/launch-gate/thresholds.env. Any check failing, or any
 # measurement that cannot be taken, fails the job — no continue-on-error,
 # no `|| true` on a gate step, no skips.
+#
+# pull_request and push use a workflow-level paths filter. launch-stability
+# is not a required status check on main (ruleset 26415381), so skipped PRs
+# omitting the check will not leave a required check stuck at Expected.
+# Keep the glob list wide: when a path might affect the iOS build, include
+# it. workflow_dispatch always runs the real gate.
 
 name: Launch Stability
 
 on:
   pull_request:
+    paths:
+      - "ForgeSwift/**"
+      - "ForgeWidget/**"
+      - "Forge.xcworkspace/**"
+      - "shared/**"
+      - "**/Package.resolved"
+      - "**/*.xcodeproj/**"
+      - ".github/workflows/launch-stability.yml"
+      - "**/launch_gate.py"
+      - "**/thresholds.env"
+      - "scripts/generate_client_config.py"
+      - "scripts/generate_aria_safety_swift.py"
+      - "scripts/test_launch_gate.py"
   push:
     branches: [main]
+    paths:
+      - "ForgeSwift/**"
+      - "ForgeWidget/**"
+      - "Forge.xcworkspace/**"
+      - "shared/**"
+      - "**/Package.resolved"
+      - "**/*.xcodeproj/**"
+      - ".github/workflows/launch-stability.yml"
+      - "**/launch_gate.py"
+      - "**/thresholds.env"
+      - "scripts/generate_client_config.py"
+      - "scripts/generate_aria_safety_swift.py"
+      - "scripts/test_launch_gate.py"
   workflow_dispatch:
 
 permissions:
