@@ -753,18 +753,11 @@ enum LaunchFirstCommit: Equatable {
         needsForgePrep
     }
 
-    /// UserDefaults-only leftover check so leftover / wedge can paint
-    /// `AriaForgePrepField` before `AppStore` Keychain restore, and cold
-    /// can paint `LaunchBrandField` on the same hop.
+    /// UserDefaults-only leftover check so cold launch can paint
+    /// `LaunchBrandField` before `AppStore` Keychain restore.
     static func leftoverPrepPendingFromDefaults() -> Bool {
         AriaForgePrepHandoff.isInterviewComplete
             && !UserDefaults.standard.bool(forKey: AppStore.onboardedDefaultsKey)
-    }
-
-    /// First window before `AppStore` exists. Leftover / wedge must be
-    /// AriaForgePrep's own content, not `LaunchBrandField`.
-    static func firstWindow(leftoverFromDefaults: Bool) -> LaunchFirstCommit {
-        leftoverFromDefaults ? .forgePrep : .brandField
     }
 
     static func surface(leftoverPrep: Bool, revealRoot: Bool) -> LaunchFirstCommit {
