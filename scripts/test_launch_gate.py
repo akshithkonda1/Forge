@@ -177,6 +177,22 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
             "static func leftoverPrepPendingFromDefaults()",
             prep,
         )
+        self.assertIn("static func firstWindow(leftoverFromDefaults: Bool)", prep)
+        app = APP.read_text(encoding="utf-8")
+        self.assertIn("final class LaunchSession", app)
+        self.assertIn("AriaForgePrepField()", app)
+        self.assertIn("attachStoreAfterFirstPaint()", app)
+        self.assertNotIn("@StateObject private var store", app)
+        attach_at = app.find("session.attachStoreAfterFirstPaint()")
+        paint_at = app.find("await LaunchFirstFrame.afterPaint()")
+        self.assertGreater(attach_at, 0)
+        self.assertGreater(paint_at, 0)
+        self.assertLess(
+            paint_at,
+            attach_at,
+            "AppStore must attach after the first SwiftUI paint, not before",
+        )
+        self.assertIn("struct AriaForgePrepField", content)
         appstore = (ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore.swift").read_text(
             encoding="utf-8"
         )

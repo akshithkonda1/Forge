@@ -348,7 +348,16 @@ final class LaunchStabilityGateTests: XCTestCase {
         AriaForgePrepHandoff.markInterviewComplete()
         XCTAssertTrue(
             LaunchFirstCommit.leftoverPrepPendingFromDefaults(),
-            "Wedged prep must construct AppStore before the first SwiftUI commit"
+            "Wedged prep must paint AriaForgePrep content before AppStore Keychain restore"
+        )
+        XCTAssertEqual(
+            LaunchFirstCommit.firstWindow(leftoverFromDefaults: true),
+            .forgePrep,
+            "A LaunchBrandField placeholder on leftover / wedge does not count"
+        )
+        XCTAssertEqual(
+            LaunchFirstCommit.firstWindow(leftoverFromDefaults: false),
+            .brandField
         )
 
         UserDefaults.standard.set(true, forKey: AppStore.onboardedDefaultsKey)

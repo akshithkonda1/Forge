@@ -201,6 +201,52 @@ struct LaunchBrandField: View {
     }
 }
 
+/// Store-free leftover / wedge first commit. Matches `AriaForgePrepView`'s
+/// first-commit pixels (static ember orb + “Prepping Forge”) so that path
+/// does not wait for `AppStore` Keychain restore. A `LaunchBrandField`
+/// placeholder on leftover / wedge does not count for Goal 1.
+struct AriaForgePrepField: View {
+    private var orbSize: CGFloat { 132 }
+    private var stage: AriaForgePrep.Stage { .profile }
+
+    var body: some View {
+        ZStack {
+            Color.background.ignoresSafeArea()
+            VStack(spacing: 0) {
+                Spacer(minLength: ForgeLayout.sectionGap)
+                VStack(spacing: FDS.Spacing.xl) {
+                    Circle()
+                        .fill(Color.ember)
+                        .frame(width: orbSize, height: orbSize)
+                        .accessibilityHidden(true)
+
+                    VStack(spacing: ForgeLayout.pairGap) {
+                        Text(stage.eyebrow)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.textTertiary)
+                            .tracking(1.4)
+                            .textCase(.uppercase)
+                            .multilineTextAlignment(.center)
+
+                        Text(stage.headline)
+                            .font(.system(size: 28, weight: .regular, design: .serif))
+                            .foregroundStyle(Color.textPrimary)
+                            .multilineTextAlignment(.center)
+                            .forgeWrapping()
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Prepping Forge")
+                    .accessibilityValue(stage.headline)
+                }
+                Spacer(minLength: ForgeLayout.sectionGap)
+            }
+            .frame(maxWidth: .infinity, minHeight: 420)
+            .padding(.horizontal, ForgeLayout.screenInset)
+        }
+        .statusBarHidden(false)
+    }
+}
+
 // MARK: - Splash Screen
 
 struct ForgeSplashScreen: View {
