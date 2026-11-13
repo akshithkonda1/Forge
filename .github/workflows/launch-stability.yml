@@ -20,7 +20,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: launch-stability-${{ github.ref }}
+  # pull_request / push still share a ref group. workflow_dispatch gets a
+  # unique group so queued evidence re-runs are not cancelled — GitHub
+  # cancels previously pending jobs in a group even when
+  # cancel-in-progress is false.
+  group: ${{ github.event_name == 'workflow_dispatch' && format('launch-stability-dispatch-{0}-{1}', github.ref, github.run_id) || format('launch-stability-{0}', github.ref) }}
   # Keep every main run so a regression is pinned to its merge.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 

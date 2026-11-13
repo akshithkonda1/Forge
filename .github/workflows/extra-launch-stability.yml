@@ -29,9 +29,9 @@ jobs:
           REF="${{ github.head_ref }}"
           SHA="${{ github.event.pull_request.head.sha }}"
           echo "Dispatching launch-stability.yml ref=$REF sha=$SHA"
-          # Let the pull_request launch-stability run start first. Dispatch
-          # uses a different github.ref (the branch, not the merge ref) so
-          # these three queue on the branch concurrency group.
+          # Let the pull_request launch-stability run start first. Each
+          # workflow_dispatch has its own concurrency group so pending
+          # evidence runs are not cancelled.
           sleep 25
           gh workflow run launch-stability.yml --ref "$REF"
           sleep 10
