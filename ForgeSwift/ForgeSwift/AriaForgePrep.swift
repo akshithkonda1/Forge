@@ -776,14 +776,23 @@ enum LaunchFirstCommit: Equatable {
     }
 
     /// The system notification sheet is not a launch / leftover-prep surface.
+    /// Onboarding asks after the name beat, not on first appear.
     static func shouldPromptNotifications(needsForgePrep: Bool) -> Bool {
         !needsForgePrep
     }
+
+    /// `OnboardingView.onAppear` must not call `promptAuthorization`.
+    static var promptsNotificationsOnOnboardingAppear: Bool { false }
 
     /// Voice-gate sheets (`UISheetPresentationController`) must not share the
     /// leftover first layout with AriaForgePrep.
     static func shouldAttachVoiceGates(leftoverPrep: Bool) -> Bool {
         !leftoverPrep
+    }
+
+    /// The 210 MB Kokoro download sheet is not a launch / interview first frame.
+    static func shouldAttachVoiceGatesOnLaunch(leftoverPrep: Bool, isOnboarded: Bool) -> Bool {
+        shouldAttachVoiceGates(leftoverPrep: leftoverPrep) && isOnboarded
     }
 
     /// Weekly evaluation is a sheet. Presenting it on Chat's first appear

@@ -301,6 +301,14 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertFalse(LaunchFirstCommit.shouldAttachVoiceGates(leftoverPrep: true))
         XCTAssertTrue(LaunchFirstCommit.shouldAttachVoiceGates(leftoverPrep: false))
         XCTAssertFalse(
+            LaunchFirstCommit.shouldAttachVoiceGatesOnLaunch(leftoverPrep: false, isOnboarded: false),
+            "Kokoro 210 MB sheet is not an interview first frame"
+        )
+        XCTAssertTrue(
+            LaunchFirstCommit.shouldAttachVoiceGatesOnLaunch(leftoverPrep: false, isOnboarded: true)
+        )
+        XCTAssertFalse(LaunchFirstCommit.promptsNotificationsOnOnboardingAppear)
+        XCTAssertFalse(
             LaunchFirstCommit.presentsWeeklyReviewOnFirstChatLayout,
             "WeeklyAriaReviewSheet is not a first Chat layout"
         )

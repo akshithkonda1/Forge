@@ -299,6 +299,9 @@ final class OnboardingCoordinator {
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeName(profile.firstName), mood: .energized)
             await advanceTo(.health)
+            if LaunchFirstCommit.shouldPromptNotifications(needsForgePrep: false) {
+                await ForgeNotificationScheduler.promptAuthorization()
+            }
         }
     }
 

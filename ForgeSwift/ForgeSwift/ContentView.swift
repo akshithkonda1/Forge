@@ -80,7 +80,10 @@ struct ContentView: View {
                 Self.didFinishSplash = true
                 AriaForgePrep.armLeftoverTimeout(store: store)
                 await LaunchFirstFrame.afterPaint()
-                if LaunchFirstCommit.shouldAttachVoiceGates(leftoverPrep: leftoverPrep) {
+                if LaunchFirstCommit.shouldAttachVoiceGatesOnLaunch(
+                    leftoverPrep: leftoverPrep,
+                    isOnboarded: store.isOnboarded
+                ) {
                     attachVoiceGates()
                 }
                 return
@@ -97,7 +100,12 @@ struct ContentView: View {
                 AriaForgePrep.refreshInterviewOffMainActor(store: store)
             }
             guard showSplash else {
-                attachVoiceGates()
+                if LaunchFirstCommit.shouldAttachVoiceGatesOnLaunch(
+                    leftoverPrep: leftoverPrep,
+                    isOnboarded: store.isOnboarded
+                ) {
+                    attachVoiceGates()
+                }
                 return
             }
             try? await Task.sleep(
@@ -107,7 +115,12 @@ struct ContentView: View {
                 )
             )
             dismissSplash()
-            attachVoiceGates()
+            if LaunchFirstCommit.shouldAttachVoiceGatesOnLaunch(
+                leftoverPrep: leftoverPrep,
+                isOnboarded: store.isOnboarded
+            ) {
+                attachVoiceGates()
+            }
         }
     }
 

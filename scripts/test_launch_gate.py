@@ -129,8 +129,13 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertNotIn("weeklyReview.considerPresenting()", chat.split(".task")[0])
         self.assertIn("weeklyReview.considerPresenting()", chat)
         self.assertIn(
-            "LaunchFirstCommit.shouldPromptNotifications(",
+            "LaunchFirstCommit.promptsNotificationsOnOnboardingAppear",
             onboarding,
+        )
+        self.assertIn("static var promptsNotificationsOnOnboardingAppear: Bool { false }", prep)
+        self.assertIn(
+            "shouldAttachVoiceGatesOnLaunch(",
+            content,
         )
 
     def test_prep_has_a_wall_clock_fail_open(self):
