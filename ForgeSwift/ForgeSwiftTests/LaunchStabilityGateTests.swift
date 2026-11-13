@@ -323,6 +323,42 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertEqual(AppStore().activeTab, .home)
     }
 
+    func testLeftoverPrepPendingFromDefaultsReadsInterviewFlagOnly() {
+        let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
+        defer {
+            AriaForgePrepHandoff.clearInterviewComplete()
+            AriaForgePrep.resetLeftoverSessionForTests()
+            if let previousOnboarded {
+                UserDefaults.standard.set(previousOnboarded, forKey: AppStore.onboardedDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AppStore.onboardedDefaultsKey)
+            }
+            UserDefaults.standard.synchronize()
+        }
+
+        UserDefaults.standard.set(false, forKey: AppStore.onboardedDefaultsKey)
+        UserDefaults.standard.synchronize()
+        AriaForgePrepHandoff.resetInterviewCacheForTests()
+        AriaForgePrepHandoff.clearInterviewComplete()
+        XCTAssertFalse(
+            LaunchFirstCommit.leftoverPrepPendingFromDefaults(),
+            "Cold launch has no leftover interview flag"
+        )
+
+        AriaForgePrepHandoff.markInterviewComplete()
+        XCTAssertTrue(
+            LaunchFirstCommit.leftoverPrepPendingFromDefaults(),
+            "Wedged prep must construct AppStore before the first SwiftUI commit"
+        )
+
+        UserDefaults.standard.set(true, forKey: AppStore.onboardedDefaultsKey)
+        UserDefaults.standard.synchronize()
+        XCTAssertFalse(
+            LaunchFirstCommit.leftoverPrepPendingFromDefaults(),
+            "Onboarded Home does not treat a leftover interview flag as prep"
+        )
+    }
+
     func testLeftoverFailOpenBeatsWatchdogWithMargin() {
         XCTAssertEqual(AriaForgePrep.floor, 45)
         XCTAssertEqual(AriaForgePrep.cap, 55)

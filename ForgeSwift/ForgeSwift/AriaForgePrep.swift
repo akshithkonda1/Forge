@@ -753,6 +753,13 @@ enum LaunchFirstCommit: Equatable {
         needsForgePrep
     }
 
+    /// UserDefaults-only leftover check so cold launch can paint
+    /// `LaunchBrandField` before `AppStore` Keychain restore.
+    static func leftoverPrepPendingFromDefaults() -> Bool {
+        AriaForgePrepHandoff.isInterviewComplete
+            && !UserDefaults.standard.bool(forKey: AppStore.onboardedDefaultsKey)
+    }
+
     static func surface(leftoverPrep: Bool, revealRoot: Bool) -> LaunchFirstCommit {
         if leftoverPrep { return .forgePrep }
         if !revealRoot { return .brandField }
