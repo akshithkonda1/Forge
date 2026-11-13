@@ -45,6 +45,7 @@ struct ContentView: View {
                     .allowsHitTesting(splashBlocksHits)
             }
         }
+        .statusBarHidden(false)
         .sheet(isPresented: neuralPromptBinding) {
             if let neuralVoiceGate {
                 AriaNeuralVoiceSheet(gate: neuralVoiceGate)

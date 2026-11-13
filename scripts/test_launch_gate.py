@@ -172,6 +172,20 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         home = HOME.read_text(encoding="utf-8")
         self.assertIn("LaunchFirstCommit.mountsHomeHeroOnFirstCommit", home)
         self.assertIn("useBrandFonts", content)
+        self.assertIn(".statusBarHidden(false)", content)
+        appstore = (ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore.swift").read_text(
+            encoding="utf-8"
+        )
+        launch_task = appstore.split("await LaunchFirstFrame.afterPaint()", 1)[1]
+        onboarded_at = launch_task.find("if !self.isOnboarded { return }")
+        chat_at = launch_task.find("self.restoreChatHistory()")
+        self.assertGreater(onboarded_at, 0)
+        self.assertGreater(chat_at, onboarded_at)
+        add = (ROOT / "ForgeSwift" / "ForgeSwift" / "Info-Add.plist").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("<key>UIStatusBarHidden</key>", add)
+        self.assertIn("<true/>", add.split("<key>UIStatusBarHidden</key>", 1)[1][:80])
 
     def test_prep_has_a_wall_clock_fail_open(self):
         src = PREP.read_text(encoding="utf-8")
