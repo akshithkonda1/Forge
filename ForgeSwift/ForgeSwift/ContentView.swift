@@ -216,10 +216,19 @@ struct ForgeSplashScreen: View {
     /// Canvas strike attaches after the first commit. TimelineView + Metal
     /// compile on this hop billed kill_relaunch sample 0 at ~3s.
     @State private var showStrike = LaunchFirstCommit.splashMountsStrikeOnFirstCommit
+    /// Brand faces register seven TTFs on first `Font.custom`. System fonts
+    /// keep that decode off the first splash commit.
+    @State private var useBrandFonts = LaunchFirstCommit.usesBrandFontsOnFirstCommit
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var side: CGFloat { LaunchBrandField.markSide }
     private var settled: Bool { reduceMotion || signedIn }
+    private var wordmarkFont: Font {
+        useBrandFonts ? ForgeType.display : .system(size: 30, weight: .regular, design: .serif)
+    }
+    private var taglineFont: Font {
+        useBrandFonts ? ForgeType.micro : .system(size: 11, weight: .medium)
+    }
 
     var body: some View {
         ZStack {
@@ -248,13 +257,13 @@ struct ForgeSplashScreen: View {
                     HStack(spacing: FDS.Spacing.md) {
                         ForgeBrandMark(size: 22)
                         Text("FORGE")
-                            .font(ForgeType.display)
+                            .font(wordmarkFont)
                             .tracking(6)
                             .foregroundColor(Color.paper)
                     }
 
                     Text("Forged.")
-                        .font(ForgeType.micro)
+                        .font(taglineFont)
                         .tracking(ForgeType.eyebrowTracking)
                         .foregroundColor(.textTertiary)
                 }
@@ -267,6 +276,10 @@ struct ForgeSplashScreen: View {
         .accessibilityAction(.escape) { onSkip?() }
         .task {
             await LaunchFirstFrame.afterPaint()
+            await Task.detached(priority: .utility) {
+                ForgeFont.registerIfNeeded()
+            }.value
+            useBrandFonts = true
             showStrike = true
             // One rigid tap as the hammer lands. Off under Reduce Motion
             // and on the signed-in trim (no swing).

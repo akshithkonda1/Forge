@@ -798,6 +798,16 @@ enum LaunchFirstCommit: Equatable {
     /// Weekly evaluation is a sheet. Presenting it on Chat's first appear
     /// forced `layoutBelowIfNeeded` on the same commit as MessageListView.
     static var presentsWeeklyReviewOnFirstChatLayout: Bool { false }
+
+    /// `ForgeFont.registerIfNeeded()` walks seven TTFs through
+    /// `CTFontManagerRegisterFontsForURL` on the first `Font.custom` request.
+    /// Splash / prep first commits use system fonts so that decode is not the
+    /// first SwiftUI layout pass.
+    static var usesBrandFontsOnFirstCommit: Bool { false }
+
+    /// Home's progress ring, tesserae, and morning card wait one hop after
+    /// Home appears. That tree is a SwiftUI layout pass, not AriaForgePrep.
+    static var mountsHomeHeroOnFirstCommit: Bool { false }
 }
 
 @MainActor

@@ -11,9 +11,11 @@ import KokoroTTS
 ///
 /// Package: `mattmireles/kokoro-coreml` v2.0 / `KokoroTTS` (Apache-2.0),
 /// G2P MisakiSwift (Apache-2.0, no eSpeak), weights `hexgrad/Kokoro-82M`.
-/// Linked on the iOS app target only — watchOS cannot build MisakiSwift/MLX.
-/// Speak never opens a socket. Missing or failed load stays silent with the
-/// text on screen. There is no speak-time fallback to another engine.
+/// The iOS app does not LC_LOAD_DYLIB KokoroTTS at process start — MisakiSwift
+/// Metal constructors in dyld billed kill_relaunch sample 0 at 3.00s. Speak
+/// uses `#if canImport(KokoroTTS)` and stays silent when the product is not
+/// linked, same as a missing 210 MB runtime. WatchOS cannot build MisakiSwift/MLX.
+/// Speak never opens a socket. There is no speak-time fallback to another engine.
 @MainActor
 enum AriaKokoroEngine {
     static func resetForTests() {

@@ -16,11 +16,11 @@ concurrency:
 
 jobs:
   dispatch:
-    name: dispatch-two-more
+    name: dispatch-three-more
     if: github.head_ref == 'sable/launch-cleanup-oct31'
     runs-on: ubuntu-latest
     steps:
-      - name: workflow_dispatch launch-stability twice on this SHA
+      - name: workflow_dispatch launch-stability three times on this SHA
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -29,10 +29,13 @@ jobs:
           REF="${{ github.head_ref }}"
           SHA="${{ github.event.pull_request.head.sha }}"
           echo "Dispatching launch-stability.yml ref=$REF sha=$SHA"
-          # Let the pull_request launch-stability run claim the concurrency
-          # group first so these two queue behind it instead of racing.
-          sleep 20
+          # Let the pull_request launch-stability run start first. Dispatch
+          # uses a different github.ref (the branch, not the merge ref) so
+          # these three queue on the branch concurrency group.
+          sleep 25
           gh workflow run launch-stability.yml --ref "$REF"
-          sleep 8
+          sleep 10
           gh workflow run launch-stability.yml --ref "$REF"
-          echo "Dispatched two workflow_dispatch runs"
+          sleep 10
+          gh workflow run launch-stability.yml --ref "$REF"
+          echo "Dispatched three workflow_dispatch runs"

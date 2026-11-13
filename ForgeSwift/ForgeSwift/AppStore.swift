@@ -341,20 +341,17 @@ final class AppStore: ObservableObject {
         AriaForgePrep.bindLeftoverStore(self)
         
         AriaContextStore.shared.configure()
-        AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
 
         // Restore persisted onboarding so a returning user skips setup entirely.
         restoreOnboardingState()
-
-        // Training habits restore synchronously too — the suggestion box needs
-        // to know this person's patterns before the first Train question.
-        restoreTrainingHabits()
 
         // Chat JSON is decoded after the first frame. Home is the launch tab,
         // so a deferred transcript cannot flash mock chat. Tests still restore
         // synchronously so cases that write history see it immediately.
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             restoreChatHistory()
+            restoreTrainingHabits()
+            AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
         }
 
         // Real nights, history, and today's session come from Apple Health + this
@@ -373,6 +370,8 @@ final class AppStore: ObservableObject {
         }
         Task { @MainActor in
             await LaunchFirstFrame.afterPaint()
+            restoreTrainingHabits()
+            AriaPersonRegistry.shared.bootstrapFromPartnerSettingsIfNeeded()
             #if canImport(FoundationModels) && !targetEnvironment(simulator)
             let foundationModelsGenerator = FoundationModelsResponseGenerator()
             if foundationModelsGenerator.isAvailable {

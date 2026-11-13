@@ -312,6 +312,14 @@ final class LaunchStabilityGateTests: XCTestCase {
             LaunchFirstCommit.presentsWeeklyReviewOnFirstChatLayout,
             "WeeklyAriaReviewSheet is not a first Chat layout"
         )
+        XCTAssertFalse(
+            LaunchFirstCommit.usesBrandFontsOnFirstCommit,
+            "Seven TTF registrations are not a splash / prep first layout"
+        )
+        XCTAssertFalse(
+            LaunchFirstCommit.mountsHomeHeroOnFirstCommit,
+            "Home progress ring and morning card wait one hop after Home appears"
+        )
         XCTAssertEqual(AppStore().activeTab, .home)
     }
 

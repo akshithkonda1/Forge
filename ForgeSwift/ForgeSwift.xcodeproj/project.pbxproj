@@ -911,7 +911,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0B100000000000000000032 /* ForgeCore in Frameworks */,
-				1KOKOROFW00000000000001 /* KokoroTTS in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1553,7 +1552,6 @@
 			name = ForgeSwift;
 			packageProductDependencies = (
 				F0F200000000000000000003 /* ForgeCore */,
-				1KOKOROPROD00000000001 /* KokoroTTS */,
 			);
 			productName = ForgeSwift;
 			productReference = AA000200000000000000000D /* ForgeSwift.app */;

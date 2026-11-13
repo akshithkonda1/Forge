@@ -9,10 +9,10 @@ struct HomeView: View {
     @State private var showMoreToday = false
     @State private var proactiveInsight: String?
     @State private var celebrationKey: Int?
-    /// Cycle Health and support pulse wait one hop. Observing
-    /// `MenstrualHealthStore` on the first Home commit is view-tree churn
-    /// after leftover fail-open.
-    @State private var revealSecondaryHome = false
+    /// Cycle Health, support pulse, Today hero, and morning card wait one hop.
+    /// Observing `MenstrualHealthStore` plus the progress ring on the first
+    /// Home commit is view-tree churn after leftover fail-open.
+    @State private var revealSecondaryHome = LaunchFirstCommit.mountsHomeHeroOnFirstCommit
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
     }
@@ -31,12 +31,12 @@ struct HomeView: View {
                 ForgeScreenStack {
                         HomeHeaderView()
 
-                        HomeTodayHero(action: primaryAction) {
-                            celebrationKey = Int(Date().timeIntervalSince1970)
-                        }
-                        HomeMorningCard()
-
                         if revealSecondaryHome {
+                            HomeTodayHero(action: primaryAction) {
+                                celebrationKey = Int(Date().timeIntervalSince1970)
+                            }
+                            HomeMorningCard()
+
                             if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
                                 HomeSupportPulseCard {
                                     store.openCycleHealth(pane: "partner")
@@ -167,10 +167,14 @@ struct HomeHeaderView: View {
         return "Good evening"
     }
 
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        return formatter
+    }()
+
     private var dateString: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, MMM d"
-        return f.string(from: Date())
+        Self.dateFormatter.string(from: Date())
     }
 
     private var firstName: String {
@@ -236,12 +240,20 @@ struct HomeHeaderView: View {
             Button {
                 store.activeTab = .profile
             } label: {
-                ProfileAvatarView(
-                    fileName: store.userProfile.avatarFileName,
-                    initials: String(firstName.prefix(1)).uppercased(),
-                    size: 42,
-                    showsRing: false
-                )
+                Group {
+                    if revealLiveStatus {
+                        ProfileAvatarView(
+                            fileName: store.userProfile.avatarFileName,
+                            initials: String(firstName.prefix(1)).uppercased(),
+                            size: 42,
+                            showsRing: false
+                        )
+                    } else {
+                        Circle()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(width: 42, height: 42)
+                    }
+                }
                 .overlay(
                     Circle()
                         .stroke(HomeReadiness.color(store.readiness.overall).opacity(0.55), lineWidth: 1.5)
