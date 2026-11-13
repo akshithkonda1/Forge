@@ -71,6 +71,8 @@ struct HomeTodayHero: View {
     @State private var showScore = false
     @State private var eventGlow = false
     @State private var pulseTrackID: String?
+    /// Habits JSON + HKHealthStore stay off the first Home layout pass.
+    @State private var revealMetrics = false
 
     private var showInArcMeta: Bool {
         HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
@@ -81,8 +83,8 @@ struct HomeTodayHero: View {
     }
 
     private var progress: TodayProgress.Snapshot {
-        let habits = LifestyleWellbeingStore.loadHabits()
-        let water = HealthKitManager.shared.todayStats?.water ?? 0
+        let habits = revealMetrics ? LifestyleWellbeingStore.loadHabits() : []
+        let water = revealMetrics ? (HealthKitManager.shared.todayStats?.water ?? 0) : 0
         return TodayProgress.snapshot(.from(store: store, waterGlasses: water, habits: habits))
     }
 
@@ -234,6 +236,10 @@ struct HomeTodayHero: View {
                 eventGlow = false
                 pulseTrackID = nil
             }
+        }
+        .task {
+            await LaunchFirstFrame.afterPaint()
+            revealMetrics = true
         }
     }
 }

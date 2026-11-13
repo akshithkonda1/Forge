@@ -12,7 +12,7 @@ struct ContentView: View {
     @State private var showSplash = !Self.didFinishSplash
     @State private var splashBlocksHits = !Self.didFinishSplash
     /// Mount the app chrome on the next turn so the splash's first frame
-    /// is only the matched launch field + strike, not AuthWelcome/Home.
+    /// is only the matched launch field, not AuthWelcome/Home.
     @State private var revealApp = Self.didFinishSplash
     /// Bound after first paint. Touching `AriaNeuralVoiceGate.shared` from
     /// `body` blocked the first frame on the voice catalog XPC.
@@ -80,7 +80,9 @@ struct ContentView: View {
                 Self.didFinishSplash = true
                 AriaForgePrep.armLeftoverTimeout(store: store)
                 await LaunchFirstFrame.afterPaint()
-                attachVoiceGates()
+                if LaunchFirstCommit.shouldAttachVoiceGates(leftoverPrep: leftoverPrep) {
+                    attachVoiceGates()
+                }
                 return
             }
             await LaunchFirstFrame.afterPaint()
@@ -198,6 +200,9 @@ struct ForgeSplashScreen: View {
     // uniform black frame, which the launch gate counts as blank.
     @State private var logoOpacity: Double = 1
     @State private var textOffset: CGFloat = 0
+    /// Canvas strike attaches after the first commit. TimelineView + Metal
+    /// compile on this hop billed kill_relaunch sample 0 at ~3s.
+    @State private var showStrike = LaunchFirstCommit.splashMountsStrikeOnFirstCommit
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var side: CGFloat { LaunchBrandField.markSide }
@@ -217,8 +222,14 @@ struct ForgeSplashScreen: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: FDS.Spacing.xl) {
-                ForgeStrikeMark(playback: settled ? .trimmed : .full)
-                    .frame(width: side, height: side)
+                if showStrike {
+                    ForgeStrikeMark(playback: settled ? .trimmed : .full)
+                        .frame(width: side, height: side)
+                } else {
+                    Color.clear
+                        .frame(width: side, height: side)
+                        .accessibilityHidden(true)
+                }
 
                 VStack(spacing: FDS.Spacing.md) {
                     HStack(spacing: FDS.Spacing.md) {
@@ -242,6 +253,8 @@ struct ForgeSplashScreen: View {
         .onTapGesture { onSkip?() }
         .accessibilityAction(.escape) { onSkip?() }
         .task {
+            await LaunchFirstFrame.afterPaint()
+            showStrike = true
             // One rigid tap as the hammer lands. Off under Reduce Motion
             // and on the signed-in trim (no swing).
             guard !settled else { return }
@@ -284,6 +297,9 @@ struct MainTabView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The nav hides while the keyboard is up, as the system tab bar does.
     @State private var keyboardVisible = false
+    /// Meet overlay, tutorial, and sheets wait one hop so leftover fail-open
+    /// does not layout Chat + AriaMeet + weekly review on the first commit.
+    @State private var revealOverlays = false
 
     private var waitingToMeetAria: Bool {
         // Only on the ARIA tab. Covering Home from launch left the splash
@@ -318,7 +334,7 @@ struct MainTabView: View {
                 }
             }
 
-            if waitingToMeetAria {
+            if revealOverlays && waitingToMeetAria {
                 AriaMeetView(
                     onTalk: {
                         store.meetAria()
@@ -332,7 +348,7 @@ struct MainTabView: View {
                 .zIndex(40)
             }
 
-            if store.isOnboarded && !waitingToMeetAria {
+            if revealOverlays && store.isOnboarded && !waitingToMeetAria {
                 ForgeTutorialCoach()
                     .zIndex(30)
             }
@@ -366,7 +382,9 @@ struct MainTabView: View {
             guard open else { return }
             presentClinical()
         }
-        .onAppear {
+        .task {
+            await LaunchFirstFrame.afterPaint()
+            revealOverlays = true
             if store.pendingCycleHealthOpen {
                 presentCycleHealth()
             }
@@ -416,8 +434,10 @@ struct MainTabView: View {
                 .environmentObject(store)
         }
         .sheet(isPresented: $weeklyReview.showSheet) {
-            WeeklyAriaReviewSheet()
-                .environmentObject(store)
+            if revealOverlays {
+                WeeklyAriaReviewSheet()
+                    .environmentObject(store)
+            }
         }
     }
 

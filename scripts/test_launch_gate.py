@@ -20,6 +20,9 @@ CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
 APP = ROOT / "ForgeSwift" / "ForgeSwift" / "ForgeSwiftApp.swift"
 AUTH = ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore+Auth.swift"
 PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
+COORDINATOR = ROOT / "ForgeSwift" / "ForgeSwift" / "OnboardingCoordinator.swift"
+CHAT = ROOT / "ForgeSwift" / "ForgeSwift" / "ChatView.swift"
+ONBOARDING = ROOT / "ForgeSwift" / "ForgeSwift" / "OnboardingView.swift"
 
 
 def _load():
@@ -108,6 +111,26 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertNotIn(
             "if !revealRoot {\n                    Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)",
             src,
+        )
+
+    def test_first_layout_does_not_mount_strike_chat_or_weekly_sheet(self):
+        prep = PREP.read_text(encoding="utf-8")
+        content = CONTENT.read_text(encoding="utf-8")
+        coordinator = COORDINATOR.read_text(encoding="utf-8")
+        chat = CHAT.read_text(encoding="utf-8")
+        onboarding = ONBOARDING.read_text(encoding="utf-8")
+        self.assertIn("static var splashMountsStrikeOnFirstCommit: Bool { false }", prep)
+        self.assertIn("if showStrike {", content)
+        self.assertIn("ForgeStrikeMark(playback:", content)
+        self.assertIn(
+            "guard LaunchFirstCommit.shouldOpenChatAfterPrep(leftoverResume: leftoverResume) else {",
+            coordinator,
+        )
+        self.assertNotIn("weeklyReview.considerPresenting()", chat.split(".task")[0])
+        self.assertIn("weeklyReview.considerPresenting()", chat)
+        self.assertIn(
+            "LaunchFirstCommit.shouldPromptNotifications(",
+            onboarding,
         )
 
     def test_prep_has_a_wall_clock_fail_open(self):

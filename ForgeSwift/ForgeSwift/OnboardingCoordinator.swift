@@ -1161,6 +1161,9 @@ final class OnboardingCoordinator {
         // sees onboarded even if seeding is slow.
         store.finishForgePrep()
         isPrepping = false
+        guard LaunchFirstCommit.shouldOpenChatAfterPrep(leftoverResume: leftoverResume) else {
+            return
+        }
 
         store.activeTab = .chat
         // Interview → chat opener. On Dummy / Test-Ready, skip First Bond so

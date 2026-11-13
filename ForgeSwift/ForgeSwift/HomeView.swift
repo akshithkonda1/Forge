@@ -9,6 +9,10 @@ struct HomeView: View {
     @State private var showMoreToday = false
     @State private var proactiveInsight: String?
     @State private var celebrationKey: Int?
+    /// Cycle Health and support pulse wait one hop. Observing
+    /// `MenstrualHealthStore` on the first Home commit is view-tree churn
+    /// after leftover fail-open.
+    @State private var revealSecondaryHome = false
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
     }
@@ -32,15 +36,17 @@ struct HomeView: View {
                         }
                         HomeMorningCard()
 
-                        if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
-                            HomeSupportPulseCard {
-                                store.openCycleHealth(pane: "partner")
+                        if revealSecondaryHome {
+                            if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
+                                HomeSupportPulseCard {
+                                    store.openCycleHealth(pane: "partner")
+                                }
                             }
-                        }
 
-                        if showsCycleEntry {
-                            HomeCycleModule {
-                                store.openCycleHealth()
+                            if showsCycleEntry {
+                                HomeCycleModule {
+                                    store.openCycleHealth()
+                                }
                             }
                         }
 
@@ -120,6 +126,8 @@ struct HomeView: View {
         }
         .animation(.easeInOut(duration: 0.22), value: showHeaderBlur)
         .task {
+            await LaunchFirstFrame.afterPaint()
+            revealSecondaryHome = true
             // Launch hydrate is owned by AppStore.init. Home only reads
             // after that pass — do not start a second refreshDailyData here.
             AriaPersonalPatternStore.shared.refresh(store: store)
@@ -149,18 +157,8 @@ struct HomeView: View {
 
 struct HomeHeaderView: View {
     @EnvironmentObject var store: AppStore
-    @ObservedObject private var calendar = CalendarManager.shared
-    @ObservedObject private var health = HealthKitManager.shared
-
-    private var ingestErrorText: String? {
-        LifeIngestError.combine(
-            existing: LifeIngestError.combine(
-                existing: store.lastLifeIngestError,
-                incoming: health.lastPackWriteError
-            ),
-            incoming: calendar.lastSeedError
-        )
-    }
+    /// EventKit, HKHealthStore, and the status TimelineView wait one hop.
+    @State private var revealLiveStatus = false
 
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
@@ -192,18 +190,8 @@ struct HomeHeaderView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
 
-                HomeDataStatusPill(
-                    isLive: store.healthKitLive,
-                    updatedAt: store.lastMetricsRefresh
-                )
-                .padding(.top, FDS.Spacing.xs)
-                if let ingestError = ingestErrorText, !ingestError.isEmpty {
-                    Text(ingestError)
-                        .font(HomeType.micro)
-                        .foregroundColor(.warning)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 2)
-                        .accessibilityLabel(ingestError)
+                if revealLiveStatus {
+                    HomeHeaderLiveStatus()
                 }
                 if !store.metricSources.isEmpty {
                     Text(store.metricSources.prefix(3).map { CloudSourceLabel.displayName(for: $0) }.joined(separator: " · "))
@@ -272,6 +260,47 @@ struct HomeHeaderView: View {
         }
         .padding(.top, ForgeLayout.screenTop)
         .homeEntrance(delay: 0.05)
+        .task {
+            await LaunchFirstFrame.afterPaint()
+            revealLiveStatus = true
+        }
+    }
+}
+
+/// HealthKit / Calendar ingest copy plus the live-status pill. Kept off the
+/// first Home commit so leftover fail-open does not construct HKHealthStore
+/// and a TimelineView on the same layout pass as the greeting.
+private struct HomeHeaderLiveStatus: View {
+    @EnvironmentObject var store: AppStore
+    @ObservedObject private var calendar = CalendarManager.shared
+    @ObservedObject private var health = HealthKitManager.shared
+
+    private var ingestErrorText: String? {
+        LifeIngestError.combine(
+            existing: LifeIngestError.combine(
+                existing: store.lastLifeIngestError,
+                incoming: health.lastPackWriteError
+            ),
+            incoming: calendar.lastSeedError
+        )
+    }
+
+    var body: some View {
+        Group {
+            HomeDataStatusPill(
+                isLive: store.healthKitLive,
+                updatedAt: store.lastMetricsRefresh
+            )
+            .padding(.top, FDS.Spacing.xs)
+            if let ingestError = ingestErrorText, !ingestError.isEmpty {
+                Text(ingestError)
+                    .font(HomeType.micro)
+                    .foregroundColor(.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+                    .accessibilityLabel(ingestError)
+            }
+        }
     }
 }
 

@@ -762,6 +762,33 @@ enum LaunchFirstCommit: Equatable {
     static func splashCoversFirstCommit(leftoverPrep: Bool) -> Bool {
         !leftoverPrep
     }
+
+    /// `ForgeStrikeMark` is a `TimelineView` + Canvas. Compiling that on the
+    /// first splash commit billed kill_relaunch sample 0 at ~3s. The ember
+    /// tile already matches LaunchScreen.storyboard.
+    static var splashMountsStrikeOnFirstCommit: Bool { false }
+
+    /// Leftover fail-open used to set `activeTab = .chat` on the same hop as
+    /// `finishForgePrep`. Chat + AriaMeet + weekly sheet is a SwiftUI layout
+    /// pass (prep_wedge sample 2 was 2.18s). Land on Home instead.
+    static func shouldOpenChatAfterPrep(leftoverResume: Bool) -> Bool {
+        !leftoverResume
+    }
+
+    /// The system notification sheet is not a launch / leftover-prep surface.
+    static func shouldPromptNotifications(needsForgePrep: Bool) -> Bool {
+        !needsForgePrep
+    }
+
+    /// Voice-gate sheets (`UISheetPresentationController`) must not share the
+    /// leftover first layout with AriaForgePrep.
+    static func shouldAttachVoiceGates(leftoverPrep: Bool) -> Bool {
+        !leftoverPrep
+    }
+
+    /// Weekly evaluation is a sheet. Presenting it on Chat's first appear
+    /// forced `layoutBelowIfNeeded` on the same commit as MessageListView.
+    static var presentsWeeklyReviewOnFirstChatLayout: Bool { false }
 }
 
 @MainActor

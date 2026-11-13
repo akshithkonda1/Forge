@@ -65,6 +65,10 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertEqual(ForgeStrikeGeometry.host, "splash")
         XCTAssertNotEqual(ForgeStrikeGeometry.host, "welcome")
         XCTAssertEqual(ForgeStrikeGeometry.duration, ForgeStrikeGeometry.splashDuration, accuracy: 0.001)
+        XCTAssertFalse(
+            LaunchFirstCommit.splashMountsStrikeOnFirstCommit,
+            "Strike compiles a TimelineView+Canvas; first splash commit is the ember tile"
+        )
     }
 
     func testWelcomeFireIsRageNotEmber() {
