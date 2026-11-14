@@ -27,14 +27,6 @@ OUT = os.environ.get("LAUNCH_GATE_OUT", "/tmp/launch-gate")
 # sit above the trap in the same stack and would double-count idle.
 IDLE_FRAMES = ("mach_msg2_trap", "mach_msg_trap")
 RUNLOOP_WAIT = ("__CFRunLoopServiceMachPort", "CFRunLoopRun", "__CFRunLoopRun")
-# `sample` attaches as a debugger. If that happens while dyld is still
-# registering images, the main thread blocks in this notify until the
-# sampler accepts the list. That wait is the measurement, not Forge.
-SAMPLER_STALL = (
-    "notifyDebuggerLoad",
-    "blockOnSynchronousEvent",
-    "notifyMonitorOfImageListChangesSim",
-)
 
 
 def load_thresholds():
@@ -137,61 +129,6 @@ def ensure_booted(udid):
     simctl("bootstatus", udid, "-b", timeout=300)
 
 
-def warmup_screenshot_io(udid):
-    """First `simctl io screenshot` after a long xcodebuild is often 10–30s
-    or times out, which blows the 8s first_frame window (2 consecutive
-    captures). Burn that cost here, before any timed scenario. Thresholds
-    stay unchanged."""
-    path = f"{OUT}/warmup.png"
-    successes, last_err = 0, None
-    for attempt in range(1, 6):
-        try:
-            ensure_booted(udid)
-            t0 = time.monotonic()
-            simctl("io", udid, "screenshot", "--type=png", path, timeout=45)
-            dt = time.monotonic() - t0
-            successes += 1
-            print(f"  warmup screenshot {attempt}: {dt:.1f}s", flush=True)
-            if successes >= 2 and dt < 5:
-                return
-        except Exception as e:
-            last_err = e
-            print(f"  warmup screenshot {attempt} failed: {e}", flush=True)
-            time.sleep(2)
-    if successes >= 1:
-        print("  warmup: screenshot IO works; continuing", flush=True)
-        return
-    raise RuntimeError(f"simulator screenshot IO never became ready: {last_err}")
-
-
-def warmup_app_launch(udid, app):
-    """First process start after xcodebuild is often 10s+ of dyld, which
-    burns the 8s first_frame window on the timed cold scenario. Page the
-    binary in once, then uninstall so each scenario is still a fresh
-    install. Thresholds stay unchanged."""
-    ensure_booted(udid)
-    fresh_install(udid, app)
-    try:
-        pid, t0 = launch(udid)
-        deadline = time.monotonic() + 25
-        while time.monotonic() < deadline:
-            if not pid_alive(pid):
-                print("  warmup app: process exited", flush=True)
-                break
-            try:
-                small, _ = shot(udid, f"{OUT}/warmup-app.png", timeout=20)
-                share = dominant_share(small)
-                print(f"  warmup app frame dominant={share:.3f} at {time.monotonic() - t0:.1f}s", flush=True)
-                if share < T["BLANK_DOMINANT_SHARE"]:
-                    break
-            except Exception as e:
-                print(f"  warmup app shot failed: {e}", flush=True)
-            time.sleep(1)
-    finally:
-        simctl("terminate", udid, BUNDLE, check=False)
-        simctl("uninstall", udid, BUNDLE, check=False)
-
-
 def summarize(path, label):
     """Text summary of a screenshot for the job log: dominant RGB + share and
     an 8x8 grid of average colours (rows top->bottom)."""
@@ -262,10 +199,9 @@ def run_sample(pid, window, path, timeout):
 def parse_main_thread_busy(text, window):
     """Busy seconds on the main thread for one `sample` window.
 
-    Idle is a leaf mach_msg trap under the run loop wait, or under the
-    dyld notify that `sample` itself causes when it attaches. App hangs
-    (semaphore / HealthKit / SwiftUI commit) stay busy. Thresholds are
-    not applied here.
+    Idle is a leaf mach_msg trap under the run loop wait. App hangs
+    (semaphore / HealthKit / SwiftUI commit / dyld) stay busy. Thresholds
+    are not applied here.
     """
     m = re.search(r"^(\s*)(\d+) Thread_\d+.*?(?:com\.apple\.main-thread|Main Thread).*?$", text, re.M)
     if not m:
@@ -288,8 +224,7 @@ def parse_main_thread_busy(text, window):
         if not leaf or not any(f in txt for f in IDLE_FRAMES):
             continue
         runloop = any(any(r in t for r in RUNLOOP_WAIT) for _, t in stack[:-1])
-        sampler = any(any(s in t for s in SAMPLER_STALL) for _, t in stack)
-        if runloop or sampler:
+        if runloop:
             idle += n
     if total <= 0:
         raise RuntimeError("main thread total sample count is 0")
@@ -514,8 +449,6 @@ def main():
     # The sim can be shut down under us during the long build; boot here.
     # "already booted" is the only boot error tolerated; bootstatus must pass.
     ensure_booted(udid)
-    warmup_screenshot_io(udid)
-    warmup_app_launch(udid, app)
     results, ok = [], True
     for name in ("cold", "kill_relaunch", "prep_wedge"):
         print(f"== scenario {name}", flush=True)
