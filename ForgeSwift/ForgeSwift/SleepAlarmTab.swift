@@ -51,7 +51,7 @@ final class ForgeAlarmStore: ObservableObject {
         }
         SleepAlarmScheduler.registerCategories()
         // Launch must not show the system permission sheet. Sleep tab
-        // onAppear / persistAndSchedule pass promptIfUndetermined: true.
+        // onAppear / persistAndSchedule prompt through LaunchPromptGate.
         Task { await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: false) }
     }
 
@@ -108,12 +108,17 @@ final class ForgeAlarmStore: ObservableObject {
         if let data = try? JSONEncoder().encode(alarms) {
             defaults.set(data, forKey: alarmsKey)
         }
-        Task { await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: true) }
+        Task {
+            await ForgeNotificationScheduler.promptAuthorization()
+            await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: false)
+        }
     }
 }
 
 enum SleepAlarmScheduler {
     private static let center = UNUserNotificationCenter.current()
+    private static let pendingRearmLock = NSLock()
+    nonisolated(unsafe) private static var pendingRearmAlarms: [ForgeAlarm]?
 
     /// Launch used to ask here via `ForgeAlarmStore` init and cover the splash.
     /// The system sheet now waits for onboarding after sign-in.
@@ -145,35 +150,15 @@ enum SleepAlarmScheduler {
     }
 
     /// Schedules every enabled alarm, then fail-closes if iPhone cannot deliver.
-    /// Launch / leftover prep pass `promptIfUndetermined: false` so a fresh
-    /// simulator install does not sit on the system sheet until first-frame
-    /// and the prep watchdog expire.
+    /// Read-only: never requests authorization. If notifications are not
+    /// granted, remember the alarms and re-arm after `LaunchPromptGate` opens.
     private static func arm(
         _ alarms: [ForgeAlarm],
         promptIfUndetermined: Bool
     ) async -> SleepAlarmDelivery {
-        var authError: String?
-        var authorization = await center.notificationSettings().authorizationStatus
-        switch ForgeNotificationScheduler.authorizationIntent(
-            status: authorization,
-            promptIfUndetermined: promptIfUndetermined
-        ) {
-        case .prompt:
-            do {
-                _ = try await center.requestAuthorization(
-                    options: SleepAlarmAppleAPI.authorizationOptions
-                )
-            } catch {
-                authError = error.localizedDescription
-                print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
-            }
-        case .alreadyGranted, .denied, .skipPrompt:
-            break
-        }
-
-        let afterAsk = await center.notificationSettings()
-        authorization = afterAsk.authorizationStatus
-        let timeSensitive = afterAsk.timeSensitiveSetting
+        let settings = await center.notificationSettings()
+        let authorization = settings.authorizationStatus
+        let timeSensitive = settings.timeSensitiveSetting
         let expected = SleepAlarmScheduleMath.expectedPendingCount(in: alarms)
 
         let pending = await center.pendingNotificationRequests()
@@ -181,15 +166,17 @@ enum SleepAlarmScheduler {
         center.removePendingNotificationRequests(withIdentifiers: stale)
 
         guard authorization == .authorized else {
+            rememberPendingRearm(alarms)
             return SleepAlarmScheduleMath.delivery(
                 authorization: authorization,
                 timeSensitive: timeSensitive,
                 expected: expected,
                 pending: 0,
                 addFailures: 0,
-                authError: authError
+                authError: nil
             )
         }
+        rememberPendingRearm(nil)
 
         let windows: [UUID: Int] = await MainActor.run {
             Dictionary(alarms.map { alarm in
@@ -212,6 +199,21 @@ enum SleepAlarmScheduler {
             addFailures: addFailures,
             authError: nil
         )
+    }
+
+    private static func rememberPendingRearm(_ alarms: [ForgeAlarm]?) {
+        pendingRearmLock.lock()
+        pendingRearmAlarms = alarms
+        pendingRearmLock.unlock()
+    }
+
+    /// After `LaunchPromptGate` opens and the person grants notifications.
+    static func rearmAfterPromptGateIfNeeded() async {
+        pendingRearmLock.lock()
+        let alarms = pendingRearmAlarms
+        pendingRearmLock.unlock()
+        guard let alarms else { return }
+        _ = await arm(alarms, promptIfUndetermined: false)
     }
 
     @discardableResult
@@ -536,7 +538,10 @@ struct AlarmTab: View {
             .forgeScreenInsets(top: ForgeLayout.screenTop)
         }
         .onAppear {
-            Task { await SleepAlarmScheduler.sync(store.alarms, promptIfUndetermined: true) }
+            Task {
+                await ForgeNotificationScheduler.promptAuthorization()
+                await SleepAlarmScheduler.sync(store.alarms, promptIfUndetermined: false)
+            }
         }
         .sheet(isPresented: $showEditor) {
             if let alarm = editingAlarm {
