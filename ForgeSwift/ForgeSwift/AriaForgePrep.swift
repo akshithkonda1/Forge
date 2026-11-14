@@ -1,5 +1,6 @@
 import Foundation
 import ForgeCore
+import os
 
 /// Module load, before `AppStore.init`. Leftover fail-open is counted from
 /// here so a true-cold dyld still leaves AriaForgePrep before `watchdog`.
@@ -381,6 +382,11 @@ extension AriaForgePrep {
     nonisolated(unsafe) private static var leftoverAuthenticatedSnapshot = false
     @MainActor
     private static var leftoverIngestTask: Task<Void, Never>?
+    private static let ingestLock = NSLock()
+    nonisolated(unsafe) private static var leftoverIngestHandle: Task<Void, Never>?
+    private static let watchdogLog = Logger(subsystem: "com.forge.aria", category: "prep.watchdog")
+    nonisolated(unsafe) static var lastWatchdogFireElapsedForTests: TimeInterval = -1
+    nonisolated(unsafe) static var lastWatchdogExitElapsedForTests: TimeInterval = -1
     /// Set from the leftover timer thread so `runSequence` can leave the
     /// 45–55s hold without waiting on a MainActor hop.
     private static let leftoverFailOpenLock = NSLock()
@@ -419,12 +425,15 @@ extension AriaForgePrep {
         leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
+        cancelLeftoverIngestOffMain()
         leftoverFailOpenLock.lock()
         leftoverDidFailOpen = false
         leftoverFailOpenLock.unlock()
         leftoverAuthLock.lock()
         leftoverAuthenticatedSnapshot = false
         leftoverAuthLock.unlock()
+        lastWatchdogFireElapsedForTests = -1
+        lastWatchdogExitElapsedForTests = -1
         AriaForgePrepHandoff.resetInterviewCacheForTests()
     }
 
@@ -443,12 +452,15 @@ extension AriaForgePrep {
         leftoverStore = nil
         leftoverIngestTask?.cancel()
         leftoverIngestTask = nil
+        cancelLeftoverIngestOffMain()
         leftoverFailOpenLock.lock()
         leftoverDidFailOpen = false
         leftoverFailOpenLock.unlock()
         leftoverAuthLock.lock()
         leftoverAuthenticatedSnapshot = false
         leftoverAuthLock.unlock()
+        lastWatchdogFireElapsedForTests = -1
+        lastWatchdogExitElapsedForTests = -1
         AriaForgePrepHandoff.resetInterviewCacheForTests()
     }
 
@@ -536,9 +548,9 @@ extension AriaForgePrep {
             // Harness reads the container plist. Flush it here so a busy
             // MainActor leftover ingest cannot miss PREP_WATCHDOG_S.
             markLeftoverFailedOpen()
+            cancelLeftoverIngestOffMain()
             AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
             Task { @MainActor in
-                leftoverIngestTask?.cancel()
                 leftoverIngestTask = nil
                 if store.isOnboarded { return }
                 store.finishForgePrep()
@@ -600,10 +612,14 @@ extension AriaForgePrep {
     }
 
     /// Flush the launch-gate plist off the main thread. Visual `isPrepping`
-    /// still hops to MainActor; the harness reads this plist.
+    /// still hops to MainActor; the harness reads this plist. Exit decision
+    /// and teardown (cancel ingest + flush) do not wait on that hop.
     private static func firePrepWatchdog() {
-        let interview = AriaForgePrepHandoff.refreshInterviewFromDisk()
-        guard interview else { return }
+        let fireElapsed = elapsedSinceProcessStart()
+        lastWatchdogFireElapsedForTests = fireElapsed
+        watchdogLog.info("prep watchdog timer fired elapsed=\(fireElapsed, format: .fixed(precision: 3), privacy: .public)s")
+        print("prep watchdog timer fired elapsed=\(String(format: "%.3f", fireElapsed))s")
+
         markLeftoverFailedOpen()
         leftoverAuthLock.lock()
         let snapshot = leftoverAuthenticatedSnapshot
@@ -612,12 +628,28 @@ extension AriaForgePrep {
             AppStore.authDefaultsKey,
             forceDisk: true
         )
+        cancelLeftoverIngestOffMain()
         AriaForgePrepHandoff.flushHandoff(onboarded: authenticated)
+
+        let exitElapsed = elapsedSinceProcessStart()
+        lastWatchdogExitElapsedForTests = exitElapsed
+        UserDefaults.standard.set(fireElapsed, forKey: "forge.prep.watchdog.fireElapsed")
+        UserDefaults.standard.set(exitElapsed, forKey: "forge.prep.watchdog.exitElapsed")
+        UserDefaults.standard.synchronize()
+        watchdogLog.info("prep watchdog exit elapsed=\(exitElapsed, format: .fixed(precision: 3), privacy: .public)s")
+        print("prep watchdog exit elapsed=\(String(format: "%.3f", exitElapsed))s")
+
         Task { @MainActor in
-            leftoverIngestTask?.cancel()
             leftoverIngestTask = nil
             leftoverStore?.finishForgePrep()
         }
+    }
+
+    private static func cancelLeftoverIngestOffMain() {
+        ingestLock.lock()
+        leftoverIngestHandle?.cancel()
+        leftoverIngestHandle = nil
+        ingestLock.unlock()
     }
 
     /// Always-on fail-open from process start. The launch gate writes
@@ -649,9 +681,9 @@ extension AriaForgePrep {
         )
         if interview, !onboarded {
             markLeftoverFailedOpen()
+            cancelLeftoverIngestOffMain()
             AriaForgePrepHandoff.flushHandoff(onboarded: false)
             Task { @MainActor in
-                leftoverIngestTask?.cancel()
                 leftoverIngestTask = nil
                 leftoverStore?.finishForgePrep()
             }
@@ -685,6 +717,9 @@ extension AriaForgePrep {
             await Task.yield()
             await loadUserData(into: store, trainingTheme: theme)
         }
+        ingestLock.lock()
+        leftoverIngestHandle = leftoverIngestTask
+        ingestLock.unlock()
     }
 
     @MainActor

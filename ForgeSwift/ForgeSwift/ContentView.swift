@@ -164,6 +164,7 @@ struct ContentView: View {
             elapsed: AriaForgePrep.elapsedSinceProcessStartForTests()
         ) else { return }
         await ForgeNotificationScheduler.promptAuthorization()
+        await SleepAlarmScheduler.rearmAfterPromptGateIfNeeded()
     }
 
     private func attachVoiceGates(presentKokoroPrompt: Bool) {

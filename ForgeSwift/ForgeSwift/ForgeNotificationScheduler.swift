@@ -2,10 +2,90 @@ import Foundation
 import UserNotifications
 import ForgeCore
 
+/// Snapshot so callers and tests never need a real `UNNotificationSettings`.
+struct UserNotificationSettingsSnapshot: Sendable {
+    var authorizationStatus: UNAuthorizationStatus
+    var timeSensitiveSetting: UNNotificationSetting
+}
+
+/// Single injected surface for every iOS `UNUserNotificationCenter` caller.
+protocol UserNotificationCentering: AnyObject {
+    func notificationSettings() async -> UserNotificationSettingsSnapshot
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
+    func add(_ request: UNNotificationRequest) async throws
+    func pendingNotificationRequests() async -> [UNNotificationRequest]
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String])
+    func removeDeliveredNotifications(withIdentifiers identifiers: [String])
+    func setNotificationCategories(_ categories: Set<UNNotificationCategory>)
+    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?)
+}
+
+final class SystemUserNotificationCenter: UserNotificationCentering {
+    private let center = UNUserNotificationCenter.current()
+
+    func notificationSettings() async -> UserNotificationSettingsSnapshot {
+        let settings = await center.notificationSettings()
+        return UserNotificationSettingsSnapshot(
+            authorizationStatus: settings.authorizationStatus,
+            timeSensitiveSetting: settings.timeSensitiveSetting
+        )
+    }
+
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+        try await center.requestAuthorization(options: options)
+    }
+
+    func add(_ request: UNNotificationRequest) async throws {
+        try await center.add(request)
+    }
+
+    func pendingNotificationRequests() async -> [UNNotificationRequest] {
+        await center.pendingNotificationRequests()
+    }
+
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    func removeDeliveredNotifications(withIdentifiers identifiers: [String]) {
+        center.removeDeliveredNotifications(withIdentifiers: identifiers)
+    }
+
+    func setNotificationCategories(_ categories: Set<UNNotificationCategory>) {
+        center.setNotificationCategories(categories)
+    }
+
+    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {
+        center.delegate = delegate
+    }
+}
+
+enum UserNotificationCenterClient {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var boxed: any UserNotificationCentering = SystemUserNotificationCenter()
+
+    static var current: any UserNotificationCentering {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return boxed
+        }
+        set {
+            lock.lock()
+            boxed = newValue
+            lock.unlock()
+        }
+    }
+
+    static func resetToSystemForTests() {
+        current = SystemUserNotificationCenter()
+    }
+}
+
 /// Idempotent notification scheduling driven by Settings toggles.
 @MainActor
 enum ForgeNotificationScheduler {
-    private static let center = UNUserNotificationCenter.current()
+    private static var center: any UserNotificationCentering { UserNotificationCenterClient.current }
 
     enum ID {
         static let workout = "forge.notification.workout"
@@ -347,7 +427,7 @@ enum ForgeNotificationScheduler {
     /// `dispatch_lane_barrier_sync` + `xpc_connection_send_message_with_reply_sync`.
     private static func clearCycleRequests(_ ids: [String]) async {
         await Task.detached(priority: .utility) {
-            let center = UNUserNotificationCenter.current()
+            let center = UserNotificationCenterClient.current
             center.removePendingNotificationRequests(withIdentifiers: ids)
             center.removeDeliveredNotifications(withIdentifiers: ids)
         }.value
@@ -478,5 +558,31 @@ enum ForgeNotificationScheduler {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(hours * 3600), repeats: true)
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         try? await center.add(request)
+    }
+}
+
+/// Launch / leftover-prep notification callers. Tests inject a recording
+/// center and assert none of these request authorization.
+enum LaunchNotificationPath {
+    @MainActor
+    static func runLaunchCallers(alarms: [ForgeAlarm]) async {
+        SleepAlarmScheduler.registerCategories()
+        await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: false)
+        await ForgeNotificationScheduler.requestAuthorizationIfNeeded(promptIfUndetermined: false)
+        await ForgeNotificationScheduler.sync(
+            settings: AppNotificationSettings(),
+            briefEnabled: false,
+            brief: BriefNotificationSettings(),
+            promptIfUndetermined: false
+        )
+        await ForgeNotificationScheduler.sync(
+            settings: AppNotificationSettings(),
+            briefEnabled: false,
+            brief: BriefNotificationSettings(),
+            promptIfUndetermined: true
+        )
+        await SleepAlarmScheduler.sync(alarms, promptIfUndetermined: true)
+        _ = await ForgeNotificationScheduler.promptAuthorization()
+        try? await SmartNotificationManager.shared.requestAuthorization()
     }
 }
