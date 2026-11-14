@@ -32,12 +32,6 @@ struct OnboardingView: View {
         .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.isPrepping)
         .onAppear {
             coordinator.startIfNeeded(in: store)
-            // Leftover / wedged prep must not raise the system notification
-            // sheet — that alert pinned prep_wedge main_thread and starved
-            // the 60s MainActor hold. Interview after sign-in still prompts.
-            if !store.needsForgePrep {
-                Task { await ForgeNotificationScheduler.promptAuthorization() }
-            }
         }
         .onDisappear { coordinator.stopInterviewVoice() }
     }

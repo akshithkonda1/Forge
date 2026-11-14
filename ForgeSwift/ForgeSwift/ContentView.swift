@@ -50,7 +50,9 @@ struct ContentView: View {
                 AriaNeuralVoiceSheet(gate: neuralVoiceGate)
             }
         }
-        .sheet(isPresented: kokoroPromptBinding(blocked: leftoverPrep || showSplash)) {
+        .sheet(isPresented: kokoroPromptBinding(
+            blocked: LaunchPromptGate.blocksPresentation(leftoverPrep: leftoverPrep, splashVisible: showSplash)
+        )) {
             if let kokoroVoiceGate {
                 AriaKokoroVoiceSheet(gate: kokoroVoiceGate)
             }
@@ -107,10 +109,14 @@ struct ContentView: View {
             )
             dismissSplash()
             attachVoiceGates(presentKokoroPrompt: false)
+            if store.isAuthenticated, !store.isOnboarded {
+                await presentDeferredNotifications()
+            }
         }
         .onChange(of: store.isOnboarded) { _, onboarded in
             if onboarded, !store.needsForgePrep {
                 attachVoiceGates(presentKokoroPrompt: true)
+                Task { await presentDeferredNotifications() }
             }
         }
     }
@@ -143,6 +149,21 @@ struct ContentView: View {
         withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
             showSplash = false
         }
+    }
+
+    private func presentDeferredNotifications() async {
+        let leftover = LaunchFirstCommit.leftoverPrepPending(needsForgePrep: store.needsForgePrep)
+        guard !LaunchPromptGate.blocksPresentation(leftoverPrep: leftover, splashVisible: showSplash) else { return }
+        let remain = max(0, LaunchPromptGate.firstFrameSettle - AriaForgePrep.elapsedSinceProcessStartForTests())
+        if remain > 0 {
+            try? await Task.sleep(nanoseconds: UInt64((remain * 1_000_000_000).rounded()))
+        }
+        guard LaunchPromptGate.allowsPresentation(
+            leftoverPrep: LaunchFirstCommit.leftoverPrepPending(needsForgePrep: store.needsForgePrep),
+            splashVisible: showSplash,
+            elapsed: AriaForgePrep.elapsedSinceProcessStartForTests()
+        ) else { return }
+        await ForgeNotificationScheduler.promptAuthorization()
     }
 
     private func attachVoiceGates(presentKokoroPrompt: Bool) {

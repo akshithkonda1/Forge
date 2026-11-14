@@ -855,6 +855,20 @@ enum LaunchFirstCommit: Equatable {
     }
 }
 
+/// 210 MB Kokoro sheet and the system notification sheet share this.
+enum LaunchPromptGate {
+    static let firstFrameSettle: TimeInterval = 8
+
+    static func blocksPresentation(leftoverPrep: Bool, splashVisible: Bool) -> Bool {
+        leftoverPrep || splashVisible
+    }
+
+    static func allowsPresentation(leftoverPrep: Bool, splashVisible: Bool, elapsed: TimeInterval) -> Bool {
+        !blocksPresentation(leftoverPrep: leftoverPrep, splashVisible: splashVisible)
+            && elapsed >= firstFrameSettle
+    }
+}
+
 @MainActor
 private final class RunState {
     var workFinished = false

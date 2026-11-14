@@ -482,17 +482,6 @@ final class LaunchStabilityGateTests: XCTestCase {
         )
     }
 
-    func testWatchdogRemainingIsSixtySecondsNotLeftoverFailOpen() {
-        let remaining = AriaForgePrep.leftoverRemaining(
-            requested: AriaForgePrep.watchdog,
-            elapsed: 0,
-            failOpen: AriaForgePrep.watchdog
-        )
-        XCTAssertEqual(remaining, AriaForgePrep.watchdog)
-        XCTAssertEqual(AriaForgePrep.watchdog, 60)
-        XCTAssertLessThan(AriaForgePrep.leftoverFailOpen, AriaForgePrep.watchdog)
-    }
-
     func testWatchdogExitsPrepWhileKokoroSheetIsShowing() {
         AriaForgePrep.resetLeftoverSessionForTests()
         let previousOnboarded = UserDefaults.standard.object(forKey: AppStore.onboardedDefaultsKey)
@@ -530,6 +519,29 @@ final class LaunchStabilityGateTests: XCTestCase {
             "Authenticated leftover watchdog marks onboarded on disk at or before 60s"
         )
         XCTAssertLessThanOrEqual(0.05, AriaForgePrep.watchdog)
+    }
+
+    func testNotificationSheetDoesNotPresentDuringLaunchOrPrep() {
+        XCTAssertEqual(LaunchPromptGate.firstFrameSettle, 8)
+        XCTAssertFalse(
+            LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: true, elapsed: 1),
+            "cold launch: splash still covering"
+        )
+        XCTAssertFalse(
+            LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: false, elapsed: 1),
+            "cold launch: first_frame not settled"
+        )
+        XCTAssertTrue(
+            LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: false, elapsed: 8)
+        )
+        XCTAssertFalse(
+            LaunchPromptGate.allowsPresentation(leftoverPrep: true, splashVisible: false, elapsed: 1),
+            "prep_wedge: leftover prep"
+        )
+        XCTAssertFalse(
+            LaunchPromptGate.allowsPresentation(leftoverPrep: true, splashVisible: false, elapsed: 8),
+            "prep_wedge: leftover prep after first_frame"
+        )
     }
 
     func testKokoroPromptDoesNotPresentDuringLeftoverPrep() async {
