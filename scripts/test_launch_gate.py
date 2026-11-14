@@ -136,8 +136,8 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
             test,
         )
         gate = SCRIPT.read_text(encoding="utf-8")
-        self.assertIn("DYLD_PRINT_LIBRARIES", gate)
-        self.assertIn("DYLD_PRINT_STATISTICS", gate)
+        self.assertNotIn("dump_dyld_trace", gate)
+        self.assertNotIn("DYLD_PRINT_LIBRARIES", gate)
         yml = STABILITY_YML.read_text(encoding="utf-8")
         self.assertIn("otool -L", yml)
         self.assertIn("KokoroTTS|MisakiSwift", yml)
