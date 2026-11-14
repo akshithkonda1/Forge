@@ -86,7 +86,7 @@ final class SmartNotificationManager: ObservableObject {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(hours * 3600), repeats: true)
         let request = UNNotificationRequest(identifier: "hydration-repeating", content: content, trigger: trigger)
         
-        try? await UserNotificationCenterClient.current.add(request)
+        try? await UNUserNotificationCenter.current().add(request)
     }
     
     func scheduleMealReminder(time: DateComponents, mealType: String) async {
@@ -98,7 +98,7 @@ final class SmartNotificationManager: ObservableObject {
         let trigger = UNCalendarNotificationTrigger(dateMatching: time, repeats: true)
         let request = UNNotificationRequest(identifier: "meal-\(mealType)", content: content, trigger: trigger)
         
-        try? await UserNotificationCenterClient.current.add(request)
+        try? await UNUserNotificationCenter.current().add(request)
     }
     
     func scheduleSleepReminder(bedtime: DateComponents) async {
@@ -110,7 +110,7 @@ final class SmartNotificationManager: ObservableObject {
     /// high-impact picks. Non-repeating — each load reschedules from fresh data,
     /// so the user is never nudged about a recommendation that no longer applies.
     func scheduleRecommendationReminders(_ recommendations: [AIRecommendation]) async {
-        let center = UserNotificationCenterClient.current
+        let center = UNUserNotificationCenter.current()
 
         // Clear stale recommendation notifications so we never stack duplicates.
         let pending = await center.pendingNotificationRequests()

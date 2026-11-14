@@ -40,6 +40,7 @@ enum AriaHealthRiskBridge {
                 promptIfUndetermined: false
             )
             guard granted else { return }
+            let center = UNUserNotificationCenter.current()
             let content = UNMutableNotificationContent()
             content.title = finding.title
             content.body = finding.body
@@ -50,7 +51,7 @@ enum AriaHealthRiskBridge {
                 content: content,
                 trigger: nil
             )
-            try? await UserNotificationCenterClient.current.add(request)
+            try? await UNUserNotificationCenter.current().add(request)
             UserDefaults.standard.set(Date(), forKey: key)
         }
     }

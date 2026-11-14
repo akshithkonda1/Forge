@@ -20,6 +20,7 @@ CONTENT = ROOT / "ForgeSwift" / "ForgeSwift" / "ContentView.swift"
 APP = ROOT / "ForgeSwift" / "ForgeSwift" / "ForgeSwiftApp.swift"
 AUTH = ROOT / "ForgeSwift" / "ForgeSwift" / "AppStore+Auth.swift"
 PREP = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaForgePrep.swift"
+ALARMS = ROOT / "ForgeSwift" / "ForgeSwift" / "SleepAlarmTab.swift"
 PBXPROJ = ROOT / "ForgeSwift" / "ForgeSwift.xcodeproj" / "project.pbxproj"
 ENGINE = ROOT / "ForgeSwift" / "ForgeSwift" / "AriaKokoroEngine.swift"
 KOKORO_TEST = ROOT / "ForgeSwift" / "ForgeSwiftTests" / "AriaKokoroEngineTests.swift"
@@ -103,6 +104,12 @@ class HarnessDoesNotHideTheApp(unittest.TestCase):
         self.assertNotIn("return launchPrepWedge && isDebugSimulator", prep)
         self.assertNotIn("FORGE_LAUNCH_PREP_WEDGE", auth)
         self.assertNotIn("launchPrepWedge:", auth)
+
+    def test_sleep_alarm_arm_only_reads_notification_settings(self):
+        src = ALARMS.read_text(encoding="utf-8")
+        arm = src.split("private static func arm(", 1)[1].split("static func rearmAfterPromptGateIfNeeded", 1)[0]
+        self.assertIn("await center.notificationSettings()", arm)
+        self.assertNotIn("requestAuthorization", arm)
 
     def test_first_commit_is_branded_not_a_solid_field(self):
         src = CONTENT.read_text(encoding="utf-8")

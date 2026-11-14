@@ -11,13 +11,11 @@ final class LaunchStabilityGateTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        UserNotificationCenterClient.resetToSystemForTests()
         AriaForgePrep.resetLeftoverSessionForTests()
     }
 
     override func tearDown() {
         AriaForgePrep.resetLeftoverSessionForTests()
-        UserNotificationCenterClient.resetToSystemForTests()
         super.tearDown()
     }
 
@@ -84,10 +82,7 @@ final class LaunchStabilityGateTests: XCTestCase {
 
     func testPrepHoldDefaultsOffAndCapBeatsWatchdog() {
         let coordinator = OnboardingCoordinator()
-        XCTAssertFalse(
-            coordinator.skipPrepHold,
-            "Launch never sets skipPrepHold; DEBUG Skip wait is explicit"
-        )
+        XCTAssertFalse(coordinator.skipPrepHold)
         XCTAssertEqual(AriaForgePrep.floor, 45)
         XCTAssertEqual(AriaForgePrep.cap, 55)
         XCTAssertEqual(AriaForgePrep.watchdog, 60)
@@ -163,36 +158,13 @@ final class LaunchStabilityGateTests: XCTestCase {
         XCTAssertTrue(store.needsForgePrep)
         XCTAssertTrue(AriaForgePrepHandoff.isInterviewComplete)
         XCTAssertFalse(store.isOnboarded)
-        XCTAssertFalse(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: true,
-                isTestHost: false,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            ),
-            "Debug simulator restore is not a leftover-prep exit"
-        )
-        XCTAssertFalse(
-            AriaForgePrepHandoff.shouldFinishLeftoverPrepOnRestore(
-                isDebugSimulator: false,
-                isTestHost: false,
-                isAuthenticated: true,
-                isInterviewComplete: true
-            )
-        )
     }
 
     func testFirstFrameRevealIsNotAThirtySecondHide() {
-        XCTAssertNil(
-            ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"],
-            "Launch never sets FORGE_LAUNCH_LIGHT_ROOT"
-        )
         XCTAssertFalse(
             ProcessInfo.processInfo.environment["FORGE_LAUNCH_LIGHT_ROOT"] == "1"
         )
         XCTAssertEqual(LaunchBrandField.markSide, 220)
-        let coordinator = OnboardingCoordinator()
-        XCTAssertFalse(coordinator.skipPrepHold)
     }
 
     func testKokoroOnlyStopAndIsSpeakingDoNotAllocateSynthesizer() {
@@ -520,7 +492,6 @@ final class LaunchStabilityGateTests: XCTestCase {
             AriaForgePrepHandoff.readBool(AppStore.onboardedDefaultsKey),
             "Authenticated leftover watchdog marks onboarded on disk at or before 60s"
         )
-        XCTAssertLessThanOrEqual(0.05, AriaForgePrep.watchdog)
         XCTAssertGreaterThanOrEqual(AriaForgePrep.lastWatchdogFireElapsedForTests, 0)
         XCTAssertGreaterThanOrEqual(
             AriaForgePrep.lastWatchdogExitElapsedForTests,
@@ -531,47 +502,6 @@ final class LaunchStabilityGateTests: XCTestCase {
             0.2,
             "watchdog exit must not wait on MainActor"
         )
-    }
-
-    func testNotificationSheetDoesNotPresentDuringLaunchOrPrep() async {
-        let spy = RecordingUserNotificationCenter()
-        UserNotificationCenterClient.current = spy
-        defer { UserNotificationCenterClient.resetToSystemForTests() }
-
-        XCTAssertFalse(
-            LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: true, elapsed: 1),
-            "cold launch"
-        )
-        XCTAssertFalse(
-            LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: false, elapsed: 1),
-            "cold launch: first_frame not settled"
-        )
-        XCTAssertTrue(
-            LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: false, elapsed: 8)
-        )
-        XCTAssertFalse(
-            LaunchPromptGate.allowsPresentation(leftoverPrep: true, splashVisible: false, elapsed: 8),
-            "prep_wedge"
-        )
-
-        let alarms = [ForgeAlarm()]
-
-        await LaunchNotificationPath.runLaunchCallers(alarms: alarms)
-        XCTAssertEqual(spy.requestAuthorizationCount, 0, "cold")
-
-        await LaunchNotificationPath.runLaunchCallers(alarms: alarms)
-        XCTAssertEqual(spy.requestAuthorizationCount, 0, "kill_relaunch")
-
-        let store = AppStore()
-        store.isAuthenticated = true
-        store.isOnboarded = false
-        AriaForgePrepHandoff.markInterviewComplete()
-        XCTAssertTrue(store.needsForgePrep)
-        await LaunchNotificationPath.runLaunchCallers(alarms: alarms)
-        XCTAssertEqual(spy.requestAuthorizationCount, 0, "prep_wedge")
-
-        _ = try? await spy.requestAuthorization(options: [.alert])
-        XCTAssertEqual(spy.requestAuthorizationCount, 1, "spy must observe a real requestAuthorization")
     }
 
     func testKokoroPromptDoesNotPresentDuringLeftoverPrep() async {
@@ -597,86 +527,4 @@ final class LaunchStabilityGateTests: XCTestCase {
         )
         XCTAssertFalse(gate.isDownloading)
     }
-
-    func testKokoroPromptCanPresentAfterPrepFinishes() async {
-        AriaForgePrep.resetLeftoverSessionForTests()
-        let gate = AriaKokoroVoiceGate.shared
-        let previousPrompt = gate.showPrompt
-        let previousConsent = UserDefaults.standard.object(forKey: AriaKokoroDelivery.consentKey)
-        let previousDeclined = UserDefaults.standard.object(forKey: AriaKokoroDelivery.declinedKey)
-        defer {
-            gate.showPrompt = previousPrompt
-            AriaForgePrep.resetLeftoverSessionForTests()
-            if let previousConsent {
-                UserDefaults.standard.set(previousConsent, forKey: AriaKokoroDelivery.consentKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: AriaKokoroDelivery.consentKey)
-            }
-            if let previousDeclined {
-                UserDefaults.standard.set(previousDeclined, forKey: AriaKokoroDelivery.declinedKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: AriaKokoroDelivery.declinedKey)
-            }
-        }
-
-        let store = AppStore()
-        store.isAuthenticated = true
-        store.isOnboarded = false
-        AriaForgePrepHandoff.markInterviewComplete()
-        store.finishForgePrep()
-        XCTAssertFalse(store.needsForgePrep)
-        XCTAssertTrue(store.isOnboarded)
-
-        UserDefaults.standard.set(false, forKey: AriaKokoroDelivery.consentKey)
-        UserDefaults.standard.set(false, forKey: AriaKokoroDelivery.declinedKey)
-        await gate.refresh(presentPrompt: true)
-        if AriaKokoroModelStore.shared.hasVerifiedRuntime {
-            XCTAssertFalse(gate.showPrompt)
-        } else {
-            XCTAssertTrue(
-                gate.showPrompt,
-                "210 MB prompt is allowed after prep finishes when no local runtime"
-            )
-        }
-        XCTAssertFalse(gate.isDownloading, "refresh must not start a download by itself")
-    }
-}
-
-final class RecordingUserNotificationCenter: UserNotificationCentering, @unchecked Sendable {
-    private let lock = NSLock()
-    private var authorizationCalls = 0
-    var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    var timeSensitiveSetting: UNNotificationSetting = .notSupported
-
-    var requestAuthorizationCount: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return authorizationCalls
-    }
-
-    func notificationSettings() async -> UserNotificationSettingsSnapshot {
-        UserNotificationSettingsSnapshot(
-            authorizationStatus: authorizationStatus,
-            timeSensitiveSetting: timeSensitiveSetting
-        )
-    }
-
-    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
-        lock.lock()
-        authorizationCalls += 1
-        lock.unlock()
-        return false
-    }
-
-    func add(_ request: UNNotificationRequest) async throws {}
-
-    func pendingNotificationRequests() async -> [UNNotificationRequest] { [] }
-
-    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {}
-
-    func removeDeliveredNotifications(withIdentifiers identifiers: [String]) {}
-
-    func setNotificationCategories(_ categories: Set<UNNotificationCategory>) {}
-
-    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
 }

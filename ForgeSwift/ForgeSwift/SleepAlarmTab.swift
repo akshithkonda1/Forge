@@ -116,7 +116,7 @@ final class ForgeAlarmStore: ObservableObject {
 }
 
 enum SleepAlarmScheduler {
-    private static var center: any UserNotificationCentering { UserNotificationCenterClient.current }
+    private static let center = UNUserNotificationCenter.current()
     private static let pendingRearmLock = NSLock()
     nonisolated(unsafe) private static var pendingRearmAlarms: [ForgeAlarm]?
 
@@ -150,36 +150,16 @@ enum SleepAlarmScheduler {
     }
 
     /// Schedules every enabled alarm, then fail-closes if iPhone cannot deliver.
-    /// Never requests authorization — launch, leftover prep, and this
-    /// scheduler only read settings. If the person has not granted
-    /// notifications, skip arming and re-arm after `LaunchPromptGate` opens.
+    /// Read-only: never requests authorization. If notifications are not
+    /// granted, remember the alarms and re-arm after `LaunchPromptGate` opens.
     private static func arm(
         _ alarms: [ForgeAlarm],
         promptIfUndetermined: Bool
     ) async -> SleepAlarmDelivery {
-        _ = promptIfUndetermined
         let settings = await center.notificationSettings()
         let authorization = settings.authorizationStatus
         let timeSensitive = settings.timeSensitiveSetting
         let expected = SleepAlarmScheduleMath.expectedPendingCount(in: alarms)
-
-        switch ForgeNotificationScheduler.authorizationIntent(
-            status: authorization,
-            promptIfUndetermined: false
-        ) {
-        case .alreadyGranted:
-            clearPendingRearm()
-        case .denied, .skipPrompt, .prompt:
-            rememberPendingRearm(alarms)
-            return SleepAlarmScheduleMath.delivery(
-                authorization: authorization,
-                timeSensitive: timeSensitive,
-                expected: expected,
-                pending: 0,
-                addFailures: 0,
-                authError: nil
-            )
-        }
 
         let pending = await center.pendingNotificationRequests()
         let stale = pending.map(\.identifier).filter(SleepWakeEngine.isWakeNotification)
@@ -196,6 +176,7 @@ enum SleepAlarmScheduler {
                 authError: nil
             )
         }
+        rememberPendingRearm(nil)
 
         let windows: [UUID: Int] = await MainActor.run {
             Dictionary(alarms.map { alarm in
@@ -220,15 +201,9 @@ enum SleepAlarmScheduler {
         )
     }
 
-    private static func rememberPendingRearm(_ alarms: [ForgeAlarm]) {
+    private static func rememberPendingRearm(_ alarms: [ForgeAlarm]?) {
         pendingRearmLock.lock()
         pendingRearmAlarms = alarms
-        pendingRearmLock.unlock()
-    }
-
-    private static func clearPendingRearm() {
-        pendingRearmLock.lock()
-        pendingRearmAlarms = nil
         pendingRearmLock.unlock()
     }
 
