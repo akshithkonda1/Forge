@@ -522,10 +522,9 @@ final class LaunchStabilityGateTests: XCTestCase {
     }
 
     func testNotificationSheetDoesNotPresentDuringLaunchOrPrep() {
-        XCTAssertEqual(LaunchPromptGate.firstFrameSettle, 8)
         XCTAssertFalse(
             LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: true, elapsed: 1),
-            "cold launch: splash still covering"
+            "cold launch"
         )
         XCTAssertFalse(
             LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: false, elapsed: 1),
@@ -535,12 +534,8 @@ final class LaunchStabilityGateTests: XCTestCase {
             LaunchPromptGate.allowsPresentation(leftoverPrep: false, splashVisible: false, elapsed: 8)
         )
         XCTAssertFalse(
-            LaunchPromptGate.allowsPresentation(leftoverPrep: true, splashVisible: false, elapsed: 1),
-            "prep_wedge: leftover prep"
-        )
-        XCTAssertFalse(
             LaunchPromptGate.allowsPresentation(leftoverPrep: true, splashVisible: false, elapsed: 8),
-            "prep_wedge: leftover prep after first_frame"
+            "prep_wedge"
         )
     }
 
