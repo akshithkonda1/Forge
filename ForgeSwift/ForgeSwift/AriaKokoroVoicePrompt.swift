@@ -34,28 +34,36 @@ final class AriaKokoroVoiceGate {
 
     private init() {}
 
-    func refresh(defaults: UserDefaults = .standard) async {
+    func refresh(presentPrompt: Bool = false, defaults: UserDefaults = .standard) async {
         await AriaKokoroModelStore.shared.discover()
         let hasModel = AriaKokoroModelStore.shared.hasVerifiedRuntime
         if hasModel {
             showPrompt = false
-            _ = await AriaKokoroModelStore.shared.prefetchIfAllowed(defaults: defaults)
             return
         }
         let consented = defaults.bool(forKey: AriaKokoroDelivery.consentKey)
         let declined = defaults.bool(forKey: AriaKokoroDelivery.declinedKey)
-        if consented {
+        // Discover never starts a download. Consent hydrate is acceptDownload.
+        guard presentPrompt, !leftoverPrepBlocksPrompt else {
             showPrompt = false
-            isDownloading = true
-            let ok = await AriaKokoroModelStore.shared.prefetchIfAllowed(defaults: defaults)
-            isDownloading = false
-            statusLine = ok ? nil : AriaKokoroVoice.loadFailedMessage
             return
         }
         showPrompt = AriaKokoroVoicePromptPolicy.shouldPresent(
             hasLocalModel: false,
             alreadyConsented: consented,
             declined: declined
+        )
+    }
+
+    /// First speak with no local runtime — after prep / launch, not during.
+    func noteFirstSpeakWithoutRuntime() {
+        Task { await refresh(presentPrompt: true) }
+    }
+
+    private var leftoverPrepBlocksPrompt: Bool {
+        AriaForgePrepHandoff.needsPrep(
+            isOnboarded: AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey),
+            isAuthenticated: true
         )
     }
 

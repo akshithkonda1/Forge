@@ -187,6 +187,19 @@ final class AriaPresence {
         }
         kokoroGeneration += 1
         let generation = kokoroGeneration
+        // Resolve the engine through the registry and load the runtime
+        // before marking ARIA as speaking or activating the session.
+        // A failed load is silence plus the shown text — no fallback voice.
+        AriaKokoroEngine.registerDefaultEngine()
+        let engine = AriaVoiceEngineRegistry.shared.engine(
+            for: AriaVoiceEngineRegistry.shared.selectedEngineID
+        )
+        guard engine != nil, AriaKokoroRuntimeLoader.engine() != nil else {
+            isSpeaking = false
+            AriaVoiceProfileStore.shared.noteBusy(true)
+            AriaVoiceSession.shared.mouthDidFinish()
+            return
+        }
         isSpeaking = true
         let config = AriaVoiceMouth.currentKokoroConfig()
         Task { @MainActor in
