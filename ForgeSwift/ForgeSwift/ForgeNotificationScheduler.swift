@@ -372,8 +372,17 @@ enum ForgeNotificationScheduler {
     }
 
     static func requestAuthorizationIfNeeded(promptIfUndetermined: Bool = false) async -> Bool {
+        let leftover = AriaForgePrepHandoff.needsPrep(
+            isOnboarded: AriaForgePrepHandoff.readBool(AriaForgePrepHandoff.onboardedKey),
+            isAuthenticated: true
+        )
+        let allowPrompt = promptIfUndetermined && LaunchPromptGate.allowsPresentation(
+            leftoverPrep: leftover,
+            splashVisible: false,
+            elapsed: AriaForgePrep.elapsedSinceProcessStartForTests()
+        )
         let status = await center.notificationSettings().authorizationStatus
-        switch authorizationIntent(status: status, promptIfUndetermined: promptIfUndetermined) {
+        switch authorizationIntent(status: status, promptIfUndetermined: allowPrompt) {
         case .alreadyGranted:
             return true
         case .denied, .skipPrompt:
