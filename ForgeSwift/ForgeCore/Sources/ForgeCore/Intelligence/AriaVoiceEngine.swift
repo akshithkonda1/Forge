@@ -16,6 +16,12 @@ public protocol AriaVoiceEngine: AnyObject {
     func stop()
 }
 
+/// Hugging Face hydrate lives on the dynamically loaded runtime so the
+/// app never imports KokoroTTS. Default is a closed no-op.
+public protocol AriaKokoroHydrating: AnyObject {
+    func hydrateHuggingFace(cacheDirectory: URL) async -> Bool
+}
+
 /// In-memory selection. Empty / unknown values resolve to Kokoro.
 public enum AriaVoiceEngineSelection: Sendable {
     public static let defaultsKey = "aria.voice.engine"
