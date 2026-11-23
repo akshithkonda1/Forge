@@ -9,12 +9,18 @@
 #   - AWS credentials, the same secrets terraform.yml uses: AWS_ROLE_ARN
 #     (OIDC, preferred) or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY. The role
 #     needs only bedrock:ListFoundationModels and bedrock:ListInferenceProfiles.
-#     Without credentials the job fails closed (same spirit as other CI skips).
+#     This repository has no AWS credentials (terraform.yml, 0d1426ca). The
+#     live Bedrock lookup therefore skips with a notice; offline unit tests
+#     still run so the job is a real gate. Do not fail closed on unset
+#     secrets: BH-14's exit 1 made every Monday red from 2026-11-09 onward.
 #   - Settings → Actions → General → "Allow GitHub Actions to create and
 #     approve pull requests".
 #   - Optional MODEL_IDS_TOKEN (fine-grained PAT: contents + pull requests on
 #     this repo). A PR opened with the default GITHUB_TOKEN does not trigger
 #     the other CI workflows; one opened with this token does.
+#
+# pull_request is unfiltered so required checks always report. Push keeps a
+# path filter. The live Bedrock lookup stays on schedule / workflow_dispatch.
 
 name: Model IDs
 
@@ -22,13 +28,20 @@ on:
   schedule:
     - cron: "17 9 * * 1" # Mondays 09:17 UTC
   workflow_dispatch:
+  pull_request:
+  merge_group:
+  push:
+    paths:
+      - ".github/workflows/model-ids.yml"
+      - "scripts/update_model_ids.py"
+      - "backend/tests/test_update_model_ids.py"
 
 permissions:
   contents: read
 
 concurrency:
-  group: model-ids
-  cancel-in-progress: false
+  group: model-ids-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
 
 env:
   AWS_REGION: us-east-1
@@ -47,20 +60,24 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
+      # Actions must be pinned to a full-length commit SHA (repo policy).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Offline: no AWS. Proves the updater and the tests that pin the
+      # defaults still agree, so a missing-secrets skip is not a no-op green.
+      - name: Offline model-id tests
+        run: python3 -m unittest discover -s backend/tests -p "test_update_model_ids.py" -v
+
       - name: Check AWS credentials are configured
         id: creds
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           if [ -n "${{ secrets.AWS_ROLE_ARN }}" ] || { [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; }; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::error::No AWS credentials (AWS_ROLE_ARN or access keys). Model-ID check cannot run; failing closed."
-            exit 1
+            echo "::notice::No AWS credentials (AWS_ROLE_ARN or access keys). Skipping the live Bedrock lookup. Offline tests already ran. Configure the same secrets terraform.yml uses to enable the weekly bump PR."
           fi
-
-      # Actions must be pinned to a full-length commit SHA (repo policy).
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: steps.creds.outputs.configured == 'true'
 
       - name: Configure AWS credentials
         if: steps.creds.outputs.configured == 'true'
