@@ -9,12 +9,19 @@
 #   - AWS credentials, the same secrets terraform.yml uses: AWS_ROLE_ARN
 #     (OIDC, preferred) or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY. The role
 #     needs only bedrock:ListFoundationModels and bedrock:ListInferenceProfiles.
-#     Without credentials the job fails closed (same spirit as other CI skips).
+#     Without credentials the live job fails closed (same spirit as other CI
+#     skips). Offline unit tests still run on every event so pull_request
+#     checks are a real gate without AWS.
 #   - Settings → Actions → General → "Allow GitHub Actions to create and
 #     approve pull requests".
 #   - Optional MODEL_IDS_TOKEN (fine-grained PAT: contents + pull requests on
 #     this repo). A PR opened with the default GITHUB_TOKEN does not trigger
 #     the other CI workflows; one opened with this token does.
+#
+# pull_request is unfiltered so required checks always report. Push keeps a
+# path filter. The live Bedrock lookup (contents/pull-requests/id-token write)
+# stays on schedule / workflow_dispatch. Offline tests do not verify that a
+# model id exists on Bedrock; only the live lookup does that.
 
 name: Model IDs
 
@@ -22,13 +29,18 @@ on:
   schedule:
     - cron: "17 9 * * 1" # Mondays 09:17 UTC
   workflow_dispatch:
+  pull_request:
+  merge_group:
+  push:
+    paths:
+      - ".github/workflows/model-ids.yml"
+      - "scripts/update_model_ids.py"
+      - "backend/tests/test_update_model_ids.py"
 
+# Workflow default is read-only. Write scopes live only on the `update` job,
+# which is gated to schedule / workflow_dispatch (see that job's `if:`).
 permissions:
   contents: read
-
-concurrency:
-  group: model-ids
-  cancel-in-progress: false
 
 env:
   AWS_REGION: us-east-1
@@ -38,14 +50,45 @@ jobs:
   health-leak:
     uses: ./.github/workflows/health-leak-gate.yml
 
-  update:
+  # PR / merge_group / push path. Read-only token; no id-token; checkout does
+  # not persist credentials. Per-ref group so PR checks do not block each other;
+  # superseding pushes cancel an in-progress offline run on the same ref.
+  offline-tests:
     name: model-ids
     needs: health-leak
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: model-ids-offline-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      # Actions must be pinned to a full-length commit SHA (repo policy).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Offline: no AWS. Proves the updater and the tests that pin the
+      # defaults still agree, so a missing-secrets schedule is not a no-op.
+      - name: Offline model-id tests
+        run: python3 -m unittest discover -s backend/tests -p "test_update_model_ids.py" -v
+
+  # Write / OIDC path. Never runs on pull_request, merge_group, or push, so
+  # PR-controlled Python cannot see contents: write, pull-requests: write, or
+  # id-token: write. Schedule and dispatch share one non-cancelling group so
+  # they cannot race on git push --force automation/model-ids.
+  update:
+    name: model-ids (live)
+    needs: offline-tests
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
       id-token: write
+    concurrency:
+      group: model-ids-live
+      cancel-in-progress: false
     steps:
       - name: Check AWS credentials are configured
         id: creds
@@ -58,7 +101,6 @@ jobs:
             exit 1
           fi
 
-      # Actions must be pinned to a full-length commit SHA (repo policy).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.creds.outputs.configured == 'true'
 
