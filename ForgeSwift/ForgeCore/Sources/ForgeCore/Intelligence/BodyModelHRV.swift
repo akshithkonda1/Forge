@@ -285,12 +285,22 @@ extension HealthKitHRVQuantity {
     /// Callers must not invent samples; ingest only when this is non-nil and
     /// HealthKit actually returns a reading.
     ///
-    /// Isolated remaining use of the iOS 18-deprecated
-    /// `quantityType(forIdentifier:)`. `HKQuantityType(_:)` aborts on unknown
-    /// identifiers (iOS 27 Simulator still does this for RMSSD), so live
-    /// catalogs must go through this probe instead of the current init.
+    /// `HKQuantityType(_:)` aborts on unknown identifiers (iOS 27 Simulator
+    /// still does this for RMSSD). The Swift overlay
+    /// `quantityType(forIdentifier:)` is the same optional factory but is
+    /// deprecated, so this probe calls the ObjC class method directly.
     public static var rmssdTypeIfAvailable: HKQuantityType? {
-        HKQuantityType.quantityType(forIdentifier: rmssdIdentifier)
+        optionalQuantityType(rmssdIdentifier)
+    }
+
+    /// Optional HealthKit quantity lookup. Same behavior as the deprecated
+    /// Swift overlay (`nil` when the OS catalog does not know the identifier)
+    /// without emitting that deprecation warning.
+    static func optionalQuantityType(_ identifier: HKQuantityTypeIdentifier) -> HKQuantityType? {
+        let selector = NSSelectorFromString("quantityTypeForIdentifier:")
+        guard HKQuantityType.responds(to: selector) else { return nil }
+        return HKQuantityType.perform(selector, with: identifier.rawValue)?
+            .takeUnretainedValue() as? HKQuantityType
     }
 }
 #endif

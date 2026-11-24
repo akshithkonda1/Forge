@@ -1,5 +1,8 @@
 import XCTest
 @testable import ForgeCore
+#if canImport(HealthKit)
+import HealthKit
+#endif
 
 final class BodyModelHRVTests: XCTestCase {
 
@@ -271,4 +274,14 @@ final class BodyModelHRVTests: XCTestCase {
             HRVSamplingDensity.default(for: .rmssd).version
         )
     }
+
+    #if canImport(HealthKit)
+    func testUnknownQuantityIdentifierProbeReturnsNilInsteadOfAborting() {
+        let unknown = HKQuantityTypeIdentifier(rawValue: "HKQuantityTypeIdentifierForgeDoesNotExist")
+        XCTAssertNil(HealthKitHRVQuantity.optionalQuantityType(unknown))
+        if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+            XCTAssertEqual(rmssd.identifier, HealthKitHRVQuantity.rmssdIdentifierRaw)
+        }
+    }
+    #endif
 }
