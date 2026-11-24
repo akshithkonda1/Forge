@@ -19,9 +19,10 @@
 #     the other CI workflows; one opened with this token does.
 #
 # pull_request is unfiltered so required checks always report. Push keeps a
-# path filter. The live Bedrock lookup (contents/pull-requests/id-token write)
-# stays on schedule / workflow_dispatch. Offline tests do not verify that a
-# model id exists on Bedrock; only the live lookup does that.
+# path filter and is limited to main (same pattern as swift.yml). The live
+# Bedrock lookup (contents/pull-requests/id-token write) stays on schedule /
+# workflow_dispatch. Offline tests do not verify that a model id exists on
+# Bedrock; only the live lookup does that.
 
 name: Model IDs
 
@@ -32,6 +33,7 @@ on:
   pull_request:
   merge_group:
   push:
+    branches: [main]
     paths:
       - ".github/workflows/model-ids.yml"
       - "scripts/update_model_ids.py"
@@ -51,8 +53,10 @@ jobs:
     uses: ./.github/workflows/health-leak-gate.yml
 
   # PR / merge_group / push path. Read-only token; no id-token; checkout does
-  # not persist credentials. Per-ref group so PR checks do not block each other;
-  # superseding pushes cancel an in-progress offline run on the same ref.
+  # not persist credentials. Group includes event_name so schedule, dispatch,
+  # and push to main (all refs/heads/main) cannot cancel each other. Cancel
+  # in-progress only on pull_request so a later commit on the same PR still
+  # supersedes, while a second dispatch waits instead of killing the first.
   offline-tests:
     name: model-ids
     needs: health-leak
@@ -60,8 +64,8 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: model-ids-offline-${{ github.ref }}
-      cancel-in-progress: true
+      group: model-ids-offline-${{ github.event_name }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       # Actions must be pinned to a full-length commit SHA (repo policy).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
