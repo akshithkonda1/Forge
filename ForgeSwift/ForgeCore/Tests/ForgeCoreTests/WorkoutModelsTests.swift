@@ -11,7 +11,7 @@ import HealthKit
 
 final class WorkoutModelsTests: XCTestCase {
 
-    // MARK: HR zones — parity with iOS Theme.swift hrZone(for:)
+    // MARK: HR zones — v1 fixed bands on ForgeHRZones
 
     func testZoneThresholdsMatchiOSTheme() {
         XCTAssertEqual(ForgeHRZones.zone(for: 109).zone, 1)
