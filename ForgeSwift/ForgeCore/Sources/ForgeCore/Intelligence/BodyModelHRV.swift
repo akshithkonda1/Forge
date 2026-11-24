@@ -284,6 +284,11 @@ extension HealthKitHRVQuantity {
     /// Nil when the current SDK/OS does not know the RMSSD quantity type.
     /// Callers must not invent samples; ingest only when this is non-nil and
     /// HealthKit actually returns a reading.
+    ///
+    /// Isolated remaining use of the iOS 18-deprecated
+    /// `quantityType(forIdentifier:)`. `HKQuantityType(_:)` aborts on unknown
+    /// identifiers (iOS 27 Simulator still does this for RMSSD), so live
+    /// catalogs must go through this probe instead of the current init.
     public static var rmssdTypeIfAvailable: HKQuantityType? {
         HKQuantityType.quantityType(forIdentifier: rmssdIdentifier)
     }
