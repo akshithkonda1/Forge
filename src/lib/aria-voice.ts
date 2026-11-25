@@ -1,16 +1,13 @@
-export const ARIA_VOICE_CATALOG_PATH = "/ai/voice";
 export const ARIA_VOICE_DEFAULT_MODEL = "kokoro-82m";
 export const ARIA_VOICE_ARIA_PRESET = "af_heart";
 export const ARIA_VOICE_LICENSE = "Apache-2.0";
-export const ARIA_VOICE_PACKAGE = "mattmireles/kokoro-coreml";
-export const ARIA_VOICE_WEIGHTS = "hexgrad/Kokoro-82M";
 export const ARIA_VOICE_STARTER_BUNDLE_MB = 210;
 export const ARIA_VOICE_CANARY_NAME = "AkshithKondaCanary";
 export const ARIA_VOICE_CANARY_EMAIL = "akshith.canary@forge.test";
 
 export type AriaVoiceMouth = "kokoro";
 
-export function resolveVoiceMouth(_opts?: {
+export function resolveVoiceMouth(opts?: {
   dummy?: boolean;
   offline?: boolean;
   privacyOk?: boolean;
@@ -24,6 +21,7 @@ export function resolveVoiceMouth(_opts?: {
   pollyConfigured?: boolean;
   elevenLabsEnabled?: boolean;
 }): AriaVoiceMouth {
+  void opts;
   return "kokoro";
 }
 
@@ -49,16 +47,6 @@ export const ARIA_VOICE_PREVIEW_TEXT =
   "I'm ARIA. Let's look at how you actually slept and what that means for training today. One next move, not a new identity.";
 export const ARIA_VOICE_BUSY_MESSAGE =
   "Voice could not load. The text reply is shown.";
-
-export const ARIA_VOICE_FEATURED_IDS = [
-  "warm",
-  "calm",
-  "neutral",
-  "spark",
-  "ember",
-] as const;
-
-export type AriaVoiceFeaturedId = (typeof ARIA_VOICE_FEATURED_IDS)[number];
 
 export type AriaVoiceSelection = {
   profileId?: string | null;

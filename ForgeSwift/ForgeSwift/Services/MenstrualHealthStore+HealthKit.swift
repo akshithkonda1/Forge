@@ -94,18 +94,3 @@ extension MenstrualHealthStore {
 
     // MARK: ARIA bridge
 }
-
-/// Same-day Health flow samples: the heaviest flow wins; equal weight prefers
-/// the newest sample date (`updatedAt` / HealthKit `endDate`).
-enum HealthKitSameDayFlow {
-    static func resolve(
-        _ samples: [(flow: MenstrualFlowLevel, date: Date)]
-    ) -> (flow: MenstrualFlowLevel, date: Date)? {
-        samples.max { lhs, rhs in
-            if lhs.flow.sortWeight != rhs.flow.sortWeight {
-                return lhs.flow.sortWeight < rhs.flow.sortWeight
-            }
-            return lhs.date < rhs.date
-        }
-    }
-}

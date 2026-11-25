@@ -299,8 +299,8 @@ extension HealthKitManager: CycleHealthKitWriting {
     func saveIntermenstrualBleeding(dayKey: String) async {
         guard isAuthorized,
               CycleHealthKitPolicy.intermenstrualBleedingAvailable,
-              let type = HKObjectType.categoryType(forIdentifier: .intermenstrualBleeding),
               let dayStart = CycleDayKey.startOfDay(from: dayKey) else { return }
+        let type = HKCategoryType(.intermenstrualBleeding)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
             .map { $0.addingTimeInterval(-1) } ?? dayStart
         let sample = HKCategorySample(

@@ -71,16 +71,6 @@ export function Eyebrow({
   return <p className={cn("preview-label", className)}>{children}</p>;
 }
 
-export function DisplayTitle({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return <h1 className={cn("preview-display", className)}>{children}</h1>;
-}
-
 export function Hairline({ className }: { className?: string }) {
   return <div className={cn("preview-hairline", className)} aria-hidden />;
 }

@@ -29,7 +29,7 @@ ForgeSwift/
 │   └── Tests/                     # Readiness + suggestion engine unit tests
 ├── ForgeWatch/                    # watchOS 27 app target
 │   ├── Views/                     # HomeView, MindfulnessView, LifestyleContextView
-│   ├── Components/                # AuroraOrbWatch, BreathingOrb, ReadinessRing,
+│   ├── Components/                # BreathingOrb, ReadinessRing,
 │   │                              #   ContextCard, HapticButton
 │   ├── Managers/                  # WatchHealthKitManager, ContextEngine,
 │   │                              #   MindfulnessSessionManager, ARIAWatchService
@@ -104,7 +104,7 @@ low-confidence score as fact (unit-tested).
   wobble at ≤ ~0.15 Hz, low contrast).
 - **Reduce Motion**: every animated component has a static or
   opacity-only variant (`accessibilityReduceMotion` checked in
-  AuroraOrbWatch, BreathingOrb, ReadinessRing).
+  BreathingOrb, ReadinessRing).
 - **Always-On**: `isLuminanceReduced` freezes orbs and dims rings into an
   intentional composition.
 - **Accessibility**: labels + hints on every control; scores get spoken

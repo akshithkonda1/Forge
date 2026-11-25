@@ -34,11 +34,11 @@ enum CycleHealthKitPolicy {
         return CycleDayKey.date(from: key) == nil ? nil : key
     }
 
-    /// Intermenstrual bleeding exists on the iOS 27 deployment target (added
-    /// in iOS 14). Still gated so a write can skip rather than invent a flow.
-    static var intermenstrualBleedingAvailable: Bool {
-        HKObjectType.categoryType(forIdentifier: .intermenstrualBleeding) != nil
-    }
+    /// Intermenstrual bleeding has existed since iOS 14. The app's deployment
+    /// target is iOS 27, so `HKCategoryType(.intermenstrualBleeding)` is always
+    /// present — the deprecated `categoryType(forIdentifier:)` probe is gone.
+    /// Tests still inject `false` on `outboundActions` to pin skip-keep-local.
+    static var intermenstrualBleedingAvailable: Bool { true }
 
     // MARK: Outbound writes
 

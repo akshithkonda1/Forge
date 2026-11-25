@@ -179,23 +179,25 @@ enum HealthKitAuthorizationPlan: Sendable {
 
     static var sampleAndCharacteristicReadTypes: Set<HKObjectType> {
         var types = Set<HKObjectType>()
-        // `HKQuantityType(_:)` / `HKCategoryType(_:)` abort when the runtime
-        // does not know the identifier (iOS 27 Simulator:
-        // `HKQuantityTypeIdentifierHeartRateVariabilityRMSSD`). Skip unknowns.
+        // Current inits (`HKQuantityType(_:)`, `HKCategoryType(_:)`,
+        // `HKCharacteristicType(_:)`) abort when the runtime does not know the
+        // identifier. iOS 27 Simulator still does that for RMSSD — probe it
+        // through `HealthKitHRVQuantity.rmssdTypeIfAvailable`. Everything else
+        // in this catalog exists on the iOS 27 deployment target.
         for id in quantityIdentifiers {
-            if let type = HKQuantityType.quantityType(forIdentifier: id) {
-                types.insert(type)
+            if id == HealthKitHRVQuantity.rmssdIdentifier {
+                if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+                    types.insert(rmssd)
+                }
+                continue
             }
+            types.insert(HKQuantityType(id))
         }
         for id in categoryIdentifiers {
-            if let type = HKCategoryType.categoryType(forIdentifier: id) {
-                types.insert(type)
-            }
+            types.insert(HKCategoryType(id))
         }
         for id in characteristicIdentifiers {
-            if let type = HKCharacteristicType.characteristicType(forIdentifier: id) {
-                types.insert(type)
-            }
+            types.insert(HKCharacteristicType(id))
         }
         types.insert(HKObjectType.workoutType())
         types.insert(HKObjectType.activitySummaryType())

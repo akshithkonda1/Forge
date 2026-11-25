@@ -269,7 +269,6 @@
 		CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */; };
 		CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */; };
 		A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */; };
-		103AF044FA4BE442F6FD43B3 /* SleepComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67EA3CDCC095F0FF25571589 /* SleepComponents.swift */; };
 		AA000100000000000000000B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000B /* ProfileView.swift */; };
 		95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125597C26056DBE7682E5451 /* ProgressPageView.swift */; };
 		1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */; };
@@ -309,7 +308,6 @@
 		C378B28AC90E25D0D6D5FF9B /* WeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2270B43BE515E33AEB9FA0E1 /* WeekView.swift */; };
 		F0B100000000000000000003 /* MindfulnessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000003 /* MindfulnessView.swift */; };
 		F0B100000000000000000004 /* LifestyleContextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000004 /* LifestyleContextView.swift */; };
-		F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000005 /* AuroraOrbWatch.swift */; };
 		NESTW0022F9FF867004091AA /* AriaNestMarkWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = NESTW0012F9FF867004091AA /* AriaNestMarkWatch.swift */; };
 		F0B100000000000000000006 /* BreathingOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000006 /* BreathingOrb.swift */; };
 		F0B100000000000000000007 /* ReadinessRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000007 /* ReadinessRing.swift */; };
@@ -811,7 +809,6 @@
 		C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeUpTab.swift; sourceTree = "<group>"; };
 		5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepInsightCards.swift; sourceTree = "<group>"; };
 		50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDetailSheets.swift; sourceTree = "<group>"; };
-		67EA3CDCC095F0FF25571589 /* SleepComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepComponents.swift; sourceTree = "<group>"; };
 		AA000200000000000000000B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		125597C26056DBE7682E5451 /* ProgressPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPageView.swift; sourceTree = "<group>"; };
 		23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryListView.swift; sourceTree = "<group>"; };
@@ -851,7 +848,6 @@
 		2270B43BE515E33AEB9FA0E1 /* WeekView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000003 /* MindfulnessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindfulnessView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000004 /* LifestyleContextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleContextView.swift; sourceTree = "<group>"; };
-		F0F100000000000000000005 /* AuroraOrbWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbWatch.swift; sourceTree = "<group>"; };
 		NESTW0012F9FF867004091AA /* AriaNestMarkWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaNestMarkWatch.swift; sourceTree = "<group>"; };
 		F0F100000000000000000006 /* BreathingOrb.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreathingOrb.swift; sourceTree = "<group>"; };
 		F0F100000000000000000007 /* ReadinessRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessRing.swift; sourceTree = "<group>"; };
@@ -1220,7 +1216,6 @@
 				C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */,
 				5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */,
 				50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */,
-				67EA3CDCC095F0FF25571589 /* SleepComponents.swift */,
 				AA000200000000000000000B /* ProfileView.swift */,
 				125597C26056DBE7682E5451 /* ProgressPageView.swift */,
 				23C484E16BDF3BED0C5283D2 /* WorkoutHistoryListView.swift */,
@@ -1430,7 +1425,6 @@
 		F0A100000000000000000003 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				F0F100000000000000000005 /* AuroraOrbWatch.swift */,
 				NESTW0012F9FF867004091AA /* AriaNestMarkWatch.swift */,
 				F0F100000000000000000006 /* BreathingOrb.swift */,
 				F0F100000000000000000007 /* ReadinessRing.swift */,
@@ -2080,7 +2074,6 @@
 				CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */,
 				CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */,
 				A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */,
-				103AF044FA4BE442F6FD43B3 /* SleepComponents.swift in Sources */,
 				AA000100000000000000000B /* ProfileView.swift in Sources */,
 				95AE5FF2D55FC04CECA87263 /* ProgressPageView.swift in Sources */,
 				1933FBEC0A8E8D9D78CE7609 /* WorkoutHistoryListView.swift in Sources */,
@@ -2131,7 +2124,6 @@
 				C378B28AC90E25D0D6D5FF9B /* WeekView.swift in Sources */,
 				F0B100000000000000000003 /* MindfulnessView.swift in Sources */,
 				F0B100000000000000000004 /* LifestyleContextView.swift in Sources */,
-				F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */,
 				NESTW0022F9FF867004091AA /* AriaNestMarkWatch.swift in Sources */,
 				F0B100000000000000000006 /* BreathingOrb.swift in Sources */,
 				F0B100000000000000000007 /* ReadinessRing.swift in Sources */,
