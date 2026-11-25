@@ -35,13 +35,6 @@ export const ARIA_MARK = {
     "B+E gallery lock: soft-hex nest + metal sun. Ring→color: 0 inner pearl #F7F4F0 @ 0.88; 1 mid frost #A9D8FF @ 0.78; 2 outer Forge orange #FF4D00 @ 0.72 (accent stroke — never under 0.70). Sun/metal: pearlHot #FFFFFF / pearl #F7F4F0. Hearth wash decorative only: #3A0E12 / orange specular under ~0.55 — never sole compact silhouette. Forge orange is accent (specular/wash), not kinetic ring-field silhouette. Flicker/wave floor: painted opacity for any ring with contract opacity ≥0.70 must never go below 0.70 after flicker/wave. No fire-under-logo, no flower petals, no industrial chrome, no PNG runtime. Home readiness data rings stay separate forever. Reduce Motion freezes at stillPoseAngleDeg. One live nest per screen; paintHz 12. Compact stroke ≥1.5; all ring opacities ≥0.70. ≤32pt wordmark-primary + tiny still nest if clear.",
 } as const;
 
-/**
- * Living mark is soft-hex nest + metal sun (`kind: soft-hex-field`).
- * Forge orange is accent (specular/wash), not a 5-ellipse ring-field silhouette.
- * Web canvas: `drawAriaNest` in `aria-nest.ts`.
- */
-export const ARIA_MARK_KIND = ARIA_MARK.kind;
-
 /** Web compact / wordmark-primary ceiling. Slots ≤32 stay still-pose. */
 export const ARIA_MARK_COMPACT_MAX = ARIA_MARK.wordmarkPrimaryMax;
 export const ARIA_MARK_CONTRAST_FLOOR = ARIA_MARK.paintedOpacityFloor;
@@ -149,7 +142,8 @@ export function compactRingIndices(
 }
 
 /** One 3-ring nest at every size. Compact 5-ellipse subset is retired. */
-export function visibleRingIndices(_size?: number): number[] {
+export function visibleRingIndices(size?: number): number[] {
+  void size;
   return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
 }
 

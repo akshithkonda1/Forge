@@ -4,7 +4,6 @@
  * AriaSoul, AriaFactPrivacy, ForgeExerciseDiscovery, and LifestyleSegment
  * on `cursor/fix-premium-refresh-breakage-3b09`.
  */
-import { containsBannedPhrase } from "@/lib/design-tokens";
 import { ARIA_TONES } from "@/lib/aria-companion";
 
 export const SAMPLE_LABEL = "Sample";
@@ -175,11 +174,3 @@ export const CHAT_SAMPLE = {
   user: "How am I doing?",
   aria: `${SAMPLE_FIRST} — last night rebuilt you. You’re in a good place. Upper Body Power still fits if we stay honest. One next move: start the session, or keep the day light. Lifestyle coaching only.`,
 } as const;
-
-/** Preview copy must stay on the coach rails. */
-export function previewCopyViolations(blob: string): string[] {
-  const hits: string[] = [];
-  const banned = containsBannedPhrase(blob);
-  if (banned) hits.push(banned);
-  return hits;
-}

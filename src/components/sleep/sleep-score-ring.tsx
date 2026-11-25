@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/stores/useAppStore";
-import { cn } from "@/lib/utils";
 
 export function SleepScoreRing() {
   const sleepData = useAppStore((s) => s.sleepData);

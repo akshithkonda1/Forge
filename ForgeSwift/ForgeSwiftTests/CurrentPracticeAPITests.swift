@@ -177,6 +177,18 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertTrue(connectRead.contains(HKCategoryType(.sleepAnalysis)))
     }
 
+    func testIntermenstrualBleedingUsesCurrentCategoryInit() {
+        XCTAssertTrue(CycleHealthKitPolicy.intermenstrualBleedingAvailable)
+        XCTAssertEqual(
+            HKCategoryType(.intermenstrualBleeding).identifier,
+            HKCategoryTypeIdentifier.intermenstrualBleeding.rawValue
+        )
+        let types = HealthKitAuthorizationPlan.sampleAndCharacteristicReadTypes
+        XCTAssertTrue(types.contains(HKCategoryType(.intermenstrualBleeding)))
+        XCTAssertTrue(types.contains(HKQuantityType(.heartRateVariabilitySDNN)))
+        XCTAssertTrue(types.contains(HKCharacteristicType(.dateOfBirth)))
+    }
+
     func testQuantityAndClinicalInitsStayCurrentOnIOS26And27() {
         XCTAssertEqual(
             HKQuantityType(.appleSleepingWristTemperature).identifier,

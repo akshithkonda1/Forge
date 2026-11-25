@@ -126,10 +126,6 @@ extension LinearGradient {
         .flat(.ember)
     }
 
-    static var sleepRing: LinearGradient {
-        .flat(.steel)
-    }
-
     static var premiumSurface: LinearGradient {
         .flat(.clear)
     }
@@ -137,29 +133,6 @@ extension LinearGradient {
     static var premiumChrome: LinearGradient {
         .flat(.clear)
     }
-}
-
-extension RadialGradient {
-    /// Retired ambient glow. Kept so callers compile; draws nothing.
-    static func ambientGlow(_ color: Color, opacity: Double = 0.18) -> RadialGradient {
-        RadialGradient(colors: [.clear, .clear], center: .center, startRadius: 0, endRadius: 1)
-    }
-}
-
-// MARK: - HR Zone helper
-
-struct HRZone {
-    let zone: Int
-    let label: String
-    let color: Color
-}
-
-func hrZone(for bpm: Int) -> HRZone {
-    if bpm < 110 { return HRZone(zone: 1, label: "Zone 1", color: .textTertiary) }
-    if bpm < 130 { return HRZone(zone: 2, label: "Zone 2", color: .steel) }
-    if bpm < 150 { return HRZone(zone: 3, label: "Zone 3", color: .success) }
-    if bpm < 165 { return HRZone(zone: 4, label: "Zone 4", color: .ember) }
-    return HRZone(zone: 5, label: "Zone 5", color: .danger)
 }
 
 extension View {

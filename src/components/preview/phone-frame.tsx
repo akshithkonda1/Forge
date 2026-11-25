@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { IosTabBar } from "./chrome";
 import type { PreviewTab } from "./catalog";
 
-export const PHONE_WIDTH = 390;
-export const PHONE_HEIGHT = 844;
+const PHONE_WIDTH = 390;
+const PHONE_HEIGHT = 844;
 
 /** Quiet iPhone-sized screen. No device chrome. */
 export function PhoneFrame({
