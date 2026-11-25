@@ -1,6 +1,4 @@
 /** Realistic sample fixtures, labeled Sample in the chrome. Not live user data. */
-export const SAMPLE_DATE = "Sat 17 Oct";
-
 export const SAMPLE_SESSION = {
   name: "Upper Body Power",
   type: "Strength",

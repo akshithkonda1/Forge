@@ -138,5 +138,6 @@ export function welcomeChatMessage(ctx: {
   coachingStyle: CoachingStyle;
   devicesConnected?: number;
 }): string {
+  void ctx;
   return "I'm ARIA. Ask about today, last night, or what's in the way.";
 }

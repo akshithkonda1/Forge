@@ -53,26 +53,3 @@ export const TRANSLATION_PILLARS: TranslationPillar[] = [
     ],
   },
 ];
-
-/** Mirrors ForgeCore `AgingSnapshot.oneBreathLine`. */
-export function oneBreathLine(input: {
-  chronologicalAge?: number | null;
-  fitnessAge?: number | null;
-  biologicalAge?: number | null;
-  confidence?: number;
-}): string {
-  const chrono = input.chronologicalAge;
-  if (chrono == null) return "";
-  if (input.fitnessAge != null) {
-    return oneBreathSentence("cardiovascular age", input.fitnessAge, chrono);
-  }
-  if (input.biologicalAge == null || (input.confidence ?? 0) <= 0.25) return "";
-  return oneBreathSentence("training age", input.biologicalAge, chrono);
-}
-
-function oneBreathSentence(noun: string, years: number, calendar: number): string {
-  const delta = years - calendar;
-  if (delta <= -2) return `Your ${noun} is below your actual age.`;
-  if (delta >= 2) return `Your ${noun} is above your actual age.`;
-  return `Your ${noun} is tracking your actual age.`;
-}

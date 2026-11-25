@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/stores/useAppStore";
-import { cn } from "@/lib/utils";
 
 const DEEP_GOAL = 90;
 const REM_GOAL = 90;

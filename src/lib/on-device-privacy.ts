@@ -51,15 +51,6 @@ export function loadEgressLog(): EgressEvent[] {
   return Array.isArray(rows) ? rows : [];
 }
 
-export function recordEgress(what: string): EgressEvent[] {
-  const next = [
-    { id: `e-${Date.now()}`, at: new Date().toISOString(), what },
-    ...loadEgressLog(),
-  ].slice(0, 20);
-  writeJson(EGRESS_KEY, next);
-  return next;
-}
-
 export function visiblePatterns(): PatternNote[] {
   // Web does not run the iOS pattern engine. Surface stays local and empty
   // until five on-device samples exist — same bar as AriaPersonalPatternEngine.

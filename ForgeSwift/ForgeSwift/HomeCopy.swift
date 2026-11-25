@@ -64,8 +64,8 @@ func displaySessionName(_ name: String) -> String {
 /// Home's own readiness palette and vocabulary.
 ///
 /// Cuts, hex, and Peak / Good / Fair / Low labels come from
-/// `shared/readiness.json` via `HomeReadinessTokens`. `readinessColor(for:)`
-/// and ForgeCore `ReadinessBand` now use the same words.
+/// `shared/readiness.json` via `HomeReadinessTokens`. ForgeCore
+/// `ReadinessBand` uses the same words.
 enum HomeReadiness {
     static func color(_ score: Int) -> Color {
         Color(hex: HomeReadinessTokens.hex(for: score))
