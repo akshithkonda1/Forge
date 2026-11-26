@@ -3,9 +3,10 @@ import CoreText
 
 // MARK: - Forge typefaces
 //
-// Two families, both SIL Open Font License 1.1, bundled with ForgeCore so the
-// phone app, Watch, widgets and the iMessage extension all resolve the same
-// faces (licenses ship beside the files in Resources/Fonts):
+// Two families, both SIL Open Font License 1.1, shipped from ForgeSwift/Fonts
+// (licenses beside the files) and copied into the phone app, Watch, widget and
+// iMessage/Share extension bundles by the Xcode project, so every process
+// resolves the same faces:
 //
 //   • Geist (Vercel) — the UI and numbers face. A tight, engineered grotesk
 //     with true tabular figures, so metrics read like an instrument.
@@ -55,11 +56,9 @@ public enum ForgeFont {
     }
 
     private static func registerBundledFonts() {
-        #if SWIFT_PACKAGE
-        let bundle = Bundle.module
-        #else
+        // Fonts are copied into each host bundle (not a package resource
+        // bundle, which Xcode would have to code-sign as its own target).
         let bundle = Bundle.main
-        #endif
         for face in Face.allCases {
             let url = bundle.url(forResource: face.rawValue, withExtension: "ttf")
                 ?? bundle.url(forResource: face.rawValue, withExtension: "ttf", subdirectory: "Fonts")

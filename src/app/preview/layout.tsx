@@ -6,22 +6,22 @@ import "./preview.css";
 const geist = localFont({
   src: [
     {
-      path: "../../../ForgeSwift/ForgeCore/Sources/ForgeCore/Resources/Fonts/Geist-Regular.ttf",
+      path: "../../../ForgeSwift/Fonts/Geist-Regular.ttf",
       weight: "400",
       style: "normal",
     },
     {
-      path: "../../../ForgeSwift/ForgeCore/Sources/ForgeCore/Resources/Fonts/Geist-Medium.ttf",
+      path: "../../../ForgeSwift/Fonts/Geist-Medium.ttf",
       weight: "500",
       style: "normal",
     },
     {
-      path: "../../../ForgeSwift/ForgeCore/Sources/ForgeCore/Resources/Fonts/Geist-SemiBold.ttf",
+      path: "../../../ForgeSwift/Fonts/Geist-SemiBold.ttf",
       weight: "600",
       style: "normal",
     },
     {
-      path: "../../../ForgeSwift/ForgeCore/Sources/ForgeCore/Resources/Fonts/Geist-Bold.ttf",
+      path: "../../../ForgeSwift/Fonts/Geist-Bold.ttf",
       weight: "700",
       style: "normal",
     },
@@ -33,12 +33,12 @@ const geist = localFont({
 const serif = localFont({
   src: [
     {
-      path: "../../../ForgeSwift/ForgeCore/Sources/ForgeCore/Resources/Fonts/InstrumentSerif-Regular.ttf",
+      path: "../../../ForgeSwift/Fonts/InstrumentSerif-Regular.ttf",
       weight: "400",
       style: "normal",
     },
     {
-      path: "../../../ForgeSwift/ForgeCore/Sources/ForgeCore/Resources/Fonts/InstrumentSerif-Italic.ttf",
+      path: "../../../ForgeSwift/Fonts/InstrumentSerif-Italic.ttf",
       weight: "400",
       style: "italic",
     },

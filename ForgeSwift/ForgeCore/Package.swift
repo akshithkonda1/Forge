@@ -189,11 +189,13 @@ let package = Package(
                 "Utils/HomeWidgetSleepDisplay.swift",
                 "Utils/PartnerSupportGlance.swift",
                 "Cloud/ForgeCloudContracts.swift",
-            ],
-            // Geist + Instrument Serif (SIL OFL 1.1), registered by ForgeFont.
-            resources: [
-                .process("Resources/Fonts"),
             ]
+            // No `resources:` on purpose. A package resource bundle becomes a
+            // separate `ForgeCore_ForgeCore` target that Xcode must code-sign
+            // for device builds ("target does not have an Info.plist"). The
+            // Geist + Instrument Serif fonts (SIL OFL 1.1) live in
+            // ForgeSwift/Fonts and are copied into each app/extension bundle
+            // by the Xcode project; ForgeFont registers them from Bundle.main.
         ),
         .testTarget(
             name: "ForgeCoreTests",
