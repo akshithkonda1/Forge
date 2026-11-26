@@ -7,7 +7,7 @@ export const ARIA_VOICE_CANARY_EMAIL = "akshith.canary@forge.test";
 
 export type AriaVoiceMouth = "kokoro";
 
-export function resolveVoiceMouth(_opts?: {
+export function resolveVoiceMouth(opts?: {
   dummy?: boolean;
   offline?: boolean;
   privacyOk?: boolean;
@@ -21,7 +21,7 @@ export function resolveVoiceMouth(_opts?: {
   pollyConfigured?: boolean;
   elevenLabsEnabled?: boolean;
 }): AriaVoiceMouth {
-  void _opts;
+  void opts;
   return "kokoro";
 }
 

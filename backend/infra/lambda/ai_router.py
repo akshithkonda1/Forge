@@ -265,6 +265,11 @@ class RouteRequest:
         for index, item in enumerate(raw_packages, 1):
             if not isinstance(item, dict):
                 raise RoutingError(400, f"Package {index} must be an object.")
+            if "s3Key" in item:
+                raise RoutingError(
+                    403,
+                    "S3-backed package references require caller-specific authorization.",
+                )
             packages.append(DataPackage.from_payload(item, index))
 
         raw_settings = payload.get("settings")

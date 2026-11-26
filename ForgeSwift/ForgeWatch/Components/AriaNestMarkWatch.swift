@@ -4,8 +4,8 @@ import ForgeCore
 // MARK: - AriaNestMarkWatch
 //
 // Wrist identity mark — nest lines + flat ember core. One Canvas inside
-// one TimelineView at ≤12 Hz. Home readiness glow stays `AuroraOrbWatch` +
-// `ReadinessRing` (data language). This view is the brand mark.
+// one TimelineView at ≤12 Hz. Watch Home readiness is `ReadinessRing`
+// only (no ember orb behind the score). This view is the brand mark.
 //
 // Geometry is `AriaNestGeometry` in ForgeCore. Do not invent a second nest.
 

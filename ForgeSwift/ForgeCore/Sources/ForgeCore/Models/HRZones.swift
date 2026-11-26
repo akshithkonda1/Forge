@@ -2,10 +2,9 @@ import SwiftUI
 
 // MARK: - Heart-rate zones (shared iOS + watchOS)
 //
-// Ported from `hrZone(for:)` in ForgeSwift/Theme.swift so both platforms
-// classify effort identically. Thresholds are the v1 fixed bands; a
-// personalized (age/HRmax-based) model can replace `thresholds` later
-// without touching call sites.
+// Canonical HR-zone bands for iOS and watchOS. Thresholds are the v1
+// fixed bands; a personalized (age/HRmax-based) model can replace
+// `thresholds` later without touching call sites.
 
 public struct ForgeHRZone: Equatable, Sendable {
     public let zone: Int
@@ -27,7 +26,6 @@ public struct ForgeHRZone: Equatable, Sendable {
 
 public enum ForgeHRZones {
     /// Upper bounds for zones 1-4 (zone 5 is everything above).
-    /// Mirrors ForgeSwift/Theme.swift `hrZone(for:)`.
     static let thresholds: [Int] = [110, 130, 150, 165]
 
     public static func zone(for bpm: Int) -> ForgeHRZone {

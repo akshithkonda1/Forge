@@ -52,7 +52,7 @@ TARGET_FILES = (
     "backend/infra/lambda/ai_router.py",
     "backend/infra/lambda/aria_core/model_suite.py",
     "backend/infra/lambda/aria_core/aria_engine.py",
-    "backend/ai/app/routes/archetype.py",
+    "backend/infra/lambda/aria_core/archetype.py",
     "backend/infra/main.tf",
     "backend/infra/variables.tf",
     "backend/infra/terraform.tfvars.example",
