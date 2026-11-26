@@ -14,6 +14,7 @@ from ai_router import (  # noqa: E402
     AGREEMENT_LOW_THRESHOLD,
     AIRouter,
     BedrockGateway,
+    DataPackage,
     MAX_CLIENT_TIMEOUT_SECONDS,
     MAX_PACKAGE_BYTES,
     RouteRequest,
@@ -160,6 +161,41 @@ class AIRouterTests(unittest.TestCase):
             RouteRequest.from_payload({"question": "hi", "packages": [{"id": "p1", "bytes": "lots"}]})
         self.assertEqual(ctx.exception.status_code, 400)
 
+    def test_malformed_nested_fields_raise_clean_400_errors(self):
+        cases = (
+            ({"question": "hi", "packages": {}}, "'packages' must be a list."),
+            ({"question": "hi", "packages": ["not an object"]}, "Package 1 must be an object."),
+            ({"question": "hi", "settings": []}, "'settings' must be an object."),
+            ({"question": "hi", "context": {"sleep": "8h"}}, "'context' must be text."),
+            ({"question": ["hi"]}, "'question' must be text."),
+        )
+        for payload, expected_message in cases:
+            with self.subTest(payload=payload), self.assertRaises(RoutingError) as ctx:
+                RouteRequest.from_payload(payload)
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertEqual(ctx.exception.message, expected_message)
+
+    def test_s3_package_references_require_caller_specific_authorization(self):
+        for s3_key in ("private/another-user/export.csv", None):
+            with self.subTest(s3_key=s3_key), self.assertRaises(RoutingError) as ctx:
+                RouteRequest.from_payload(
+                    {
+                        "question": "Summarize this package.",
+                        "packages": [{"id": "export", "s3Key": s3_key}],
+                    }
+                )
+            self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_oversized_context_is_rejected_instead_of_silently_truncated(self):
+        with self.assertRaises(RoutingError) as ctx:
+            RouteRequest.from_payload({"question": "hi", "context": "x" * 4001})
+        self.assertEqual(ctx.exception.status_code, 413)
+
+    def test_oversized_question_is_rejected_instead_of_silently_truncated(self):
+        with self.assertRaises(RoutingError) as ctx:
+            RouteRequest.from_payload({"question": "x" * 4001})
+        self.assertEqual(ctx.exception.status_code, 413)
+
     def test_client_timeout_settings_are_clamped_to_an_upper_bound(self):
         # AIRouter.route's wait loop blocks for the full requested duration,
         # and the Lambda's own platform timeout is 15s -- an unclamped
@@ -184,21 +220,24 @@ class AIRouterTests(unittest.TestCase):
             },
         )
         router = AIRouter(gateway=gateway)
-        request = RouteRequest.from_payload(
-            {
-                "question": "What stands out from this data?",
-                "packages": [
-                    {
-                        "id": "metrics",
-                        "bytes": 2048,
-                        "s3Key": "private/user/metrics.txt",
-                    }
-                ],
-                "settings": {
-                    "overallTimeoutSeconds": 0.3,
-                    "consensusWindowSeconds": 0.01,
-                },
-            }
+        request = RouteRequest(
+            question="What stands out from this data?",
+            packages=[
+                DataPackage(
+                    package_id="metrics",
+                    size_bytes=2048,
+                    s3_key="private/user/metrics.txt",
+                )
+            ],
+            settings=RouteRequest.from_payload(
+                {
+                    "question": "What stands out from this data?",
+                    "settings": {
+                        "overallTimeoutSeconds": 0.3,
+                        "consensusWindowSeconds": 0.01,
+                    },
+                }
+            ).settings,
         )
 
         response = router.route(request)
@@ -276,17 +315,15 @@ class AIRouterTests(unittest.TestCase):
             },
         )
         router = AIRouter(gateway=gateway)
-        request = RouteRequest.from_payload(
-            {
-                "question": "What stands out from this data?",
-                "packages": [
-                    {
-                        "id": "metrics",
-                        "bytes": 2048,
-                        "s3Key": "private/user/metrics.txt",
-                    }
-                ],
-            }
+        request = RouteRequest(
+            question="What stands out from this data?",
+            packages=[
+                DataPackage(
+                    package_id="metrics",
+                    size_bytes=2048,
+                    s3_key="private/user/metrics.txt",
+                )
+            ],
         )
 
         response = router.route(request)
@@ -309,20 +346,24 @@ class AIRouterTests(unittest.TestCase):
             },
         )
         router = AIRouter(gateway=gateway)
-        request = RouteRequest.from_payload(
-            {
-                "question": "Summarize the data.",
-                "packages": [
-                    {
-                        "id": "export",
-                        "s3Key": "private/user/export.csv",
-                    }
-                ],
-                "settings": {
-                    "overallTimeoutSeconds": 0.5,
-                    "consensusWindowSeconds": 0.05,
-                },
-            }
+        request = RouteRequest(
+            question="Summarize the data.",
+            packages=[
+                DataPackage(
+                    package_id="export",
+                    size_bytes=0,
+                    s3_key="private/user/export.csv",
+                )
+            ],
+            settings=RouteRequest.from_payload(
+                {
+                    "question": "Summarize the data.",
+                    "settings": {
+                        "overallTimeoutSeconds": 0.5,
+                        "consensusWindowSeconds": 0.05,
+                    },
+                }
+            ).settings,
         )
 
         response = router.route(request)
@@ -346,16 +387,15 @@ class AIRouterTests(unittest.TestCase):
             },
         )
         router = AIRouter(gateway=gateway)
-        request = RouteRequest.from_payload(
-            {
-                "question": "Summarize the data.",
-                "packages": [
-                    {
-                        "id": "export",
-                        "s3Key": "private/user/export.csv",
-                    }
-                ],
-            }
+        request = RouteRequest(
+            question="Summarize the data.",
+            packages=[
+                DataPackage(
+                    package_id="export",
+                    size_bytes=0,
+                    s3_key="private/user/export.csv",
+                )
+            ],
         )
 
         response = router.route(request)

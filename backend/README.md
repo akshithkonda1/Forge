@@ -114,6 +114,10 @@ The primary default model is Claude Sonnet 4.6. There is no third vendor.
 
 ### Request shape
 
+S3-backed package references are rejected until the router can verify each
+object belongs to the authenticated caller. Supply a bounded inline `preview`
+instead.
+
 ```json
 {
   "question": "What should today's training plan be?",
@@ -124,11 +128,6 @@ The primary default model is Claude Sonnet 4.6. There is no third vendor.
       "id": "sleep-summary",
       "bytes": 15360,
       "preview": "Sleep efficiency 91%, REM 1h 40m, HRV 68..."
-    },
-    {
-      "id": "whoop-export",
-      "bytes": 734003200,
-      "s3Key": "private/user-123/whoop/export.csv"
     }
   ],
   "settings": {

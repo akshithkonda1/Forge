@@ -32,7 +32,7 @@ const buttonVariants = cva(
   }
 );
 
-export interface ButtonProps
+interface ButtonProps
   extends Omit<HTMLMotionProps<"button">, "color">,
     VariantProps<typeof buttonVariants> {}
 

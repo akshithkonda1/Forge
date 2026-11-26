@@ -92,6 +92,7 @@ def isolate(text: str, *, kind: UntrustedKind, max_chars: int | None = None) -> 
     """Wrap untrusted content so the model must treat it as data, not instructions."""
     cap = max_chars if max_chars is not None else DEFAULT_MAX_CHARS[kind]
     safe = sanitize_text(text, max_chars=cap)
+    safe = re.sub(r"-{3,}", lambda match: "\u2010" * len(match.group()), safe)
     label = _KIND_LABEL[kind]
     flag = ""
     if looks_like_injection(safe):

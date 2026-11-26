@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
-import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep, welcomeChatMessage } from "../src/lib/aria-onboarding.ts";
+import {
+  ARIA_CINEMATIC_LINES,
+  ARIA_WELCOME_CHAT_MESSAGE,
+  firstSessionScript,
+  whisperForStep,
+} from "../src/lib/aria-onboarding.ts";
 import { ARIA_TONES, ARIA_TONE_ORDER } from "../src/lib/aria-companion.ts";
 import { ARIA_INTRO } from "../src/lib/aria-intro.ts";
 import {
@@ -37,7 +42,6 @@ import {
   ringStrokeWidth,
   visibleRingIndices,
 } from "../src/lib/aria-mark.ts";
-import { FORGE_FIRE, fireSpec, fireTongue, forgeFirePaintDue } from "../src/lib/forge-fire.ts";
 import { FORGE_SPLASH, forgeSplashHoldMs } from "../src/lib/forge-splash.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
@@ -195,14 +199,7 @@ assert(ARIA_INTRO.title === "This is ARIA", "first-meet title is This is ARIA");
 assert(!ARIA_INTRO.lead.includes(ARIA_INTRO.pairingForbidden), "intro does not pair Forge × ARIA");
 assert(ARIA_INTRO.lead.includes("designed for Forge"), "ARIA was designed for Forge");
 assert(ARIA_INTRO.capabilities.length === 4, "intro names four things ARIA can do");
-assert(!welcomeChatMessage({
-  name: "Jack",
-  goals: ["build-muscle"],
-  experience: "intermediate",
-  workouts: ["strength"],
-  coachingStyle: "balanced",
-  devicesConnected: 0,
-}).includes("Jack"), "first ARIA line is not a name pairing");
+assert(!ARIA_WELCOME_CHAT_MESSAGE.includes("Jack"), "first ARIA line is not a name pairing");
 
 const welcome = whisperForStep("welcome");
 assert(!welcome.message.includes("HRV"), "welcome does not dump HRV");
@@ -255,19 +252,6 @@ assert(
   forgeSplashHoldMs(false, { returning: true }) === FORGE_SPLASH.returningHoldMs,
   "returning splash uses returningHoldMs"
 );
-assert(FORGE_FIRE.kind === "rage-fire", "legacy fire geometry remains rage-fire (auth/onboarding no longer paint it)");
-assert(FORGE_FIRE.kind !== ARIA_MARK.kind, "fire is not the ARIA mark");
-assert(fireSpec("rage").tongueCount > fireSpec("ember").tongueCount, "rage has more tongues than ember");
-assert(fireSpec("rage").heightScale > fireSpec("ember").heightScale, "rage tongues are taller");
-assert(fireSpec("rage").coreHeat > fireSpec("ember").coreHeat, "rage is white-hot, ember is not");
-const rageTip = fireTongue(3, 28, 0.4, "rage", "floor", false);
-const emberTip = fireTongue(3, 8, 0.4, "ember", "floor", false);
-assert(rageTip.tipY < emberTip.tipY, "rage tips sit higher than ember");
-assert(FORGE_FIRE.tickHz === 12, "fire paints at 12 Hz");
-assert(FORGE_FIRE.tickHz <= 15 && FORGE_FIRE.tickHz >= 12, "fire cadence is 12–15 Hz");
-assert(forgeFirePaintDue(0, -1), "first fire frame always paints");
-assert(!forgeFirePaintDue(80, 0), "sub-12 Hz fire frames are skipped");
-assert(forgeFirePaintDue(1000 / FORGE_FIRE.tickHz, 0), "12 Hz fire boundary paints");
 assert(ARIA_MARK_PAINT_HZ === 12, "living nest paints at 12 Hz");
 assert(NEST_PAINT_INTERVAL_MS === 1000 / ARIA_MARK_PAINT_HZ, "paint interval matches paintHz");
 for (const index of contrastRingIndices()) {

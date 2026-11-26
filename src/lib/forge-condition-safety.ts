@@ -1,4 +1,4 @@
-export const BANNED_SPEECH = [
+const BANNED_SPEECH = [
   "seizure",
   "seizures",
   "medication",
@@ -32,7 +32,7 @@ export function containsBannedSpeech(text: string): boolean {
   return BANNED_SPEECH.some((token) => lower.includes(token));
 }
 
-export function isSoloSwimOrClimb(name: string): boolean {
+function isSoloSwimOrClimb(name: string): boolean {
   const lower = name.toLowerCase();
   return ["swim", "swimming", "open water", "climb", "climbing", "boulder", "rope climb"].some(
     (token) => lower.includes(token)

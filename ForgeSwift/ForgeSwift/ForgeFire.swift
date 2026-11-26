@@ -28,155 +28,6 @@ enum ForgeSplashTiming: Sendable {
     }
 }
 
-/// How fierce the fire is. Splash hearth uses layered teardrops; these
-/// counts stay for the shared tongue helper and tests.
-enum ForgeFireIntensity: String, Sendable, CaseIterable {
-    case ember
-    case rage
-
-    var tongueCount: Int {
-        switch self {
-        case .ember: return 8
-        case .rage: return 28
-        }
-    }
-
-    var sparkCount: Int {
-        switch self {
-        case .ember: return 6
-        case .rage: return 24
-        }
-    }
-
-    var heightScale: Double {
-        switch self {
-        case .ember: return 0.34
-        case .rage: return 1.0
-        }
-    }
-
-    var coreHeat: Double {
-        switch self {
-        case .ember: return 0.28
-        case .rage: return 0.94
-        }
-    }
-}
-
-enum ForgeFireOrigin: String, Sendable {
-    case floor
-    case hearth
-}
-
-/// Procedural fire — Forge brand moments only. Not the ARIA ring-field.
-enum ForgeFireGeometry: Sendable {
-    /// Flame flicker and heat shimmer sample at this rate — never faster.
-    static let tickHz: Double = 12
-    static let kind = "rage-fire"
-
-    /// Quantize time so flicker cannot exceed `tickHz`.
-    static func flickerTime(_ time: Double) -> Double {
-        floor(time * tickHz + 1e-9) / tickHz
-    }
-
-    struct Tongue: Equatable, Sendable {
-        var baseX: Double
-        var baseY: Double
-        var tipX: Double
-        var tipY: Double
-        var width: Double
-        var heat: Double
-        var waver: Double
-    }
-
-    struct Spark: Equatable, Sendable {
-        var x: Double
-        var y: Double
-        var radius: Double
-        var opacity: Double
-    }
-
-    static func tongue(
-        index: Int,
-        count: Int,
-        time: Double,
-        intensity: ForgeFireIntensity,
-        origin: ForgeFireOrigin,
-        reduceMotion: Bool
-    ) -> Tongue {
-        let i = max(0, min(max(count - 1, 0), index))
-        let seed = Double(i) * 17.13
-        let t = reduceMotion ? 0.18 : flickerTime(time)
-        let n = max(count, 1)
-        let lane = Double(i) / Double(n - 1 == 0 ? 1 : n - 1)
-        let heightScale = intensity.heightScale
-        let flicker = reduceMotion ? 0.78 : (0.62 + 0.38 * (0.5 + 0.5 * sin(t * (2.4 + Double(i % 5) * 0.35) + seed)))
-        let rise = (0.22 + 0.70 * hash01(seed + 2.1)) * heightScale * flicker
-
-        switch origin {
-        case .floor:
-            let baseX = 0.06 + lane * 0.88 + (reduceMotion ? 0 : 0.03 * sin(t * 1.7 + seed))
-            let baseY = 0.94 + 0.04 * hash01(seed + 11)
-            let waver = reduceMotion ? 0 : 0.055 * sin(t * 3.2 + seed)
-            return Tongue(
-                baseX: baseX,
-                baseY: baseY,
-                tipX: baseX + waver * 1.55,
-                tipY: baseY - rise,
-                width: (0.034 + 0.055 * hash01(seed + 4)) * (0.75 + 0.55 * heightScale),
-                heat: intensity.coreHeat * (0.72 + 0.28 * flicker),
-                waver: waver
-            )
-        case .hearth:
-            let angle = lane * .pi * 1.15 + .pi * 0.42
-            let reach = (0.22 + 0.38 * hash01(seed)) * heightScale * flicker
-            let cx = 0.5 + (reduceMotion ? 0 : 0.02 * sin(t * 1.4 + seed))
-            let cy = 0.62
-            let waver = reduceMotion ? 0 : 0.04 * sin(t * 3.6 + seed)
-            return Tongue(
-                baseX: cx + cos(angle) * 0.08,
-                baseY: cy,
-                tipX: cx + cos(angle) * reach + waver,
-                tipY: cy - sin(angle * 0.35 + 0.9) * reach * 1.15,
-                width: (0.04 + 0.03 * hash01(seed + 8)) * heightScale,
-                heat: intensity.coreHeat * (0.7 + 0.3 * flicker),
-                waver: waver
-            )
-        }
-    }
-
-    static func spark(
-        index: Int,
-        time: Double,
-        intensity: ForgeFireIntensity,
-        reduceMotion: Bool
-    ) -> Spark {
-        let seed = Double(index) * 23.71
-        if reduceMotion {
-            return Spark(
-                x: hash01(seed),
-                y: 0.55 + hash01(seed + 1) * 0.35,
-                radius: 0.004,
-                opacity: 0.12
-            )
-        }
-        let speed = 0.18 + Double(index % 7) * 0.04
-        let travel = (time * speed + hash01(seed)).truncatingRemainder(dividingBy: 1)
-        let lift = intensity == .rage ? 1.0 : 0.45
-        return Spark(
-            x: hash01(seed + 3) * 0.92 + 0.04 + 0.04 * sin(time * 2.8 + seed),
-            y: 1.05 - travel * (0.85 * lift),
-            radius: 0.003 + hash01(seed + 5) * (intensity == .rage ? 0.007 : 0.003),
-            opacity: (intensity == .rage ? 0.55 : 0.18) * (1 - travel) * (0.55 + 0.45 * hash01(seed + 9))
-        )
-    }
-
-    private static func hash01(_ seed: Double) -> Double {
-        let n = sin(seed * 12.9898) * 43758.5453
-        return n - floor(n)
-    }
-}
-
 /// Extra life on the ARIA ring-field. Draw-time only — does not change
 /// `AriaSigilGeometry.ellipse` / PR270 contract numbers.
 enum AriaSigilLife: Sendable {
@@ -259,7 +110,12 @@ enum ForgeStrikeGeometry: Sendable {
     /// Cosine spike width — wide so the glow fades slowly, never a strobe.
     static let impactSpikeWidth: Double = 0.14
     static let paintHz: Double = 60
+    static let flameFlickerHz: Double = 12
     static var splashImpactTime: TimeInterval { splashDuration * strikeImpactFraction }
+
+    static func flameFlickerTime(_ time: Double) -> Double {
+        floor(time * flameFlickerHz + 1e-9) / flameFlickerHz
+    }
 
     static func pose(
         time: Double,
@@ -742,7 +598,7 @@ private enum ForgeStrikeCanvas {
         reduceMotion: Bool
     ) {
         let scale = max(0.18, pose.flameScale)
-        let flickerT = reduceMotion ? 0.18 : ForgeFireGeometry.flickerTime(time)
+        let flickerT = reduceMotion ? 0.18 : ForgeStrikeGeometry.flameFlickerTime(time)
         // Lean only — no brightness pumping. Heat drives intensity smoothly.
         let lean = reduceMotion ? 0 : 0.010 * sin(flickerT * .pi * 2 * 1.6)
         let width = s * 0.42

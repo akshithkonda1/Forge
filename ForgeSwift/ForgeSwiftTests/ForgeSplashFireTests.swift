@@ -57,7 +57,6 @@ final class ForgeSplashFireTests: XCTestCase {
 
     func testImpactGlowStaysLocalized() {
         XCTAssertLessThanOrEqual(ForgeStrikeGeometry.maxLocalizedGlow, 0.28)
-        XCTAssertEqual(ForgeFireGeometry.tickHz, 12, accuracy: 0.001)
         XCTAssertLessThanOrEqual(ForgeStrikeGeometry.paintHz, 60)
     }
 
@@ -65,83 +64,6 @@ final class ForgeSplashFireTests: XCTestCase {
         XCTAssertEqual(ForgeStrikeGeometry.host, "splash")
         XCTAssertNotEqual(ForgeStrikeGeometry.host, "welcome")
         XCTAssertEqual(ForgeStrikeGeometry.duration, ForgeStrikeGeometry.splashDuration, accuracy: 0.001)
-    }
-
-    func testWelcomeFireIsRageNotEmber() {
-        // Geometry lock — auth/onboarding screens no longer paint this field.
-        XCTAssertEqual(ForgeFireGeometry.kind, "rage-fire")
-        XCTAssertNotEqual(ForgeFireGeometry.kind, AriaSigilGeometry.kind)
-        XCTAssertGreaterThan(ForgeFireIntensity.rage.tongueCount, ForgeFireIntensity.ember.tongueCount)
-        XCTAssertGreaterThan(ForgeFireIntensity.rage.sparkCount, ForgeFireIntensity.ember.sparkCount)
-        XCTAssertGreaterThan(ForgeFireIntensity.rage.heightScale, ForgeFireIntensity.ember.heightScale)
-        XCTAssertGreaterThan(ForgeFireIntensity.rage.coreHeat, ForgeFireIntensity.ember.coreHeat)
-        XCTAssertEqual(ForgeFireIntensity.rage.tongueCount, 28)
-        XCTAssertEqual(ForgeFireIntensity.ember.tongueCount, 8)
-        XCTAssertGreaterThan(ForgeFireIntensity.rage.heightScale, 0.8)
-        XCTAssertLessThan(ForgeFireIntensity.ember.heightScale, 0.4)
-    }
-
-    func testRageTonguesRiseHigherThanEmber() {
-        let rage = ForgeFireGeometry.tongue(
-            index: 3,
-            count: ForgeFireIntensity.rage.tongueCount,
-            time: 0.4,
-            intensity: .rage,
-            origin: .floor,
-            reduceMotion: false
-        )
-        let ember = ForgeFireGeometry.tongue(
-            index: 3,
-            count: ForgeFireIntensity.ember.tongueCount,
-            time: 0.4,
-            intensity: .ember,
-            origin: .floor,
-            reduceMotion: false
-        )
-        XCTAssertLessThan(rage.tipY, ember.tipY, "rage tips sit higher (smaller y) than ember")
-        XCTAssertGreaterThan(rage.heat, ember.heat)
-        XCTAssertGreaterThan(rage.width, ember.width * 0.8)
-    }
-
-    func testFireMovesWhenAliveAndFreezesWhenReduced() {
-        let a = ForgeFireGeometry.tongue(
-            index: 5,
-            count: 28,
-            time: 0.2,
-            intensity: .rage,
-            origin: .floor,
-            reduceMotion: false
-        )
-        let b = ForgeFireGeometry.tongue(
-            index: 5,
-            count: 28,
-            time: 1.1,
-            intensity: .rage,
-            origin: .floor,
-            reduceMotion: false
-        )
-        XCTAssertFalse(
-            abs(a.tipX - b.tipX) < 0.00001 && abs(a.tipY - b.tipY) < 0.00001,
-            "rage tongues flicker"
-        )
-        let stillA = ForgeFireGeometry.tongue(
-            index: 5,
-            count: 28,
-            time: 0.2,
-            intensity: .rage,
-            origin: .floor,
-            reduceMotion: true
-        )
-        let stillB = ForgeFireGeometry.tongue(
-            index: 5,
-            count: 28,
-            time: 9,
-            intensity: .rage,
-            origin: .floor,
-            reduceMotion: true
-        )
-        XCTAssertEqual(stillA.tipX, stillB.tipX, accuracy: 0.0001)
-        XCTAssertEqual(stillA.tipY, stillB.tipY, accuracy: 0.0001)
     }
 
     func testLogoLifeDoesNotRewriteRingPose() {
@@ -173,14 +95,12 @@ final class ForgeSplashFireTests: XCTestCase {
         }
     }
 
-    func testFirePaintCadenceIsCapped() {
-        XCTAssertEqual(ForgeFireGeometry.tickHz, 12, accuracy: 0.001)
-        XCTAssertLessThanOrEqual(ForgeFireGeometry.tickHz, 12)
-        XCTAssertGreaterThanOrEqual(ForgeFireGeometry.tickHz, 12)
-        let a = ForgeFireGeometry.flickerTime(0.04)
-        let b = ForgeFireGeometry.flickerTime(0.07)
-        XCTAssertEqual(a, b, accuracy: 0.0001, "12 Hz bucket holds both samples")
-        XCTAssertGreaterThan(ForgeFireGeometry.flickerTime(0.12), a)
+    func testSplashFlameFlickerIsCapped() {
+        XCTAssertEqual(ForgeStrikeGeometry.flameFlickerHz, 12, accuracy: 0.001)
+        let a = ForgeStrikeGeometry.flameFlickerTime(0.04)
+        let b = ForgeStrikeGeometry.flameFlickerTime(0.07)
+        XCTAssertEqual(a, b, accuracy: 0.0001)
+        XCTAssertGreaterThan(ForgeStrikeGeometry.flameFlickerTime(0.12), a)
     }
 
     func testSplashStrikeFinishesInsideTheHold() {

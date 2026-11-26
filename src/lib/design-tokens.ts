@@ -3,8 +3,6 @@ import tokens from "../../shared/design-tokens.json";
 /** Shared Forge chrome — lockstep with `shared/design-tokens.json`. */
 export const DESIGN = tokens;
 
-export type TypeRole = keyof typeof DESIGN.type.roles;
-
 export function tokenHex(key: keyof typeof DESIGN.color): string {
   return `#${DESIGN.color[key]}`;
 }

@@ -26,8 +26,6 @@ DEFAULT_TEMPERATURE = 0.2
 DEFAULT_PREVIEW_BYTES = 1024
 DEFAULT_MAX_PROMPT_CHARS = 6000
 DEFAULT_CONSENSUS_INPUT_CHARS = 12000
-MAX_QUESTION_CHARS = 4000
-MAX_CONTEXT_CHARS = 4000
 DEFAULT_BEDROCK_CONNECT_TIMEOUT_SECONDS = 3.0
 DEFAULT_BEDROCK_READ_TIMEOUT_SECONDS = max(10.0, DEFAULT_OVERALL_TIMEOUT_SECONDS * 2)
 MIN_CONSENSUS_BUDGET_SECONDS = 0.2
@@ -233,23 +231,51 @@ class RouteRequest:
     def from_payload(cls, payload: dict[str, Any]) -> "RouteRequest":
         from aria_core.untrusted import sanitize_text
 
-        question = sanitize_text(
-            str(payload.get("question") or payload.get("prompt") or ""),
-            max_chars=MAX_QUESTION_CHARS,
-        )
-        if not question:
-            raise RoutingError(400, "Request must include a non-empty 'question'.")
-        if len(question) > MAX_QUESTION_CHARS:
+        if not isinstance(payload, dict):
+            raise RoutingError(400, "Request body must be a JSON object.")
+
+        raw_question = payload.get("question") or payload.get("prompt") or ""
+        if not isinstance(raw_question, str):
+            raise RoutingError(400, "'question' must be text.")
+        if len(raw_question) > MAX_QUESTION_CHARS:
             raise RoutingError(
                 413,
                 "Question exceeds the routing size limit.",
                 details={"maxQuestionChars": MAX_QUESTION_CHARS},
             )
+        question = sanitize_text(raw_question, max_chars=MAX_QUESTION_CHARS)
+        if not question:
+            raise RoutingError(400, "Request must include a non-empty 'question'.")
 
-        context = str(payload.get("context") or payload.get("background") or "").strip()
+        raw_context = payload.get("context") or payload.get("background") or ""
+        if not isinstance(raw_context, str):
+            raise RoutingError(400, "'context' must be text.")
+        context = raw_context.strip()
         if len(context) > MAX_CONTEXT_CHARS:
-            context = context[:MAX_CONTEXT_CHARS]
-        packages = [DataPackage.from_payload(item, index) for index, item in enumerate(payload.get("packages", []), 1)]
+            raise RoutingError(
+                413,
+                "Context exceeds the routing size limit.",
+                details={"maxContextChars": MAX_CONTEXT_CHARS},
+            )
+
+        raw_packages = payload.get("packages", [])
+        if not isinstance(raw_packages, list):
+            raise RoutingError(400, "'packages' must be a list.")
+        packages = []
+        for index, item in enumerate(raw_packages, 1):
+            if not isinstance(item, dict):
+                raise RoutingError(400, f"Package {index} must be an object.")
+            if "s3Key" in item:
+                raise RoutingError(
+                    403,
+                    "S3-backed package references require caller-specific authorization.",
+                )
+            packages.append(DataPackage.from_payload(item, index))
+
+        raw_settings = payload.get("settings")
+        if raw_settings is not None and not isinstance(raw_settings, dict):
+            raise RoutingError(400, "'settings' must be an object.")
+
         declared_size = _coerce_int(payload.get("packageSizeBytes") or 0, field="packageSizeBytes", default=0)
         inferred_size = sum(package.size_bytes for package in packages)
         inline_size = len((question + context).encode("utf-8"))
@@ -270,7 +296,7 @@ class RouteRequest:
             context=context,
             packages=packages,
             package_size_bytes=package_size_bytes,
-            settings=RouteSettings.from_payload(payload.get("settings")),
+            settings=RouteSettings.from_payload(raw_settings),
         )
 
 

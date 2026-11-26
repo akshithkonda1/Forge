@@ -12,6 +12,8 @@ export interface AriaWhisper {
 export const ARIA_CINEMATIC_LINES = [
   "I learn how you move, sleep, and live — then build plans that fit.",
 ] as const;
+export const ARIA_WELCOME_CHAT_MESSAGE =
+  "I'm ARIA. Ask about today, last night, or what's in the way.";
 
 export function whisperForStep(
   step: AriaOnboardingStep,
@@ -83,8 +85,7 @@ export function whisperForStep(
     }
   }
 }
-
-export function moodForStyle(style: CoachingStyle): AriaWhisper["mood"] {
+function moodForStyle(style: CoachingStyle): AriaWhisper["mood"] {
   switch (style) {
     case "push-hard":
       return "energized";
@@ -128,16 +129,4 @@ export function firstSessionScript(ctx: {
     default:
       return `${name}, first block balances work and rest around ${goal}${workouts ? `, favoring ${workouts}` : ""}.${healthLine}`;
   }
-}
-
-export function welcomeChatMessage(ctx: {
-  name?: string;
-  goals?: FitnessGoal[];
-  experience?: ExperienceLevel | null;
-  workouts?: WorkoutType[];
-  coachingStyle: CoachingStyle;
-  devicesConnected?: number;
-}): string {
-  void ctx;
-  return "I'm ARIA. Ask about today, last night, or what's in the way.";
 }

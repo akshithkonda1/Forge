@@ -1,11 +1,11 @@
 export const MAX_REASON_WORDS = 25;
-export const MAX_ACTIONS = 3;
+const MAX_ACTIONS = 3;
 
 export type Talkativeness = "quiet" | "balanced" | "chatty";
 
-export type SafetyFlag = "sleepLoss" | "heat";
+type SafetyFlag = "sleepLoss" | "heat";
 
-export type MorningNumbers = {
+type MorningNumbers = {
   sleepHours?: number | null;
   readiness?: number | null;
   calendarBusyHours?: number | null;
@@ -39,7 +39,7 @@ export function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
-export function numberMoved(
+function numberMoved(
   previous: MorningNumbers | null | undefined,
   current: MorningNumbers
 ): boolean {
