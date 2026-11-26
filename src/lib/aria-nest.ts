@@ -56,7 +56,7 @@ export function softHexPathD(
  * Soft-hex silhouette: 6-fold rounded nest + liquid radial undulation.
  * Closed stroke only — no flower lobes, no ellipse-field, no industrial chrome.
  */
-export function strokeSoftHex(
+function strokeSoftHex(
   ctx: CanvasRenderingContext2D,
   rx: number,
   ry: number,

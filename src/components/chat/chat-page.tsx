@@ -104,7 +104,7 @@ function MessageBubble({
     }
 
     return null;
-  }, [message.richCard]);
+  }, [message.richCard, onStartWorkout]);
 
   return (
     <div className={cn("flex w-full", isTrainer ? "justify-start" : "justify-end")}>

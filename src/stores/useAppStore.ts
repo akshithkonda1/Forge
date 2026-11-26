@@ -10,12 +10,12 @@ import type {
   WorkoutHistory,
   PersonalRecord,
 } from "@/types";
-import { welcomeChatMessage } from "@/lib/aria-onboarding";
 import { resolveCoachingStyle } from "@/lib/aria-companion";
+import { ARIA_WELCOME_CHAT_MESSAGE } from "@/lib/aria-onboarding";
 
 export type TabId = "home" | "chat" | "workout" | "sleep" | "profile";
 
-export interface NotificationPrefs {
+interface NotificationPrefs {
   workoutReminders: boolean;
   aiInsights: boolean;
   recoveryAlerts: boolean;
@@ -169,7 +169,7 @@ const mockPRs: PersonalRecord[] = [
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
   hasHydrated: false,
   setHasHydrated: (val) => set({ hasHydrated: val }),
 
@@ -194,19 +194,10 @@ export const useAppStore = create<AppState>()(
       ariaPaused: false,
     }),
   seedAriaWelcome: () => {
-    const profile = get().userProfile;
-    const content = welcomeChatMessage({
-      name: profile.name,
-      goals: profile.fitnessGoals,
-      experience: profile.experienceLevel,
-      workouts: profile.preferredWorkouts,
-      coachingStyle: profile.coachingStyle,
-      devicesConnected: profile.connectedDevices?.length ?? 0,
-    });
     const welcome: ChatMessage = {
       id: `aria-welcome-${Date.now()}`,
       role: "trainer",
-      content,
+      content: ARIA_WELCOME_CHAT_MESSAGE,
       timestamp: new Date(),
     };
     set({ chatMessages: [welcome], hasMetAria: true });

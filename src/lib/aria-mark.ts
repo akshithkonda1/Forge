@@ -40,8 +40,6 @@ export const ARIA_MARK = {
  * Forge orange is accent (specular/wash), not a 5-ellipse ring-field silhouette.
  * Web canvas: `drawAriaNest` in `aria-nest.ts`.
  */
-export const ARIA_MARK_KIND = ARIA_MARK.kind;
-
 /** Web compact / wordmark-primary ceiling. Slots ≤32 stay still-pose. */
 export const ARIA_MARK_COMPACT_MAX = ARIA_MARK.wordmarkPrimaryMax;
 export const ARIA_MARK_CONTRAST_FLOOR = ARIA_MARK.paintedOpacityFloor;
@@ -149,7 +147,8 @@ export function compactRingIndices(
 }
 
 /** One 3-ring nest at every size. Compact 5-ellipse subset is retired. */
-export function visibleRingIndices(_size?: number): number[] {
+export function visibleRingIndices(size?: number): number[] {
+  void size;
   return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
 }
 
@@ -276,7 +275,7 @@ export function metalSunPose(
   };
 }
 
-export type NestLiveSlot = {
+type NestLiveSlot = {
   size: number;
   speaking: boolean;
   visible: boolean;
@@ -345,8 +344,6 @@ export const ARIA_LOBES = [
   { angle: 3.92, dist: 0.28, r: 0.43, phase: 2.4 },
   { angle: 5.48, dist: 0.23, r: 0.4, phase: 3.6 },
 ] as const;
-
-export type AriaMarkState = "idle" | "listening" | "processing" | "speaking";
 
 /** @deprecated Gaze is ember-canvas only. Nest does not use pointer gaze. */
 export function clampGaze(value: number): number {

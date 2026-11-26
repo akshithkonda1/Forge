@@ -160,6 +160,30 @@ class AIRouterTests(unittest.TestCase):
             RouteRequest.from_payload({"question": "hi", "packages": [{"id": "p1", "bytes": "lots"}]})
         self.assertEqual(ctx.exception.status_code, 400)
 
+    def test_malformed_nested_fields_raise_clean_400_errors(self):
+        cases = (
+            ({"question": "hi", "packages": {}}, "'packages' must be a list."),
+            ({"question": "hi", "packages": ["not an object"]}, "Package 1 must be an object."),
+            ({"question": "hi", "settings": []}, "'settings' must be an object."),
+            ({"question": "hi", "context": {"sleep": "8h"}}, "'context' must be text."),
+            ({"question": ["hi"]}, "'question' must be text."),
+        )
+        for payload, expected_message in cases:
+            with self.subTest(payload=payload), self.assertRaises(RoutingError) as ctx:
+                RouteRequest.from_payload(payload)
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertEqual(ctx.exception.message, expected_message)
+
+    def test_oversized_context_is_rejected_instead_of_silently_truncated(self):
+        with self.assertRaises(RoutingError) as ctx:
+            RouteRequest.from_payload({"question": "hi", "context": "x" * 4001})
+        self.assertEqual(ctx.exception.status_code, 413)
+
+    def test_oversized_question_is_rejected_instead_of_silently_truncated(self):
+        with self.assertRaises(RoutingError) as ctx:
+            RouteRequest.from_payload({"question": "x" * 4001})
+        self.assertEqual(ctx.exception.status_code, 413)
+
     def test_client_timeout_settings_are_clamped_to_an_upper_bound(self):
         # AIRouter.route's wait loop blocks for the full requested duration,
         # and the Lambda's own platform timeout is 15s -- an unclamped

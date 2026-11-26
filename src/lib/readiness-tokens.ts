@@ -3,8 +3,6 @@ import readiness from "../../shared/readiness.json";
 /** Shared Home readiness chrome — lockstep with `shared/readiness.json`. */
 export const READINESS = readiness;
 
-export type ReadinessBandId = "peak" | "good" | "fair" | "low";
-
 export function readinessBand(score: number): (typeof READINESS.bands)[number] {
   const clamped = Math.max(0, Math.min(100, score));
   return (
