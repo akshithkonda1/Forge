@@ -7,6 +7,48 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F0F900000000000000000001 /* Geist-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000001 /* Geist-Light.ttf */; };
+		F0F900000000000000000002 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000002 /* Geist-Regular.ttf */; };
+		F0F900000000000000000003 /* Geist-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000003 /* Geist-Medium.ttf */; };
+		F0F900000000000000000004 /* Geist-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000004 /* Geist-SemiBold.ttf */; };
+		F0F900000000000000000005 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000005 /* Geist-Bold.ttf */; };
+		F0F900000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */; };
+		F0F900000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */; };
+		F0F901000000000000000001 /* Geist-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000001 /* Geist-Light.ttf */; };
+		F0F901000000000000000002 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000002 /* Geist-Regular.ttf */; };
+		F0F901000000000000000003 /* Geist-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000003 /* Geist-Medium.ttf */; };
+		F0F901000000000000000004 /* Geist-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000004 /* Geist-SemiBold.ttf */; };
+		F0F901000000000000000005 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000005 /* Geist-Bold.ttf */; };
+		F0F901000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */; };
+		F0F901000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */; };
+		F0F902000000000000000001 /* Geist-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000001 /* Geist-Light.ttf */; };
+		F0F902000000000000000002 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000002 /* Geist-Regular.ttf */; };
+		F0F902000000000000000003 /* Geist-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000003 /* Geist-Medium.ttf */; };
+		F0F902000000000000000004 /* Geist-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000004 /* Geist-SemiBold.ttf */; };
+		F0F902000000000000000005 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000005 /* Geist-Bold.ttf */; };
+		F0F902000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */; };
+		F0F902000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */; };
+		F0F903000000000000000001 /* Geist-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000001 /* Geist-Light.ttf */; };
+		F0F903000000000000000002 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000002 /* Geist-Regular.ttf */; };
+		F0F903000000000000000003 /* Geist-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000003 /* Geist-Medium.ttf */; };
+		F0F903000000000000000004 /* Geist-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000004 /* Geist-SemiBold.ttf */; };
+		F0F903000000000000000005 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000005 /* Geist-Bold.ttf */; };
+		F0F903000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */; };
+		F0F903000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */; };
+		F0F904000000000000000001 /* Geist-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000001 /* Geist-Light.ttf */; };
+		F0F904000000000000000002 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000002 /* Geist-Regular.ttf */; };
+		F0F904000000000000000003 /* Geist-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000003 /* Geist-Medium.ttf */; };
+		F0F904000000000000000004 /* Geist-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000004 /* Geist-SemiBold.ttf */; };
+		F0F904000000000000000005 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000005 /* Geist-Bold.ttf */; };
+		F0F904000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */; };
+		F0F904000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */; };
+		F0F905000000000000000001 /* Geist-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000001 /* Geist-Light.ttf */; };
+		F0F905000000000000000002 /* Geist-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000002 /* Geist-Regular.ttf */; };
+		F0F905000000000000000003 /* Geist-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000003 /* Geist-Medium.ttf */; };
+		F0F905000000000000000004 /* Geist-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000004 /* Geist-SemiBold.ttf */; };
+		F0F905000000000000000005 /* Geist-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000005 /* Geist-Bold.ttf */; };
+		F0F905000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */; };
+		F0F905000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */; };
 		AA00010000000000000000B4 /* CloudKitShareAcceptance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */; };
 		AA00010000000000000000D1 /* SupporterGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D1 /* SupporterGuidance.swift */; };
 		AA00010000000000000000D2 /* SupporterDigestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000D2 /* SupporterDigestView.swift */; };
@@ -507,6 +549,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F0F700000000000000000001 /* Geist-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Geist-Light.ttf; sourceTree = "<group>"; };
+		F0F700000000000000000002 /* Geist-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Geist-Regular.ttf; sourceTree = "<group>"; };
+		F0F700000000000000000003 /* Geist-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Geist-Medium.ttf; sourceTree = "<group>"; };
+		F0F700000000000000000004 /* Geist-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Geist-SemiBold.ttf; sourceTree = "<group>"; };
+		F0F700000000000000000005 /* Geist-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Geist-Bold.ttf; sourceTree = "<group>"; };
+		F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = InstrumentSerif-Regular.ttf; sourceTree = "<group>"; };
+		F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = InstrumentSerif-Italic.ttf; sourceTree = "<group>"; };
 		AA00020000000000000000B4 /* CloudKitShareAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitShareAcceptance.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B5 /* Info-Add.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Add.plist"; sourceTree = "<group>"; };
 		1LNCH0012F9FF867004091AA /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -976,6 +1025,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F0F8000000000000000000FF /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				F0F700000000000000000001 /* Geist-Light.ttf */,
+				F0F700000000000000000002 /* Geist-Regular.ttf */,
+				F0F700000000000000000003 /* Geist-Medium.ttf */,
+				F0F700000000000000000004 /* Geist-SemiBold.ttf */,
+				F0F700000000000000000005 /* Geist-Bold.ttf */,
+				F0F700000000000000000006 /* InstrumentSerif-Regular.ttf */,
+				F0F700000000000000000007 /* InstrumentSerif-Italic.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
 		1ARIA0152F9FF867004091AA /* Chat */ = {
 			isa = PBXGroup;
 			children = (
@@ -1321,6 +1384,7 @@
 				AA0004000000000000000001 /* ForgeSwift */,
 				1AKR010000000000000013 /* AriaKokoroRuntime */,
 				1TEST00800000000000000A /* ForgeSwiftTests */,
+				F0F8000000000000000000FF /* Fonts */,
 				F0F100000000000000000017 /* ForgeCore */,
 				F0A100000000000000000001 /* ForgeWatch */,
 				F0A100000000000000000006 /* LiveActivities */,
@@ -1760,6 +1824,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0F900000000000000000001 /* Geist-Light.ttf in Resources */,
+				F0F900000000000000000002 /* Geist-Regular.ttf in Resources */,
+				F0F900000000000000000003 /* Geist-Medium.ttf in Resources */,
+				F0F900000000000000000004 /* Geist-SemiBold.ttf in Resources */,
+				F0F900000000000000000005 /* Geist-Bold.ttf in Resources */,
+				F0F900000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */,
+				F0F900000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */,
 				AB0001000000000000000004 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1768,6 +1839,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0F901000000000000000001 /* Geist-Light.ttf in Resources */,
+				F0F901000000000000000002 /* Geist-Regular.ttf in Resources */,
+				F0F901000000000000000003 /* Geist-Medium.ttf in Resources */,
+				F0F901000000000000000004 /* Geist-SemiBold.ttf in Resources */,
+				F0F901000000000000000005 /* Geist-Bold.ttf in Resources */,
+				F0F901000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */,
+				F0F901000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */,
 				AA000100000000000000F2A0 /* PrivacyInfo.xcprivacy in Resources */,
 				AA00010000000000000000CA /* Assets.xcassets in Resources */,
 			);
@@ -1777,6 +1855,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0F902000000000000000001 /* Geist-Light.ttf in Resources */,
+				F0F902000000000000000002 /* Geist-Regular.ttf in Resources */,
+				F0F902000000000000000003 /* Geist-Medium.ttf in Resources */,
+				F0F902000000000000000004 /* Geist-SemiBold.ttf in Resources */,
+				F0F902000000000000000005 /* Geist-Bold.ttf in Resources */,
+				F0F902000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */,
+				F0F902000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */,
 				AA000100000000000000F1A0 /* PrivacyInfo.xcprivacy in Resources */,
 				AA000100000000000000000C /* Assets.xcassets in Resources */,
 				1LNCH0022F9FF867004091AA /* LaunchScreen.storyboard in Resources */,
@@ -1788,6 +1873,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0F903000000000000000001 /* Geist-Light.ttf in Resources */,
+				F0F903000000000000000002 /* Geist-Regular.ttf in Resources */,
+				F0F903000000000000000003 /* Geist-Medium.ttf in Resources */,
+				F0F903000000000000000004 /* Geist-SemiBold.ttf in Resources */,
+				F0F903000000000000000005 /* Geist-Bold.ttf in Resources */,
+				F0F903000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */,
+				F0F903000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */,
 				AA000100000000000000F3A0 /* PrivacyInfo.xcprivacy in Resources */,
 				F0B10000000000000000000F /* Assets.xcassets in Resources */,
 			);
@@ -1797,6 +1889,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0F904000000000000000001 /* Geist-Light.ttf in Resources */,
+				F0F904000000000000000002 /* Geist-Regular.ttf in Resources */,
+				F0F904000000000000000003 /* Geist-Medium.ttf in Resources */,
+				F0F904000000000000000004 /* Geist-SemiBold.ttf in Resources */,
+				F0F904000000000000000005 /* Geist-Bold.ttf in Resources */,
+				F0F904000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */,
+				F0F904000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1804,6 +1903,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0F905000000000000000001 /* Geist-Light.ttf in Resources */,
+				F0F905000000000000000002 /* Geist-Regular.ttf in Resources */,
+				F0F905000000000000000003 /* Geist-Medium.ttf in Resources */,
+				F0F905000000000000000004 /* Geist-SemiBold.ttf in Resources */,
+				F0F905000000000000000005 /* Geist-Bold.ttf in Resources */,
+				F0F905000000000000000006 /* InstrumentSerif-Regular.ttf in Resources */,
+				F0F905000000000000000007 /* InstrumentSerif-Italic.ttf in Resources */,
 				AA000100000000000000F4A0 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -5,15 +5,37 @@ import XCTest
 /// Locks the bundled typefaces. `Font.custom` silently falls back to the
 /// system font when a face cannot be found, so a renamed or missing TTF
 /// would not fail any build — it would just quietly un-brand the app.
-/// These tests fail instead: every face must ship as a package resource,
+/// These tests fail instead: every face must exist in ForgeSwift/Fonts,
 /// register process-scoped, and resolve by the exact name `Font.custom`
 /// is given.
 final class ForgeFontTests: XCTestCase {
 
+    /// ForgeSwift/Fonts, located from this file (Tests/ForgeCoreTests/…).
+    private static let fontsDirectory = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()  // ForgeCoreTests
+        .deletingLastPathComponent()  // Tests
+        .deletingLastPathComponent()  // ForgeCore
+        .deletingLastPathComponent()  // ForgeSwift
+        .appendingPathComponent("Fonts", isDirectory: true)
+
+    override class func setUp() {
+        super.setUp()
+        // Under `swift test` (no host app) Bundle.main has no fonts, so
+        // register straight from the source tree. Inside the app-hosted run
+        // they are already registered; the duplicate call is harmless.
+        for face in ForgeFont.Face.allCases {
+            let url = fontsDirectory.appendingPathComponent("\(face.rawValue).ttf")
+            _ = CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+    }
+
     func testEveryFaceShipsAsAResource() {
         for face in ForgeFont.Face.allCases {
-            let url = Bundle.module.url(forResource: face.rawValue, withExtension: "ttf")
-            XCTAssertNotNil(url, "missing bundled font resource: \(face.rawValue).ttf")
+            let url = Self.fontsDirectory.appendingPathComponent("\(face.rawValue).ttf")
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: url.path),
+                "missing font file: \(face.rawValue).ttf in ForgeSwift/Fonts"
+            )
         }
     }
 
