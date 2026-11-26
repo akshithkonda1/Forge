@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// Locks the splash as a beat, not a wait, and the strike on the splash only.
