@@ -24,6 +24,10 @@ struct ContentView: View {
     /// AuthWelcome / interview / Home attach after that paint — every build,
     /// not a simulator env.
     @State private var revealRoot = Self.didFinishSplash
+    /// Home builds under the splash, a beat after its first frame. Before
+    /// this it was built only after the splash lifted, so the first Home
+    /// build landed on a frozen ember square.
+    @State private var mountHome = Self.didFinishSplash
     private static var didFinishSplash = false
 
     var body: some View {
@@ -66,6 +70,7 @@ struct ContentView: View {
         .onAppear {
             if leftoverPrep {
                 revealRoot = true
+                mountHome = true
                 showSplash = false
                 splashBlocksHits = false
                 Self.didFinishSplash = true
@@ -77,6 +82,7 @@ struct ContentView: View {
             )
             if leftoverPrep {
                 revealRoot = true
+                mountHome = true
                 showSplash = false
                 splashBlocksHits = false
                 Self.didFinishSplash = true
@@ -98,15 +104,18 @@ struct ContentView: View {
                 AriaForgePrep.refreshInterviewOffMainActor(store: store)
             }
             guard showSplash else {
+                mountHome = true
                 attachVoiceGates(presentKokoroPrompt: false)
                 return
             }
-            try? await Task.sleep(
-                nanoseconds: ForgeSplashTiming.pauseNanoseconds(
-                    reduceMotion: reduceMotion,
-                    signedIn: store.isAuthenticated
-                )
+            let total = ForgeSplashTiming.hold(
+                reduceMotion: reduceMotion,
+                signedIn: store.isAuthenticated
             )
+            let mountAt = min(ForgeSplashTiming.mountDelay, total / 2)
+            try? await Task.sleep(nanoseconds: UInt64(mountAt * 1_000_000_000))
+            mountHome = true
+            try? await Task.sleep(nanoseconds: UInt64((total - mountAt) * 1_000_000_000))
             dismissSplash()
             attachVoiceGates(presentKokoroPrompt: false)
             if store.isAuthenticated, !store.isOnboarded {
@@ -134,16 +143,17 @@ struct ContentView: View {
             case .onboarding:
                 OnboardingView()
             case .home:
-                if showSplash {
-                    LaunchBrandField()
-                } else {
+                if mountHome {
                     MainTabView()
+                } else {
+                    LaunchBrandField()
                 }
             }
         }
     }
 
     private func dismissSplash() {
+        mountHome = true
         Self.didFinishSplash = true
         splashBlocksHits = false
         withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
@@ -193,9 +203,10 @@ struct ContentView: View {
 
 // MARK: - First-commit brand field
 
-/// Cheap launch canvas. Matches `LaunchScreen.storyboard` so the storyboard
-/// → first SwiftUI commit is two consecutive non-blank frames. No Metal,
-/// no blur, no speech.
+/// Cheap launch canvas. Matches `LaunchScreen.storyboard` (an ember square on
+/// the dark field) so storyboard → first SwiftUI commit is two consecutive
+/// non-blank frames. No Metal, no blur, no speech. (Launch storyboards cannot
+/// carry runtime attributes, so the rounding lives here, not in the storyboard.)
 struct LaunchBrandField: View {
     static let markSide: CGFloat = 220
     static let background = Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
@@ -215,77 +226,92 @@ struct LaunchBrandField: View {
 
 // MARK: - Splash Screen
 
+/// The launch beat: the ember square from the launch screen rounds into a disc and resolves into the
+/// living ARIA nest (`AuroraOrbView`, the same mark as in the app), the FORGE
+/// wordmark settles in, and a hairline fills over the hold. Everything that
+/// moves is a cheap property animation or the nest's own 5 Hz timeline —
+/// no per-frame Canvas of its own.
 struct ForgeSplashScreen: View {
     static let backdropHex = "09090B"
     static let launchColorName = "LaunchBackground"
+    static let orbSide: CGFloat = 200
 
     var signedIn: Bool = false
     var onSkip: (() -> Void)? = nil
 
-    // Visible on the first commit. Starting at opacity 0 made the splash a
-    // uniform black frame, which the launch gate counts as blank.
-    @State private var logoOpacity: Double = 1
-    @State private var textOffset: CGFloat = 0
+    // The first commit shows the ember square only (as in the launch screen);
+    // everything else animates in from there.
+    @State private var ignited = false
+    @State private var progress: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var side: CGFloat { LaunchBrandField.markSide }
-    private var settled: Bool { reduceMotion || signedIn }
 
     var body: some View {
         ZStack {
             Color(hex: Self.backdropHex)
                 .ignoresSafeArea()
 
-            // Same 220 pt ember as LaunchScreen.storyboard. Without this mark
-            // the first SwiftUI commit is a blank field and the launch gate
-            // resets its streak.
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .fill(LaunchBrandField.ember)
+            VStack(spacing: FDS.Spacing.xl) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: ignited ? side / 2 : 36, style: .continuous)
+                        .fill(LaunchBrandField.ember)
+                        .frame(width: side, height: side)
+                        .opacity(ignited ? 0 : 1)
+                        .scaleEffect(ignited ? 0.82 : 1)
+
+                    AuroraOrbView(state: .idle, amplitude: 0.22, size: Self.orbSide)
+                        .opacity(ignited ? 1 : 0)
+                        .scaleEffect(ignited ? 1 : 0.88)
+                }
                 .frame(width: side, height: side)
                 .accessibilityHidden(true)
 
-            VStack(spacing: FDS.Spacing.xl) {
-                ForgeStrikeMark(playback: settled ? .trimmed : .full)
-                    .frame(width: side, height: side)
-
                 VStack(spacing: FDS.Spacing.md) {
-                    HStack(spacing: FDS.Spacing.md) {
-                        ForgeBrandMark(size: 22)
-                        Text("FORGE")
-                            .font(ForgeType.display)
-                            .tracking(6)
-                            .foregroundColor(Color.paper)
-                    }
+                    Text("FORGE")
+                        .font(ForgeType.display)
+                        .tracking(8)
+                        .foregroundColor(Color.paper)
 
-                    Text("Forged.")
+                    Text("Built around you.")
                         .font(ForgeType.micro)
                         .tracking(ForgeType.eyebrowTracking)
                         .foregroundColor(.textTertiary)
                 }
-                .opacity(logoOpacity)
-                .offset(y: textOffset)
+                .opacity(ignited ? 1 : 0)
+                .offset(y: ignited ? 0 : 8)
+
+                // Progress hairline: determinate, so the wait reads as
+                // progress and never as a hang.
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.12))
+                    Capsule()
+                        .fill(LaunchBrandField.ember)
+                        .scaleEffect(x: max(progress, 0.001), y: 1, anchor: .leading)
+                }
+                .frame(width: 112, height: 2)
+                .opacity(ignited ? 1 : 0)
             }
         }
         .contentShape(Rectangle())
         .onTapGesture { onSkip?() }
         .accessibilityAction(.escape) { onSkip?() }
         .task {
-            // One rigid tap as the hammer lands. Off under Reduce Motion
-            // and on the signed-in trim (no swing).
-            guard !settled else { return }
-            try? await Task.sleep(nanoseconds: UInt64(ForgeStrikeGeometry.splashImpactTime * 1_000_000_000))
+            // One rigid tap as the nest ignites. Off under Reduce Motion.
+            guard !reduceMotion else { return }
+            try? await Task.sleep(nanoseconds: 450_000_000)
             guard !Task.isCancelled else { return }
             ForgeHaptics.playStrike()
         }
         .onAppear {
-            if settled {
-                logoOpacity = 1
-                textOffset = 0
+            if reduceMotion {
+                ignited = true
+                progress = 1
                 return
             }
-            withAnimation(ForgeMotion.gentle.delay(ForgeStrikeGeometry.splashImpactTime)) {
-                logoOpacity = 1
-                textOffset = 0
+            withAnimation(.easeOut(duration: 0.8)) { ignited = true }
+            withAnimation(.linear(duration: ForgeSplashTiming.hold(reduceMotion: false, signedIn: signedIn))) {
+                progress = 1
             }
         }
     }
