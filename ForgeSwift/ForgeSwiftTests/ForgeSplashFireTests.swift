@@ -6,34 +6,35 @@ import ForgeCore
 final class ForgeSplashFireTests: XCTestCase {
 
     func testSplashHoldIsABeatNotAWait() {
-        XCTAssertEqual(ForgeSplashTiming.hold, 2.10, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.hold, 3.15, accuracy: 0.001)
         XCTAssertEqual(ForgeSplashTiming.reduceMotionHold, 0.40, accuracy: 0.001)
         XCTAssertEqual(ForgeSplashTiming.fadeOut, 0.35, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(ForgeSplashTiming.hold, ForgeSplashTiming.brandFloor)
         XCTAssertLessThanOrEqual(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, ForgeSplashTiming.freezeCeiling)
-        XCTAssertLessThanOrEqual(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, 2.50)
+        XCTAssertLessThanOrEqual(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, 3.60)
         XCTAssertLessThan(ForgeSplashTiming.reduceMotionHold, ForgeSplashTiming.hold)
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false),
-            2_100_000_000
+            3_150_000_000
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: true),
             400_000_000
         )
-        XCTAssertEqual(ForgeSplashTiming.signedInHold, 0.40, accuracy: 0.001)
-        XCTAssertLessThan(
+        XCTAssertEqual(ForgeSplashTiming.signedInHold, ForgeSplashTiming.hold, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(
             ForgeSplashTiming.signedInHold + ForgeSplashTiming.fadeOut,
             ForgeSplashTiming.freezeCeiling
         )
+        XCTAssertLessThan(ForgeSplashTiming.mountDelay, ForgeSplashTiming.hold / 2)
         XCTAssertEqual(
             ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut,
-            2.45,
+            3.50,
             accuracy: 0.001
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false, signedIn: true),
-            400_000_000
+            3_150_000_000
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: true, signedIn: true),

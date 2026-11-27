@@ -1,19 +1,23 @@
 import SwiftUI
 
-/// Brand beat on the launch splash. The splash curtains an already-rendered
-/// first frame — Home is right behind it — so every second of hold is a
-/// second of waiting. One strike, then the curtain lifts. Lockstep comment
-/// with `src/lib/forge-splash.ts`.
+/// Brand beat on the launch splash: the living ARIA nest, the wordmark and a
+/// progress hairline. Web (`src/lib/forge-splash.ts`) keeps its own timing.
 enum ForgeSplashTiming: Sendable {
-    /// Cinematic cold launch. Hold + fade stay under 2.5s.
-    static let hold: TimeInterval = 2.10
+    /// Brand beat: hold + fade = 3.5s, then the app is interactive. The splash
+    /// no longer curtains an empty screen — Home is built underneath it
+    /// (`mountDelay` after the first frame), so nothing is left to build when
+    /// the curtain lifts.
+    static let hold: TimeInterval = 3.15
     static let reduceMotionHold: TimeInterval = 0.40
-    /// Signed-in users already know the brand. Static hearth, no swing.
-    static let signedInHold: TimeInterval = 0.40
+    /// Same beat for returning users: it is the product's front door.
+    static let signedInHold: TimeInterval = hold
     static let fadeOut: TimeInterval = 0.35
+    /// Home mounts under the splash this long after the first splash frame,
+    /// so the nest and progress line get a clean opening before the build.
+    static let mountDelay: TimeInterval = 0.35
 
     /// Hard ceiling so a future bump cannot become a frozen launch.
-    static let freezeCeiling: TimeInterval = 2.50
+    static let freezeCeiling: TimeInterval = 3.60
     /// Floor so the beat is long enough to land the wordmark.
     static let brandFloor: TimeInterval = 0.40
 
