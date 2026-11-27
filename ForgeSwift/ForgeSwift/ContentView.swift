@@ -203,9 +203,10 @@ struct ContentView: View {
 
 // MARK: - First-commit brand field
 
-/// Cheap launch canvas. Matches `LaunchScreen.storyboard` (an ember disc on
+/// Cheap launch canvas. Matches `LaunchScreen.storyboard` (an ember square on
 /// the dark field) so storyboard → first SwiftUI commit is two consecutive
-/// non-blank frames. No Metal, no blur, no speech.
+/// non-blank frames. No Metal, no blur, no speech. (Launch storyboards cannot
+/// carry runtime attributes, so the rounding lives here, not in the storyboard.)
 struct LaunchBrandField: View {
     static let markSide: CGFloat = 220
     static let background = Color(red: 8 / 255, green: 8 / 255, blue: 12 / 255)
@@ -214,7 +215,7 @@ struct LaunchBrandField: View {
     var body: some View {
         ZStack {
             Self.background
-            Circle()
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
                 .fill(Self.ember)
                 .frame(width: Self.markSide, height: Self.markSide)
         }
@@ -225,7 +226,7 @@ struct LaunchBrandField: View {
 
 // MARK: - Splash Screen
 
-/// The launch beat: the ember disc from the launch screen resolves into the
+/// The launch beat: the ember square from the launch screen rounds into a disc and resolves into the
 /// living ARIA nest (`AuroraOrbView`, the same mark as in the app), the FORGE
 /// wordmark settles in, and a hairline fills over the hold. Everything that
 /// moves is a cheap property animation or the nest's own 5 Hz timeline —
@@ -238,7 +239,7 @@ struct ForgeSplashScreen: View {
     var signedIn: Bool = false
     var onSkip: (() -> Void)? = nil
 
-    // The first commit shows the disc only (identical to the launch screen);
+    // The first commit shows the ember square only (as in the launch screen);
     // everything else animates in from there.
     @State private var ignited = false
     @State private var progress: CGFloat = 0
@@ -253,7 +254,7 @@ struct ForgeSplashScreen: View {
 
             VStack(spacing: FDS.Spacing.xl) {
                 ZStack {
-                    Circle()
+                    RoundedRectangle(cornerRadius: ignited ? side / 2 : 36, style: .continuous)
                         .fill(LaunchBrandField.ember)
                         .frame(width: side, height: side)
                         .opacity(ignited ? 0 : 1)

@@ -22,11 +22,6 @@
                                     <constraint firstAttribute="width" constant="236" id="forge-launch-edge-w"/>
                                     <constraint firstAttribute="height" constant="236" id="forge-launch-edge-h"/>
                                 </constraints>
-                                <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
-                                        <real key="value" value="118"/>
-                                    </userDefinedRuntimeAttribute>
-                                </userDefinedRuntimeAttributes>
                             </view>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="forge-launch-mark">
                                 <rect key="frame" x="97" y="338" width="220" height="220"/>
@@ -35,11 +30,6 @@
                                     <constraint firstAttribute="width" constant="220" id="forge-launch-mark-w"/>
                                     <constraint firstAttribute="height" constant="220" id="forge-launch-mark-h"/>
                                 </constraints>
-                                <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
-                                        <real key="value" value="110"/>
-                                    </userDefinedRuntimeAttribute>
-                                </userDefinedRuntimeAttributes>
                             </view>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="forge-launch-safe"/>
